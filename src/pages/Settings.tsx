@@ -20,6 +20,8 @@ export function SettingsPage() {
   const exportData = useStore((s) => s.exportData)
   const importData = useStore((s) => s.importData)
   const resetToSeed = useStore((s) => s.resetToSeed)
+  const syncError = useStore((s) => s.syncError)
+  const hydrated = useStore((s) => s.hydrated)
   const fileRef = useRef<HTMLInputElement>(null)
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
@@ -53,6 +55,21 @@ export function SettingsPage() {
       </div>
 
       <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Cloud Sync</CardTitle>
+            <CardDescription>
+              Data is stored in Supabase (no login for now — solo mode).
+            </CardDescription>
+          </CardHeader>
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            Status:{' '}
+            <span className={syncError ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'}>
+              {!hydrated ? 'Connecting…' : syncError ? syncError : 'Connected'}
+            </span>
+          </p>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Profile</CardTitle>
@@ -208,7 +225,7 @@ export function SettingsPage() {
             <Button variant="secondary" onClick={handleExport}>Export Data</Button>
             <Button variant="secondary" onClick={() => fileRef.current?.click()}>Import Data</Button>
             <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
-            <Button variant="outline" onClick={resetToSeed}>Reset to Sample Data</Button>
+            <Button variant="outline" onClick={resetToSeed}>Reload from Cloud</Button>
           </div>
           {importStatus === 'success' && <p className="text-sm text-[var(--color-success)] mt-2">Import successful</p>}
           {importStatus === 'error' && <p className="text-sm text-[var(--color-danger)] mt-2">Import failed — invalid file</p>}

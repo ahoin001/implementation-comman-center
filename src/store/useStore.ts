@@ -1,8 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type {
   Project,
-  Note,
   Activity,
   CalendarEvent,
   AppSettings,
@@ -15,10 +13,12 @@ import type {
   ProjectTaskStatus,
 } from '@/types'
 import { PROJECT_TASK_LABELS } from '@/types'
-import { createInitialState, defaultIntegrations } from './seedData'
+import { defaultIntegrations, defaultSettings } from './seedData'
 import { generateId } from '@/lib/utils'
-import { createDefaultTasks, migrateProjects } from '@/lib/migrate'
-import { buildEventTitle, migrateCalendarEvents, suggestAbbreviation } from '@/lib/calendar'
+import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
+import { createDefaultTasks } from '@/lib/migrate'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import * as api from '@/lib/supabaseApi'
 
 interface StoreState {
   projects: Project[]
@@ -27,7 +27,12 @@ interface StoreState {
   settings: AppSettings
   searchQuery: string
   activeFilter: ProjectFilter
+  hydrated: boolean
+  syncing: boolean
+  syncError: string | null
 
+  hydrate: () => Promise<void>
+  refresh: () => Promise<void>
   setSearchQuery: (query: string) => void
   setActiveFilter: (filter: ProjectFilter) => void
   updateSettings: (settings: Partial<AppSettings>) => void
@@ -53,279 +58,356 @@ interface StoreState {
   resetToSeed: () => void
 }
 
-export const useStore = create<StoreState>()(
-  persist(
-    (set, get) => ({
-      ...createInitialState(),
-      searchQuery: '',
-      activeFilter: 'all',
+function logSyncError(err: unknown) {
+  console.error(err)
+}
 
-      setSearchQuery: (query) => set({ searchQuery: query }),
-      setActiveFilter: (filter) => set({ activeFilter: filter }),
+export const useStore = create<StoreState>()((set, get) => ({
+  projects: [],
+  activities: [],
+  calendarEvents: [],
+  settings: { ...defaultSettings, integrations: { ...defaultIntegrations } },
+  searchQuery: '',
+  activeFilter: 'all',
+  hydrated: false,
+  syncing: false,
+  syncError: null,
 
-      updateSettings: (updates) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            ...updates,
-            integrations: {
-              ...state.settings.integrations,
-              ...(updates.integrations ?? {}),
-            },
-          },
-        })),
+  hydrate: async () => {
+    if (!isSupabaseConfigured()) {
+      set({
+        hydrated: true,
+        syncError: 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY',
+      })
+      return
+    }
+    set({ syncing: true, syncError: null })
+    try {
+      const data = await api.fetchAllData()
+      set({
+        projects: data.projects,
+        activities: data.activities,
+        calendarEvents: data.calendarEvents,
+        settings: data.settings,
+        hydrated: true,
+        syncing: false,
+        syncError: null,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load from Supabase'
+      set({ hydrated: true, syncing: false, syncError: message })
+      logSyncError(err)
+    }
+  },
 
-      getProject: (id) => get().projects.find((p) => p.id === id),
+  refresh: async () => {
+    if (!isSupabaseConfigured() || !get().hydrated) return
+    try {
+      const data = await api.fetchAllData()
+      set({
+        projects: data.projects,
+        activities: data.activities,
+        calendarEvents: data.calendarEvents,
+        settings: data.settings,
+        syncError: null,
+      })
+    } catch (err) {
+      logSyncError(err)
+    }
+  },
 
-      updateProject: (id, updates) =>
-        set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
-          ),
-        })),
+  setSearchQuery: (query) => set({ searchQuery: query }),
+  setActiveFilter: (filter) => set({ activeFilter: filter }),
 
-      archiveProject: (id) =>
-        set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id === id
-              ? { ...p, archived: true, archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-              : p
-          ),
-        })),
-
-      addNote: (projectId, content, options) => {
-        const note: Note = {
-          id: generateId(),
-          content,
-          createdAt: new Date().toISOString(),
-          ...options,
-        }
-        set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id === projectId ? { ...p, notes: [note, ...p.notes], updatedAt: new Date().toISOString() } : p
-          ),
-        }))
-        get().addActivity({ type: 'note', title: `Note added — ${get().getProject(projectId)?.name}`, projectId })
-      },
-
-      addActivity: (activity) => {
-        const newActivity: Activity = {
-          ...activity,
-          id: generateId(),
-          createdAt: new Date().toISOString(),
-        }
-        set((state) => ({ activities: [newActivity, ...state.activities].slice(0, 50) }))
-      },
-
-      updateProjectTask: (projectId, taskKey, status, blockedReason) => {
-        set((state) => ({
-          projects: state.projects.map((p) => {
-            if (p.id !== projectId) return p
-            const tasks = { ...p.tasks }
-            tasks[taskKey] = {
-              status,
-              blockedReason: status === 'blocked' ? blockedReason : undefined,
-              completedAt: status === 'done' || status === 'not_needed' ? new Date().toISOString() : undefined,
-            }
-            return { ...p, tasks, updatedAt: new Date().toISOString() }
-          }),
-        }))
-        get().addActivity({
-          type: 'milestone',
-          title: `${PROJECT_TASK_LABELS[taskKey]} → ${status} — ${get().getProject(projectId)?.name}`,
-          projectId,
-        })
-      },
-
-      updateWaitingOn: (projectId, waitingOn) => get().updateProject(projectId, { waitingOn }),
-
-      updateProjectLinks: (projectId, links) =>
-        set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id === projectId
-              ? { ...p, links: { ...p.links, ...links }, updatedAt: new Date().toISOString() }
-              : p
-          ),
-        })),
-
-      updateProjectContact: (projectId, contact) =>
-        set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id === projectId
-              ? { ...p, contact: { ...p.contact, ...contact }, updatedAt: new Date().toISOString() }
-              : p
-          ),
-        })),
-
-      updateIntegrations: (integrations) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            integrations: { ...state.settings.integrations, ...integrations },
-          },
-        })),
-
-      createProject: (data) => {
-        const id = generateId()
-        const now = new Date().toISOString()
-        const project: Project = {
-          id,
-          name: data.name,
-          abbreviation: data.abbreviation?.trim() || suggestAbbreviation(data.name),
-          launchDate: data.launchDate,
-          tasks: createDefaultTasks(),
-          waitingOn: 'none',
-          contact: {
-            name: data.contactName ?? '',
-            email: data.contactEmail ?? '',
-          },
-          links: {},
-          notes: [],
-          createdAt: now,
-          updatedAt: now,
-        }
-        set((state) => ({ projects: [...state.projects, project] }))
-        get().addActivity({ type: 'other', title: `Created project — ${project.abbreviation}`, projectId: id })
-        return id
-      },
-
-      createProjects: (items) => {
-        const now = new Date().toISOString()
-        const created = items
-          .filter((item) => item.name.trim())
-          .map((item) => {
-            const name = item.name.trim()
-            const abbreviation = item.abbreviation?.trim() || suggestAbbreviation(name)
-            const project: Project = {
-              id: generateId(),
-              name,
-              abbreviation,
-              tasks: createDefaultTasks(),
-              waitingOn: 'none',
-              contact: { name: '', email: '' },
-              links: {},
-              notes: [],
-              createdAt: now,
-              updatedAt: now,
-            }
-            return project
-          })
-
-        if (created.length === 0) return []
-
-        set((state) => ({ projects: [...state.projects, ...created] }))
-        get().addActivity({
-          type: 'other',
-          title: `Bulk added ${created.length} project${created.length === 1 ? '' : 's'}`,
-        })
-        return created.map((p) => p.id)
-      },
-
-      deleteProjects: (ids) => {
-        if (ids.length === 0) return
-        const idSet = new Set(ids)
-        set((state) => ({
-          projects: state.projects.filter((p) => !idSet.has(p.id)),
-          calendarEvents: state.calendarEvents.filter((e) => !idSet.has(e.projectId)),
-        }))
-        get().addActivity({
-          type: 'other',
-          title: `Deleted ${ids.length} project${ids.length === 1 ? '' : 's'}`,
-        })
-      },
-
-      addCalendarEvent: (data) => {
-        const id = generateId()
-        const project = get().getProject(data.projectId)
-        const title = data.title ?? (project ? buildEventTitle(data.type, project) : 'Event')
-        const event: CalendarEvent = { ...data, id, title }
-        set((state) => ({ calendarEvents: [...state.calendarEvents, event] }))
-        get().addActivity({
-          type: 'other',
-          title: `Scheduled ${title}`,
-          projectId: data.projectId,
-        })
-        return id
-      },
-
-      updateCalendarEvent: (id, updates) => {
-        set((state) => ({
-          calendarEvents: state.calendarEvents.map((e) => {
-            if (e.id !== id) return e
-            const merged = { ...e, ...updates }
-            if (updates.type || updates.projectId) {
-              const project = get().getProject(merged.projectId)
-              if (project) merged.title = buildEventTitle(merged.type, project)
-            }
-            return merged
-          }),
-        }))
-      },
-
-      deleteCalendarEvent: (id) => {
-        set((state) => ({
-          calendarEvents: state.calendarEvents.filter((e) => e.id !== id),
-        }))
-      },
-
-      exportData: () => {
-        const { projects, activities, calendarEvents, settings } = get()
-        return JSON.stringify({ projects, activities, calendarEvents, settings }, null, 2)
-      },
-
-      importData: (json) => {
-        try {
-          const data = JSON.parse(json)
-          if (data.projects) {
-            set({
-              projects: migrateProjects(data.projects),
-              activities: data.activities ?? [],
-              calendarEvents: migrateCalendarEvents(data.calendarEvents ?? []),
-              settings: {
-                ...get().settings,
-                ...data.settings,
-                integrations: {
-                  ...defaultIntegrations,
-                  ...data.settings?.integrations,
-                },
-              },
-            })
-          }
-          return true
-        } catch {
-          return false
-        }
-      },
-
-      resetToSeed: () => set({ ...createInitialState(), searchQuery: '', activeFilter: 'all' }),
-    }),
-    {
-      name: 'implementation-command-center',
-      version: 3,
-      partialize: (state) => ({
-        projects: state.projects,
-        activities: state.activities,
-        calendarEvents: state.calendarEvents,
-        settings: state.settings,
-      }),
-      merge: (persisted, current) => {
-        const p = persisted as Partial<StoreState>
-        const rawProjects = p.projects ?? current.projects
-        return {
-          ...current,
-          ...p,
-          projects: migrateProjects(rawProjects as unknown[]),
-          calendarEvents: migrateCalendarEvents((p.calendarEvents ?? current.calendarEvents) as CalendarEvent[]),
-          settings: {
-            ...current.settings,
-            ...p.settings,
-            integrations: {
-              ...defaultIntegrations,
-              ...p.settings?.integrations,
-            },
-          },
-        }
+  updateSettings: (updates) => {
+    const settings = {
+      ...get().settings,
+      ...updates,
+      integrations: {
+        ...get().settings.integrations,
+        ...(updates.integrations ?? {}),
       },
     }
-  )
-)
+    set({ settings })
+    void api.upsertSettings(settings).catch(logSyncError)
+  },
+
+  getProject: (id) => get().projects.find((p) => p.id === id),
+
+  updateProject: (id, updates) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
+      ),
+    }))
+    void api
+      .patchImplementation(id, {
+        name: updates.name,
+        abbreviation: updates.abbreviation,
+        launchDate: updates.launchDate,
+        waitingOn: updates.waitingOn,
+        contact: updates.contact,
+        links: updates.links,
+        archived: updates.archived,
+        archivedAt: updates.archivedAt,
+      })
+      .catch(logSyncError)
+  },
+
+  archiveProject: (id) => {
+    const archivedAt = new Date().toISOString()
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === id ? { ...p, archived: true, archivedAt, updatedAt: archivedAt } : p
+      ),
+    }))
+    void api.patchImplementation(id, { archived: true, archivedAt }).catch(logSyncError)
+  },
+
+  addNote: (projectId, content, options) => {
+    const tempId = generateId()
+    const note = {
+      id: tempId,
+      content,
+      createdAt: new Date().toISOString(),
+      ...options,
+    }
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId ? { ...p, notes: [note, ...p.notes], updatedAt: new Date().toISOString() } : p
+      ),
+    }))
+    void api
+      .insertNote(projectId, content, options)
+      .then((saved) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, notes: p.notes.map((n) => (n.id === tempId ? saved : n)) }
+              : p
+          ),
+        }))
+        get().addActivity({
+          type: 'note',
+          title: `Note added — ${get().getProject(projectId)?.abbreviation || get().getProject(projectId)?.name}`,
+          projectId,
+        })
+      })
+      .catch(logSyncError)
+  },
+
+  addActivity: (activity) => {
+    const temp: Activity = {
+      ...activity,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    }
+    set((state) => ({ activities: [temp, ...state.activities].slice(0, 50) }))
+    void api
+      .insertActivity(activity)
+      .then((saved) => {
+        set((state) => ({
+          activities: state.activities.map((a) => (a.id === temp.id ? saved : a)).slice(0, 50),
+        }))
+      })
+      .catch(logSyncError)
+  },
+
+  updateProjectTask: (projectId, taskKey, status, blockedReason) => {
+    set((state) => ({
+      projects: state.projects.map((p) => {
+        if (p.id !== projectId) return p
+        const tasks = { ...p.tasks }
+        tasks[taskKey] = {
+          status,
+          blockedReason: status === 'blocked' ? blockedReason : undefined,
+          completedAt: status === 'done' || status === 'not_needed' ? new Date().toISOString() : undefined,
+        }
+        return { ...p, tasks, updatedAt: new Date().toISOString() }
+      }),
+    }))
+    void api.upsertTask(projectId, taskKey, status, blockedReason).catch(logSyncError)
+    get().addActivity({
+      type: 'milestone',
+      title: `${PROJECT_TASK_LABELS[taskKey]} → ${status} — ${get().getProject(projectId)?.abbreviation || get().getProject(projectId)?.name}`,
+      projectId,
+    })
+  },
+
+  updateWaitingOn: (projectId, waitingOn) => get().updateProject(projectId, { waitingOn }),
+
+  updateProjectLinks: (projectId, links) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    get().updateProject(projectId, { links: { ...project.links, ...links } })
+  },
+
+  updateProjectContact: (projectId, contact) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    get().updateProject(projectId, { contact: { ...project.contact, ...contact } })
+  },
+
+  updateIntegrations: (integrations) =>
+    get().updateSettings({
+      integrations: { ...get().settings.integrations, ...integrations },
+    }),
+
+  createProject: (data) => {
+    const id = generateId()
+    const now = new Date().toISOString()
+    const project: Project = {
+      id,
+      name: data.name,
+      abbreviation: data.abbreviation?.trim() || suggestAbbreviation(data.name),
+      launchDate: data.launchDate,
+      tasks: createDefaultTasks(),
+      waitingOn: 'none',
+      contact: {
+        name: data.contactName ?? '',
+        email: data.contactEmail ?? '',
+      },
+      links: {},
+      notes: [],
+      createdAt: now,
+      updatedAt: now,
+    }
+    set((state) => ({ projects: [project, ...state.projects] }))
+
+    void api
+      .insertImplementation({ ...data, id })
+      .then((saved) => {
+        set((state) => ({
+          projects: state.projects.map((p) => (p.id === id ? saved : p)),
+        }))
+        get().addActivity({
+          type: 'other',
+          title: `Created project — ${saved.abbreviation}`,
+          projectId: saved.id,
+        })
+      })
+      .catch(async (err) => {
+        logSyncError(err)
+        set((state) => ({ projects: state.projects.filter((p) => p.id !== id) }))
+        await get().refresh()
+      })
+
+    return id
+  },
+
+  createProjects: (items) => {
+    const valid = items.filter((i) => i.name.trim())
+    const ids: string[] = []
+    for (const item of valid) {
+      ids.push(
+        get().createProject({
+          name: item.name.trim(),
+          abbreviation: item.abbreviation,
+        })
+      )
+    }
+    return ids
+  },
+
+  deleteProjects: (ids) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    set((state) => ({
+      projects: state.projects.filter((p) => !idSet.has(p.id)),
+      calendarEvents: state.calendarEvents.filter((e) => !idSet.has(e.projectId)),
+    }))
+    void api.deleteImplementations(ids).catch(logSyncError)
+    get().addActivity({
+      type: 'other',
+      title: `Deleted ${ids.length} project${ids.length === 1 ? '' : 's'}`,
+    })
+  },
+
+  addCalendarEvent: (data) => {
+    const id = generateId()
+    const project = get().getProject(data.projectId)
+    const title = data.title ?? (project ? buildEventTitle(data.type, project) : 'Event')
+    const event: CalendarEvent = { ...data, id, title }
+    set((state) => ({ calendarEvents: [...state.calendarEvents, event] }))
+    void api
+      .insertCalendarEvent({
+        ...data,
+        title,
+        project: project ? { abbreviation: project.abbreviation, name: project.name } : undefined,
+      })
+      .then((saved) => {
+        set((state) => ({
+          calendarEvents: state.calendarEvents.map((e) => (e.id === id ? saved : e)),
+        }))
+        get().addActivity({
+          type: 'other',
+          title: `Scheduled ${saved.title}`,
+          projectId: saved.projectId,
+        })
+      })
+      .catch(logSyncError)
+    return id
+  },
+
+  updateCalendarEvent: (id, updates) => {
+    set((state) => ({
+      calendarEvents: state.calendarEvents.map((e) => {
+        if (e.id !== id) return e
+        const merged = { ...e, ...updates }
+        if (updates.type || updates.projectId) {
+          const project = get().getProject(merged.projectId)
+          if (project) merged.title = buildEventTitle(merged.type, project)
+        }
+        return merged
+      }),
+    }))
+    const current = get().calendarEvents.find((e) => e.id === id)
+    void api
+      .patchCalendarEvent(id, {
+        ...updates,
+        title: current?.title,
+      })
+      .catch(logSyncError)
+  },
+
+  deleteCalendarEvent: (id) => {
+    set((state) => ({
+      calendarEvents: state.calendarEvents.filter((e) => e.id !== id),
+    }))
+    void api.removeCalendarEvent(id).catch(logSyncError)
+  },
+
+  exportData: () => {
+    const { projects, activities, calendarEvents, settings } = get()
+    return JSON.stringify({ projects, activities, calendarEvents, settings }, null, 2)
+  },
+
+  importData: (json) => {
+    try {
+      const data = JSON.parse(json)
+      if (!data.projects) return false
+      // Import is local-only preview; push via bulk create is safer as a follow-up
+      set({
+        projects: data.projects,
+        activities: data.activities ?? [],
+        calendarEvents: data.calendarEvents ?? [],
+        settings: {
+          ...get().settings,
+          ...data.settings,
+          integrations: {
+            ...defaultIntegrations,
+            ...data.settings?.integrations,
+          },
+        },
+      })
+      return true
+    } catch {
+      return false
+    }
+  },
+
+  resetToSeed: () => {
+    // Clears local view; does not wipe Supabase. Use bulk delete for that.
+    void get().refresh()
+  },
+}))
