@@ -10,13 +10,26 @@ export type ProjectTaskKey =
   | 'sso'
   | 'smartway_training'
   | 'job_backfill'
+  | 'launch'
 
 export type ProjectTaskStatus = 'pending' | 'done' | 'not_needed' | 'blocked'
+
+/** Sub-checks inside the Follow-up Launch Desk step */
+export type FollowUpSubstepKey = 'email_sent' | 'documents_received'
+
+export const FOLLOW_UP_SUBSTEPS: { key: FollowUpSubstepKey; label: string }[] = [
+  { key: 'email_sent', label: 'Follow-up email sent' },
+  { key: 'documents_received', label: 'Requested documents received' },
+]
+
+export const FOLLOW_UP_TASK_KEY: ProjectTaskKey = 'follow_up_email'
 
 export interface ProjectTask {
   status: ProjectTaskStatus
   blockedReason?: string
   completedAt?: string
+  /** Used by follow_up_email — both must be true for Done */
+  substeps?: Partial<Record<FollowUpSubstepKey, boolean>>
 }
 
 export type ProjectTasks = Record<ProjectTaskKey, ProjectTask>
@@ -29,16 +42,23 @@ export const PROJECT_TASK_KEYS: ProjectTaskKey[] = [
   'sso',
   'smartway_training',
   'job_backfill',
+  'launch',
 ]
+
+/** Everything except the final Launch step */
+export const PRE_LAUNCH_TASK_KEYS: ProjectTaskKey[] = PROJECT_TASK_KEYS.filter((k) => k !== 'launch')
+
+export const LAUNCH_TASK_KEY: ProjectTaskKey = 'launch'
 
 export const PROJECT_TASK_LABELS: Record<ProjectTaskKey, string> = {
   site_design: 'Site Design',
   kickoff_call: 'Kickoff Call',
-  follow_up_email: 'Follow-up Email',
+  follow_up_email: 'Follow-up & Documents',
   data_import: 'Data Import',
   sso: 'SSO',
   smartway_training: 'SmartWay Training',
   job_backfill: 'Enable Job Backfill',
+  launch: 'Launch',
 }
 
 export const PROJECT_TASK_STATUS_LABELS: Record<ProjectTaskStatus, string> = {
@@ -283,7 +303,7 @@ export const FILTER_LABELS: Record<ProjectFilter, string> = {
   no_launch_date: 'No Launch Date',
   needs_site_design: 'Site Design',
   needs_kickoff_call: 'Kickoff',
-  needs_follow_up_email: 'Follow-up',
+  needs_follow_up_email: 'Follow-up & Docs',
   needs_data_import: 'Data',
   needs_sso: 'SSO',
   needs_smartway_training: 'Training',

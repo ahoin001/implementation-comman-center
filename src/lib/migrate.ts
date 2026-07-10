@@ -28,7 +28,7 @@ const MILESTONE_TO_TASK: Partial<Record<MilestoneKey, ProjectTaskKey>> = {
   import: 'data_import',
   kickoff: 'kickoff_call',
   training: 'smartway_training',
-  launch: 'job_backfill',
+  launch: 'launch',
 }
 
 const CHECKLIST_TO_TASK: Partial<Record<keyof LegacyLaunchChecklist, ProjectTaskKey>> = {
@@ -52,10 +52,12 @@ export function migrateProject(raw: Record<string, unknown>): Project {
     tasks?: ProjectTasks
   }
 
-  if (p.tasks && PROJECT_TASK_KEYS.every((k) => p.tasks![k])) {
+  if (p.tasks) {
     return {
       ...(p as Project),
       abbreviation: p.abbreviation?.trim() || suggestAbbreviation(p.name),
+      // Fill any newly added task keys (e.g. launch) as pending
+      tasks: createDefaultTasks(p.tasks),
     }
   }
 

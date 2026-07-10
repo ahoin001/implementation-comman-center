@@ -11,12 +11,14 @@ import type {
   IntegrationsConfig,
   ProjectTaskKey,
   ProjectTaskStatus,
+  FollowUpSubstepKey,
 } from '@/types'
-import { PROJECT_TASK_LABELS } from '@/types'
+import { FOLLOW_UP_TASK_KEY, PROJECT_TASK_LABELS } from '@/types'
 import { defaultIntegrations, defaultSettings } from './seedData'
 import { generateId } from '@/lib/utils'
 import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
 import { createDefaultTasks } from '@/lib/migrate'
+import { applyFollowUpStatus, applyFollowUpSubstep, canCompleteLaunch } from '@/lib/progress'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import * as api from '@/lib/supabaseApi'
 
@@ -43,6 +45,7 @@ interface StoreState {
   addNote: (projectId: string, content: string, options?: { pinned?: boolean; isMeetingSummary?: boolean }) => void
   addActivity: (activity: Omit<Activity, 'id' | 'createdAt'>) => void
   updateProjectTask: (projectId: string, taskKey: ProjectTaskKey, status: ProjectTaskStatus, blockedReason?: string) => void
+  updateFollowUpSubstep: (projectId: string, substep: FollowUpSubstepKey, checked: boolean) => void
   updateWaitingOn: (projectId: string, waitingOn: WaitingOn) => void
   logOutreach: (projectId: string) => void
   undoOutreach: (projectId: string) => void
@@ -218,25 +221,73 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
 
   updateProjectTask: (projectId, taskKey, status, blockedReason) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+
+    if (taskKey === 'launch') {
+      if (status === 'not_needed') return
+      if (status === 'done' && !canCompleteLaunch(project)) return
+    }
+
+    const current = project.tasks[taskKey]
+    const nextTask =
+      taskKey === FOLLOW_UP_TASK_KEY
+        ? applyFollowUpStatus(current, status, blockedReason)
+        : {
+            status,
+            blockedReason:
+              status === 'blocked' || status === 'pending' ? blockedReason || undefined : undefined,
+            completedAt:
+              status === 'done' || status === 'not_needed' ? new Date().toISOString() : undefined,
+            substeps: current?.substeps,
+          }
+
     set((state) => ({
       projects: state.projects.map((p) => {
         if (p.id !== projectId) return p
-        const tasks = { ...p.tasks }
-        tasks[taskKey] = {
-          status,
-          blockedReason:
-            status === 'blocked' || status === 'pending' ? blockedReason || undefined : undefined,
-          completedAt: status === 'done' || status === 'not_needed' ? new Date().toISOString() : undefined,
+        return {
+          ...p,
+          tasks: { ...p.tasks, [taskKey]: nextTask },
+          updatedAt: new Date().toISOString(),
         }
-        return { ...p, tasks, updatedAt: new Date().toISOString() }
       }),
     }))
-    void api.upsertTask(projectId, taskKey, status, blockedReason).catch(logSyncError)
+    void api
+      .upsertTask(projectId, taskKey, nextTask.status, nextTask.blockedReason, nextTask.substeps)
+      .catch(logSyncError)
     get().addActivity({
       type: 'milestone',
-      title: `${PROJECT_TASK_LABELS[taskKey]} → ${status} — ${get().getProject(projectId)?.abbreviation || get().getProject(projectId)?.name}`,
+      title: `${PROJECT_TASK_LABELS[taskKey]} → ${nextTask.status} — ${get().getProject(projectId)?.abbreviation || get().getProject(projectId)?.name}`,
       projectId,
     })
+  },
+
+  updateFollowUpSubstep: (projectId, substep, checked) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    const current = project.tasks[FOLLOW_UP_TASK_KEY]
+    if (!current) return
+
+    const nextTask = applyFollowUpSubstep(current, substep, checked)
+    set((state) => ({
+      projects: state.projects.map((p) => {
+        if (p.id !== projectId) return p
+        return {
+          ...p,
+          tasks: { ...p.tasks, [FOLLOW_UP_TASK_KEY]: nextTask },
+          updatedAt: new Date().toISOString(),
+        }
+      }),
+    }))
+    void api
+      .upsertTask(
+        projectId,
+        FOLLOW_UP_TASK_KEY,
+        nextTask.status,
+        nextTask.blockedReason,
+        nextTask.substeps
+      )
+      .catch(logSyncError)
   },
 
   updateWaitingOn: (projectId, waitingOn) => get().updateProject(projectId, { waitingOn }),

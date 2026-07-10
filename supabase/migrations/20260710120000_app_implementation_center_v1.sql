@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS app_implementation_center_v1.implementation_tasks (
   task_key        text NOT NULL
                     CHECK (task_key IN (
                       'site_design','kickoff_call','follow_up_email','data_import',
-                      'sso','smartway_training','job_backfill'
+                      'sso','smartway_training','job_backfill','launch'
                     )),
   status          text NOT NULL DEFAULT 'pending'
                     CHECK (status IN ('pending','done','not_needed','blocked')),
@@ -194,7 +194,7 @@ DECLARE
 BEGIN
   FOREACH k IN ARRAY ARRAY[
     'site_design','kickoff_call','follow_up_email','data_import',
-    'sso','smartway_training','job_backfill'
+    'sso','smartway_training','job_backfill','launch'
   ]
   LOOP
     INSERT INTO app_implementation_center_v1.implementation_tasks

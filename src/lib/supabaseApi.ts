@@ -7,6 +7,7 @@ import type {
   Note,
   Project,
   ProjectLinks,
+  ProjectTask,
   ProjectTaskKey,
   ProjectTaskStatus,
   WaitingOn,
@@ -198,22 +199,25 @@ export async function upsertTask(
   implementationId: string,
   taskKey: ProjectTaskKey,
   status: ProjectTaskStatus,
-  blockedReason?: string
+  blockedReason?: string,
+  substeps?: ProjectTask['substeps']
 ): Promise<void> {
-  const { error } = await icc().from('implementation_tasks').upsert(
-    {
-      user_id: SOLO_USER_ID,
-      implementation_id: implementationId,
-      task_key: taskKey,
-      status,
-      blocked_reason:
-        status === 'blocked' || status === 'pending' ? blockedReason?.trim() || null : null,
-      completed_at:
-        status === 'done' || status === 'not_needed' ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'implementation_id,task_key' }
-  )
+  const row: Record<string, unknown> = {
+    user_id: SOLO_USER_ID,
+    implementation_id: implementationId,
+    task_key: taskKey,
+    status,
+    blocked_reason:
+      status === 'blocked' || status === 'pending' ? blockedReason?.trim() || null : null,
+    completed_at: status === 'done' || status === 'not_needed' ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  }
+  if (substeps !== undefined) {
+    row.substeps = substeps ?? {}
+  }
+  const { error } = await icc()
+    .from('implementation_tasks')
+    .upsert(row, { onConflict: 'implementation_id,task_key' })
   if (error) throw new Error(`update task: ${error.message}`)
 }
 

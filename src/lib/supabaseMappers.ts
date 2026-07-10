@@ -42,6 +42,7 @@ export type DbTask = {
   task_key: ProjectTaskKey
   status: ProjectTaskStatus
   blocked_reason: string | null
+  substeps: Record<string, boolean> | null
   completed_at: string | null
   created_at: string
   updated_at: string
@@ -102,6 +103,7 @@ export function tasksFromRows(rows: DbTask[]): ProjectTasks {
       status: row.status,
       blockedReason: row.blocked_reason ?? undefined,
       completedAt: row.completed_at ?? undefined,
+      substeps: row.substeps ?? undefined,
     }
   }
   return tasks

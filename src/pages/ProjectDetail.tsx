@@ -23,6 +23,7 @@ export function ProjectDetailPage() {
   const navigate = useNavigate()
   const project = useStore((s) => s.getProject(id ?? ''))
   const updateProjectTask = useStore((s) => s.updateProjectTask)
+  const updateFollowUpSubstep = useStore((s) => s.updateFollowUpSubstep)
   const updateWaitingOn = useStore((s) => s.updateWaitingOn)
   const logOutreach = useStore((s) => s.logOutreach)
   const undoOutreach = useStore((s) => s.undoOutreach)
@@ -111,6 +112,9 @@ export function ProjectDetailPage() {
             project={project}
             onUpdateTask={(taskKey, status, blockedReason) =>
               updateProjectTask(project.id, taskKey, status, blockedReason)
+            }
+            onUpdateFollowUpSubstep={(substep, checked) =>
+              updateFollowUpSubstep(project.id, substep, checked)
             }
           />
 

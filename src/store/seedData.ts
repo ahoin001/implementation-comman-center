@@ -12,7 +12,11 @@ export const seedProjects: Project[] = [
     tasks: tasks({
       site_design: { status: 'done', completedAt: '2026-05-15' },
       kickoff_call: { status: 'done', completedAt: '2026-06-10' },
-      follow_up_email: { status: 'done', completedAt: '2026-06-12' },
+      follow_up_email: {
+        status: 'done',
+        completedAt: '2026-06-12',
+        substeps: { email_sent: true, documents_received: true },
+      },
       data_import: { status: 'done', completedAt: '2026-06-01' },
       sso: { status: 'done', completedAt: '2026-06-05' },
       smartway_training: { status: 'pending' },
@@ -110,10 +114,18 @@ export const seedProjects: Project[] = [
     launchDate: '2026-06-28',
     tasks: tasks(
       Object.fromEntries(
-        (['site_design', 'kickoff_call', 'follow_up_email', 'data_import', 'sso', 'smartway_training', 'job_backfill'] as ProjectTaskKey[]).map((k) => [
-          k,
-          { status: 'done' as const, completedAt: '2026-06-28' },
-        ])
+        (
+          [
+            'site_design',
+            'kickoff_call',
+            'follow_up_email',
+            'data_import',
+            'sso',
+            'smartway_training',
+            'job_backfill',
+            'launch',
+          ] as ProjectTaskKey[]
+        ).map((k) => [k, { status: 'done' as const, completedAt: '2026-06-28' }])
       )
     ),
     waitingOn: 'none',
@@ -138,7 +150,8 @@ export const seedProjects: Project[] = [
       data_import: { status: 'done', completedAt: '2026-05-20' },
       sso: { status: 'done', completedAt: '2026-06-10' },
       smartway_training: { status: 'done', completedAt: '2026-07-01' },
-      job_backfill: { status: 'pending' },
+      job_backfill: { status: 'done', completedAt: '2026-07-10' },
+      launch: { status: 'pending' },
     }),
     waitingOn: 'ready',
     outreachCount: 0,
