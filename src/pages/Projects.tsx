@@ -46,7 +46,9 @@ export function ProjectsPage() {
   const activeFilter = useStore((s) => s.activeFilter)
   const setActiveFilter = useStore((s) => s.setActiveFilter)
   const deleteProjects = useStore((s) => s.deleteProjects)
-  const projects = useFilteredProjects()
+
+  const [inProgressFirst, setInProgressFirst] = useState(true)
+  const projects = useFilteredProjects({ inProgressFirst })
 
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -172,15 +174,45 @@ export function ProjectsPage() {
       )}
 
       <div className="mb-6 space-y-3">
-        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-          {STATUS_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter}
-              filter={filter}
-              active={activeFilter === filter}
-              onSelect={handleSelectFilter}
-            />
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none flex-1 min-w-0">
+            {STATUS_FILTERS.map((filter) => (
+              <FilterChip
+                key={filter}
+                filter={filter}
+                active={activeFilter === filter}
+                onSelect={handleSelectFilter}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={inProgressFirst}
+            onClick={() => setInProgressFirst((v) => !v)}
+            className={cn(
+              'shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
+              inProgressFirst
+                ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+                : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+            )}
+          >
+            <span
+              className={cn(
+                'relative h-4 w-7 rounded-full transition-colors duration-150',
+                inProgressFirst ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border)]'
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-150',
+                  inProgressFirst ? 'translate-x-3.5' : 'translate-x-0.5'
+                )}
+              />
+            </span>
+            In Progress First
+          </button>
         </div>
 
         <div className="flex items-center gap-2">

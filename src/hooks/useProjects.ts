@@ -44,6 +44,8 @@ export function filterProjects(projects: Project[], filter: ProjectFilter): Proj
       })
     case 'needs_attention':
       return projects.filter(hasTaskNotes)
+    case 'waiting_on_client':
+      return projects.filter((p) => calculateHealth(p) === 'waiting_on_client')
     case 'completed':
       return projects.filter((p) => calculateHealth(p) === 'complete')
     case 'no_launch_date':
@@ -97,11 +99,35 @@ export function searchProjects(projects: Project[], query: string): Project[] {
   return projects.filter((p) => projectMatchesSearch(p, q))
 }
 
-export function useFilteredProjects(): Project[] {
+/** Completed projects last, then alphabetical by name */
+export function sortProjects(
+  projects: Project[],
+  options: { inProgressFirst?: boolean } = {}
+): Project[] {
+  const { inProgressFirst = true } = options
+  return [...projects].sort((a, b) => {
+    if (inProgressFirst) {
+      const aDone = calculateHealth(a) === 'complete' ? 1 : 0
+      const bDone = calculateHealth(b) === 'complete' ? 1 : 0
+      if (aDone !== bDone) return aDone - bDone
+    }
+    const byName = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    if (byName !== 0) return byName
+    return (a.abbreviation || '').localeCompare(b.abbreviation || '', undefined, {
+      sensitivity: 'base',
+    })
+  })
+}
+
+export function useFilteredProjects(options: { inProgressFirst?: boolean } = {}): Project[] {
   const projects = useActiveProjects()
   const filter = useStore((s) => s.activeFilter)
   const query = useStore((s) => s.searchQuery)
-  return useMemo(() => searchProjects(filterProjects(projects, filter), query), [projects, filter, query])
+  const inProgressFirst = options.inProgressFirst ?? true
+  return useMemo(
+    () => sortProjects(searchProjects(filterProjects(projects, filter), query), { inProgressFirst }),
+    [projects, filter, query, inProgressFirst]
+  )
 }
 
 export function useDashboardStats() {

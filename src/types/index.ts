@@ -239,6 +239,7 @@ export type ProjectFilter =
   | 'all'
   | 'launching_soon'
   | 'needs_attention'
+  | 'waiting_on_client'
   | 'completed'
   | 'no_launch_date'
   | 'needs_site_design'
@@ -254,6 +255,7 @@ export const STATUS_FILTERS: ProjectFilter[] = [
   'all',
   'launching_soon',
   'needs_attention',
+  'waiting_on_client',
   'completed',
   'no_launch_date',
 ]
@@ -276,6 +278,7 @@ export const FILTER_LABELS: Record<ProjectFilter, string> = {
   all: 'All',
   launching_soon: 'Launching Soon',
   needs_attention: 'Needs Attention',
+  waiting_on_client: 'Waiting on Client',
   completed: 'Completed',
   no_launch_date: 'No Launch Date',
   needs_site_design: 'Site Design',

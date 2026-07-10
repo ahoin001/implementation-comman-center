@@ -3,6 +3,7 @@ import { ArrowRight, Rocket, Calendar, Mail, PenLine, CheckCircle2 } from 'lucid
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { useMyDayActions } from '@/hooks/useProjects'
+import { useStore } from '@/store/useStore'
 import type { ProjectHealth } from '@/types'
 
 const actionIcons: Record<string, typeof Rocket> = {
@@ -21,12 +22,19 @@ function getActionIcon(action: string) {
 
 export function MyDayWidget() {
   const actions = useMyDayActions()
+  const setActiveFilter = useStore((s) => s.setActiveFilter)
 
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between mb-4">
         <CardTitle>To Do</CardTitle>
-        <span className="text-xs text-[var(--color-muted-foreground)]">Today</span>
+        <Link
+          to="/projects"
+          onClick={() => setActiveFilter('needs_attention')}
+          className="text-xs text-[var(--color-accent)] hover:underline"
+        >
+          Needs attention
+        </Link>
       </CardHeader>
 
       <ul className="space-y-1">
@@ -54,9 +62,13 @@ export function MyDayWidget() {
       </ul>
 
       {actions.length === 0 && (
-        <p className="text-sm text-[var(--color-muted-foreground)] py-8 text-center">
-          All caught up — nothing on your launch desk.
-        </p>
+        <Link
+          to="/projects"
+          onClick={() => setActiveFilter('all')}
+          className="block text-sm text-[var(--color-muted-foreground)] py-8 text-center rounded-[var(--radius-md)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+        >
+          All caught up — browse projects
+        </Link>
       )}
     </Card>
   )
