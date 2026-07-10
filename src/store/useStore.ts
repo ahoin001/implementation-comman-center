@@ -43,6 +43,8 @@ interface StoreState {
   updateProjectContact: (projectId: string, contact: Partial<Contact>) => void
   updateIntegrations: (integrations: Partial<IntegrationsConfig>) => void
   createProject: (data: { name: string; abbreviation?: string; contactName?: string; contactEmail?: string; launchDate?: string }) => string
+  createProjects: (items: { name: string; abbreviation?: string }[]) => string[]
+  deleteProjects: (ids: string[]) => void
   addCalendarEvent: (data: Omit<CalendarEvent, 'id' | 'title'> & { title?: string }) => string
   updateCalendarEvent: (id: string, updates: Partial<Omit<CalendarEvent, 'id'>>) => void
   deleteCalendarEvent: (id: string) => void
@@ -185,6 +187,51 @@ export const useStore = create<StoreState>()(
         set((state) => ({ projects: [...state.projects, project] }))
         get().addActivity({ type: 'other', title: `Created project — ${project.abbreviation}`, projectId: id })
         return id
+      },
+
+      createProjects: (items) => {
+        const now = new Date().toISOString()
+        const created = items
+          .filter((item) => item.name.trim())
+          .map((item) => {
+            const name = item.name.trim()
+            const abbreviation = item.abbreviation?.trim() || suggestAbbreviation(name)
+            const project: Project = {
+              id: generateId(),
+              name,
+              abbreviation,
+              tasks: createDefaultTasks(),
+              waitingOn: 'none',
+              contact: { name: '', email: '' },
+              links: {},
+              notes: [],
+              createdAt: now,
+              updatedAt: now,
+            }
+            return project
+          })
+
+        if (created.length === 0) return []
+
+        set((state) => ({ projects: [...state.projects, ...created] }))
+        get().addActivity({
+          type: 'other',
+          title: `Bulk added ${created.length} project${created.length === 1 ? '' : 's'}`,
+        })
+        return created.map((p) => p.id)
+      },
+
+      deleteProjects: (ids) => {
+        if (ids.length === 0) return
+        const idSet = new Set(ids)
+        set((state) => ({
+          projects: state.projects.filter((p) => !idSet.has(p.id)),
+          calendarEvents: state.calendarEvents.filter((e) => !idSet.has(e.projectId)),
+        }))
+        get().addActivity({
+          type: 'other',
+          title: `Deleted ${ids.length} project${ids.length === 1 ? '' : 's'}`,
+        })
       },
 
       addCalendarEvent: (data) => {
