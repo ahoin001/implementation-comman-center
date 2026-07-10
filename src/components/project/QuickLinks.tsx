@@ -10,11 +10,11 @@ import type { ProjectLinks } from '@/types'
 import { cn } from '@/lib/utils'
 
 const linkConfig: { key: keyof ProjectLinks; label: string; icon: typeof ExternalLink; color: string }[] = [
-  { key: 'salesforce', label: 'Salesforce', icon: Cloud, color: 'text-[#00A1E0]' },
-  { key: 'jira', label: 'Jira', icon: Link2, color: 'text-[#0052CC]' },
+  { key: 'associationWebsite', label: 'Association Website', icon: Globe, color: 'text-[var(--color-muted-foreground)]' },
   { key: 'googleDrive', label: 'Google Drive', icon: FolderOpen, color: 'text-[#4285F4]' },
+  { key: 'jira', label: 'Jira', icon: Link2, color: 'text-[#0052CC]' },
+  { key: 'salesforce', label: 'Salesforce', icon: Cloud, color: 'text-[#00A1E0]' },
   { key: 'stagingSite', label: 'Staging', icon: Monitor, color: 'text-[var(--color-accent)]' },
-  { key: 'associationWebsite', label: 'Website', icon: Globe, color: 'text-[var(--color-muted-foreground)]' },
 ]
 
 interface QuickLinksProps {

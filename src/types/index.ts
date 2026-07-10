@@ -291,14 +291,16 @@ export const FILTER_LABELS: Record<ProjectFilter, string> = {
 }
 
 export const LINK_FIELD_LABELS = {
-  salesforce: 'Salesforce',
-  jira: 'Jira',
-  googleDrive: 'Google Drive',
-  stagingSite: 'Staging Site',
   associationWebsite: 'Association Website',
+  googleDrive: 'Google Drive',
+  jira: 'Jira',
+  salesforce: 'Salesforce',
+  stagingSite: 'Staging Site',
 } as const satisfies Partial<Record<keyof ProjectLinks, string>>
 
 export type EditableLinkKey = keyof typeof LINK_FIELD_LABELS
 
-export const EDITABLE_LINK_KEYS = Object.keys(LINK_FIELD_LABELS) as EditableLinkKey[]
+export const EDITABLE_LINK_KEYS = (
+  Object.keys(LINK_FIELD_LABELS) as EditableLinkKey[]
+).sort((a, b) => LINK_FIELD_LABELS[a].localeCompare(LINK_FIELD_LABELS[b]))
 
