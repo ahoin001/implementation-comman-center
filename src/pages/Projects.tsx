@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
 import { CheckSquare, ListPlus, Trash2, X } from 'lucide-react'
 import type { ProjectFilter } from '@/types'
 import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
@@ -244,14 +243,12 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      <AnimatePresence mode="popLayout">
-        {projects.length > 0 ? (
+      {projects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {projects.map((project, i) => (
+            {projects.map((project) => (
               <ProjectCard
                 key={project.id}
                 project={project}
-                index={i}
                 selectable={selectMode}
                 selected={selectedIds.has(project.id)}
                 onToggleSelect={() => toggleSelect(project.id)}
@@ -267,7 +264,6 @@ export function ProjectsPage() {
             </Button>
           </div>
         )}
-      </AnimatePresence>
 
       <BulkAddProjectsModal open={bulkAddOpen} onClose={() => setBulkAddOpen(false)} />
     </div>

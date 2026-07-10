@@ -24,7 +24,9 @@ export function ProgressRing({
   const offset = circumference - (progress / 100) * circumference
 
   const Wrapper = layoutId ? motion.div : 'div'
-  const wrapperProps = layoutId ? { layoutId } : {}
+  const wrapperProps = layoutId
+    ? { layoutId, transition: { type: 'spring' as const, bounce: 0, duration: 0.35 } }
+    : {}
 
   return (
     <Wrapper
@@ -51,9 +53,14 @@ export function ProgressRing({
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={shouldReduceMotion ? { strokeDashoffset: offset } : { strokeDashoffset: circumference }}
+          // Don't replay empty→full on every mount (causes flicker with shared layout)
+          initial={false}
           animate={{ strokeDashoffset: offset }}
-          transition={shouldReduceMotion ? { duration: 0 } : { type: 'spring', bounce: 0, duration: 0.8 }}
+          transition={
+            shouldReduceMotion
+              ? { duration: 0 }
+              : { duration: 0.25, ease: [0.23, 1, 0.32, 1] }
+          }
         />
       </svg>
       {showLabel && (

@@ -1,11 +1,17 @@
 import { useLocation, Outlet } from 'react-router-dom'
-import { LayoutGroup, AnimatePresence, motion } from 'framer-motion'
+import { LayoutGroup, AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Sidebar, MobileNav } from './Navigation'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
 
+/**
+ * Project list ↔ detail relies on shared layoutIds. Keep AnimatePresence so the
+ * exiting page stays mounted for the morph, but never opacity-fade those routes —
+ * stacked fades + layout morphs is what caused the flicker.
+ */
 export function AppLayout() {
   const location = useLocation()
-  const isProjectRoute = location.pathname.startsWith('/projects')
+  const reduceMotion = useReducedMotion()
+  const inProjectsSpace = location.pathname.startsWith('/projects')
 
   return (
     <LayoutGroup id="app">
@@ -16,13 +22,13 @@ export function AppLayout() {
             <GlobalSearch />
           </header>
           <main className="flex-1 px-4 lg:px-8 py-6 pb-24 lg:pb-8">
-            <AnimatePresence mode={isProjectRoute ? 'popLayout' : 'wait'} initial={false}>
+            <AnimatePresence mode={inProjectsSpace ? 'popLayout' : 'wait'} initial={false}>
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                initial={inProjectsSpace || reduceMotion ? false : { opacity: 0 }}
+                animate={inProjectsSpace || reduceMotion ? undefined : { opacity: 1 }}
+                exit={inProjectsSpace || reduceMotion ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.12, ease: [0.23, 1, 0.32, 1] }}
               >
                 <Outlet />
               </motion.div>

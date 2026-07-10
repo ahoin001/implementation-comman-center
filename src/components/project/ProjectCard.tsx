@@ -12,15 +12,15 @@ import { cn } from '@/lib/utils'
 
 interface ProjectCardProps {
   project: Project
-  index?: number
   selectable?: boolean
   selected?: boolean
   onToggleSelect?: () => void
 }
 
+const sharedTransition = { type: 'spring' as const, bounce: 0, duration: 0.35 }
+
 export function ProjectCard({
   project,
-  index = 0,
   selectable = false,
   selected = false,
   onToggleSelect,
@@ -31,18 +31,19 @@ export function ProjectCard({
   const openTask = getPrimaryOpenTask(project)
   const daysRemaining = getDaysRemaining(project.launchDate)
   const id = project.id
+  const enableShared = !selectable
 
   const cardBody = (
     <motion.article
-      layoutId={selectable ? undefined : `project-card-${id}`}
+      layoutId={enableShared ? `project-card-${id}` : undefined}
+      transition={sharedTransition}
       className={cn(
-        'glass rounded-[var(--radius-lg)] p-5 transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ease-out)] relative',
+        'glass rounded-[var(--radius-lg)] p-5 relative',
+        'transition-[box-shadow,border-color] duration-200 ease-[var(--ease-out)]',
         'hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20',
-        !selectable && 'md:hover:-translate-y-0.5 transition-transform',
         selectable && 'cursor-pointer',
         selected && 'ring-2 ring-[var(--color-accent)] border-transparent'
       )}
-      transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
     >
       {selectable && (
         <div
@@ -62,27 +63,31 @@ export function ProjectCard({
           <ProjectAvatar
             name={project.name}
             abbreviation={project.abbreviation}
-            layoutId={selectable ? undefined : `project-avatar-${id}`}
+            layoutId={enableShared ? `project-avatar-${id}` : undefined}
           />
           <ProjectTitle
             name={project.name}
             abbreviation={project.abbreviation}
             subtitle={stageLabel}
-            layoutId={selectable ? undefined : `project-title-${id}`}
+            layoutId={enableShared ? `project-title-${id}` : undefined}
           />
         </div>
         <ProgressRing
           progress={progress}
           size={52}
           strokeWidth={3}
-          layoutId={selectable ? undefined : `project-progress-${id}`}
+          layoutId={enableShared ? `project-progress-${id}` : undefined}
         />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <motion.div layoutId={selectable ? undefined : `project-health-${id}`}>
+        {enableShared ? (
+          <motion.div layoutId={`project-health-${id}`} transition={sharedTransition}>
+            <HealthBadge health={health} />
+          </motion.div>
+        ) : (
           <HealthBadge health={health} />
-        </motion.div>
+        )}
         {project.launchDate && (
           <span className="text-xs text-[var(--color-muted-foreground)]">
             {formatLaunchDate(project.launchDate)}
@@ -119,23 +124,17 @@ export function ProjectCard({
     </motion.article>
   )
 
+  if (selectable) {
+    return (
+      <button type="button" onClick={onToggleSelect} className="block w-full text-left group">
+        {cardBody}
+      </button>
+    )
+  }
+
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ delay: index * 0.04, type: 'spring', bounce: 0, duration: 0.35 }}
-    >
-      {selectable ? (
-        <button type="button" onClick={onToggleSelect} className="block w-full text-left group">
-          {cardBody}
-        </button>
-      ) : (
-        <Link to={`/projects/${id}`} className="block group">
-          {cardBody}
-        </Link>
-      )}
-    </motion.div>
+    <Link to={`/projects/${id}`} className="block group">
+      {cardBody}
+    </Link>
   )
 }

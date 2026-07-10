@@ -57,7 +57,7 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ type: 'spring', bounce: 0, duration: 0.4 }}>
+    <div>
       <Link
         to="/projects"
         className="inline-flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] mb-6 transition-colors duration-150"
@@ -69,7 +69,7 @@ export function ProjectDetailPage() {
       <motion.div
         layoutId={`project-card-${pid}`}
         className="glass rounded-[var(--radius-xl)] p-6 mb-6"
-        transition={{ type: 'spring', bounce: 0, duration: 0.45 }}
+        transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
       >
         <div className="flex flex-col lg:flex-row items-start gap-6">
           <ProjectAvatar name={project.name} abbreviation={project.abbreviation} layoutId={`project-avatar-${pid}`} size="md" />
@@ -84,7 +84,10 @@ export function ProjectDetailPage() {
             />
 
             <div className="flex flex-wrap items-center gap-3 mt-3">
-              <motion.div layoutId={`project-health-${pid}`}>
+              <motion.div
+                layoutId={`project-health-${pid}`}
+                transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+              >
                 <HealthBadge health={health} />
               </motion.div>
             </div>
@@ -179,6 +182,6 @@ export function ProjectDetailPage() {
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }

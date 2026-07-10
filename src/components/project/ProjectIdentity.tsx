@@ -101,7 +101,11 @@ export function ProjectTitle({
   )
 
   const titleNode = layoutId ? (
-    <motion.h1 layoutId={`${layoutId}-text`} className={titleClass}>
+    <motion.h1
+      layoutId={`${layoutId}-text`}
+      transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+      className={titleClass}
+    >
       {name}
     </motion.h1>
   ) : (
@@ -109,7 +113,11 @@ export function ProjectTitle({
   )
 
   return (
-    <Component {...props} className="min-w-0">
+    <Component
+      {...props}
+      {...(layoutId ? { transition: { type: 'spring' as const, bounce: 0, duration: 0.35 } } : {})}
+      className="min-w-0"
+    >
       <div className={cn('flex items-baseline gap-2 min-w-0', size === 'lg' ? 'mb-2' : '')}>
         {(abbrDisplay || editing) &&
           (editing ? (
