@@ -107,6 +107,7 @@ export async function insertImplementation(input: {
     launchDate: input.launchDate,
     tasks: createDefaultTasks(),
     waitingOn: 'none',
+    outreachCount: 0,
     contact: { name: input.contactName ?? '', email: input.contactEmail ?? '' },
     links: {},
     notes: [],
@@ -155,6 +156,8 @@ export async function patchImplementation(
     abbreviation: string
     launchDate: string | undefined
     waitingOn: WaitingOn
+    outreachCount: number
+    lastOutreachAt: string | undefined
     contact: Contact
     links: ProjectLinks
     archived: boolean
@@ -166,6 +169,16 @@ export async function patchImplementation(
   if (updates.abbreviation !== undefined) row.abbreviation = updates.abbreviation
   if (updates.launchDate !== undefined) row.launch_date = updates.launchDate ?? null
   if (updates.waitingOn !== undefined) row.waiting_on = updates.waitingOn
+  if (updates.outreachCount !== undefined) {
+    row.outreach_count = updates.outreachCount
+    if (updates.outreachCount === 0) {
+      row.last_outreach_at = null
+    } else if (updates.lastOutreachAt !== undefined) {
+      row.last_outreach_at = updates.lastOutreachAt
+    }
+  } else if (updates.lastOutreachAt !== undefined) {
+    row.last_outreach_at = updates.lastOutreachAt ?? null
+  }
   if (updates.contact !== undefined) row.contact = updates.contact
   if (updates.links !== undefined) row.links = updates.links
   if (updates.archived !== undefined) row.archived = updates.archived
@@ -193,7 +206,8 @@ export async function upsertTask(
       implementation_id: implementationId,
       task_key: taskKey,
       status,
-      blocked_reason: status === 'blocked' ? blockedReason ?? null : null,
+      blocked_reason:
+        status === 'blocked' || status === 'pending' ? blockedReason?.trim() || null : null,
       completed_at:
         status === 'done' || status === 'not_needed' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),

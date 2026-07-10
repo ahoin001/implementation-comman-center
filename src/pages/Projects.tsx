@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { CheckSquare, ListPlus, Trash2, X } from 'lucide-react'
 import type { ProjectFilter } from '@/types'
-import { FILTER_LABELS } from '@/types'
+import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
 import { ProjectCard } from '@/components/project/ProjectCard'
 import { NewProjectButton } from '@/components/project/NewProjectButton'
 import { BulkAddProjectsModal } from '@/components/project/BulkAddProjectsModal'
@@ -10,6 +10,37 @@ import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
 import { useFilteredProjects } from '@/hooks/useProjects'
 import { cn } from '@/lib/utils'
+
+function FilterChip({
+  filter,
+  active,
+  onSelect,
+  size = 'md',
+}: {
+  filter: ProjectFilter
+  active: boolean
+  onSelect: (filter: ProjectFilter) => void
+  size?: 'md' | 'sm'
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(filter)}
+      className={cn(
+        'shrink-0 font-medium transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97]',
+        size === 'md' && 'rounded-full px-4 py-1.5 text-sm',
+        size === 'sm' && 'rounded-md px-2.5 py-1 text-xs',
+        active
+          ? 'bg-[var(--color-accent)] text-white'
+          : size === 'md'
+            ? 'glass text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+            : 'border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:border-[var(--color-accent)]/30'
+      )}
+    >
+      {FILTER_LABELS[filter]}
+    </button>
+  )
+}
 
 export function ProjectsPage() {
   const activeFilter = useStore((s) => s.activeFilter)
@@ -22,12 +53,12 @@ export function ProjectsPage() {
   const [bulkAddOpen, setBulkAddOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const filters = Object.keys(FILTER_LABELS) as ProjectFilter[]
   const allVisibleSelected = projects.length > 0 && projects.every((p) => selectedIds.has(p.id))
   const selectedCount = useMemo(
     () => projects.filter((p) => selectedIds.has(p.id)).length,
     [projects, selectedIds]
   )
+  const taskFilterActive = TASK_FILTERS.includes(activeFilter)
 
   const exitSelectMode = () => {
     setSelectMode(false)
@@ -66,6 +97,10 @@ export function ProjectsPage() {
     exitSelectMode()
   }
 
+  const handleSelectFilter = (filter: ProjectFilter) => {
+    setActiveFilter(activeFilter === filter && filter !== 'all' ? 'all' : filter)
+  }
+
   return (
     <div>
       <div className="flex items-start justify-between gap-4 mb-6">
@@ -73,6 +108,9 @@ export function ProjectsPage() {
           <h1 className="text-2xl font-semibold tracking-tight mb-1">Projects</h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">
             {projects.length} implementation{projects.length !== 1 ? 's' : ''}
+            {activeFilter !== 'all' && (
+              <span className="text-[var(--color-muted)]"> · {FILTER_LABELS[activeFilter]}</span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -133,22 +171,45 @@ export function ProjectsPage() {
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-none">
-        {filters.map((filter) => (
-          <button
-            key={filter}
-            type="button"
-            onClick={() => setActiveFilter(filter)}
-            className={cn(
-              'shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97]',
-              activeFilter === filter
-                ? 'bg-[var(--color-accent)] text-white'
-                : 'glass text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-            )}
-          >
-            {FILTER_LABELS[filter]}
-          </button>
-        ))}
+      <div className="mb-6 space-y-3">
+        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+          {STATUS_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter}
+              filter={filter}
+              active={activeFilter === filter}
+              onSelect={handleSelectFilter}
+            />
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
+            Launch desk
+          </span>
+          <div className="h-px flex-1 bg-[var(--color-border)]" />
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {TASK_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter}
+              filter={filter}
+              active={activeFilter === filter}
+              onSelect={handleSelectFilter}
+              size="sm"
+            />
+          ))}
+          {taskFilterActive && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter('all')}
+              className="shrink-0 rounded-md px-2 py-1 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <AnimatePresence mode="popLayout">

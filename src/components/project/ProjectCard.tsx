@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import type { Project } from '@/types'
-import { WAITING_ON_LABELS } from '@/types'
+import { WAITING_ON_LABELS, isClientWaiting } from '@/types'
 import { calculateProgress, getCurrentStageLabel, getPrimaryOpenTask } from '@/lib/progress'
 import { calculateHealth, getDaysRemaining, formatLaunchDate } from '@/lib/health'
 import { ProgressRing } from './ProgressRing'
@@ -66,6 +66,7 @@ export function ProjectCard({
           />
           <ProjectTitle
             name={project.name}
+            abbreviation={project.abbreviation}
             subtitle={stageLabel}
             layoutId={selectable ? undefined : `project-title-${id}`}
           />
@@ -103,9 +104,16 @@ export function ProjectCard({
               : 'All tasks complete'}
           </p>
         </div>
-        <div className="flex items-center justify-between text-xs text-[var(--color-muted-foreground)]">
-          <span>Waiting on {WAITING_ON_LABELS[project.waitingOn]}</span>
-          <span>{project.contact.name}</span>
+        <div className="flex items-center justify-between gap-2 text-xs text-[var(--color-muted-foreground)]">
+          <span className="min-w-0 truncate">
+            Waiting on {WAITING_ON_LABELS[project.waitingOn]}
+            {isClientWaiting(project.waitingOn) && (project.outreachCount ?? 0) > 0 && (
+              <span className="ml-1.5 inline-flex items-center rounded-full bg-[var(--color-accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-accent)] tabular-nums">
+                {project.outreachCount}× reached out
+              </span>
+            )}
+          </span>
+          <span className="shrink-0">{project.contact.name}</span>
         </div>
       </div>
     </motion.article>

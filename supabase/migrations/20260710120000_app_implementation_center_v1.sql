@@ -32,9 +32,11 @@ CREATE TABLE IF NOT EXISTS app_implementation_center_v1.implementations (
   launch_date   date,
   waiting_on    text NOT NULL DEFAULT 'none'
                   CHECK (waiting_on IN (
-                    'client_assets','client_data','membership','internal_dev',
-                    'qa','scheduling','ready','none'
+                    'client_assets','client_data','membership','client_scheduling',
+                    'internal_dev','qa','scheduling','ready','none'
                   )),
+  outreach_count integer NOT NULL DEFAULT 0,
+  last_outreach_at timestamptz,
   -- Contact + links as jsonb (matches current app shape; easy to edit)
   contact       jsonb NOT NULL DEFAULT '{}'::jsonb,
   links         jsonb NOT NULL DEFAULT '{}'::jsonb,

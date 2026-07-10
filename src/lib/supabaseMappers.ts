@@ -25,6 +25,8 @@ export type DbImplementation = {
   logo_url: string | null
   launch_date: string | null
   waiting_on: WaitingOn
+  outreach_count: number
+  last_outreach_at: string | null
   contact: Contact
   links: ProjectLinks
   archived: boolean
@@ -117,6 +119,8 @@ export function mapImplementation(
     logoUrl: row.logo_url ?? undefined,
     launchDate: row.launch_date ?? undefined,
     waitingOn: row.waiting_on,
+    outreachCount: row.outreach_count ?? 0,
+    lastOutreachAt: row.last_outreach_at ?? undefined,
     contact: {
       name: row.contact?.name ?? '',
       email: row.contact?.email ?? '',
@@ -200,6 +204,8 @@ export function implementationToRow(
     logo_url: project.logoUrl ?? null,
     launch_date: project.launchDate ?? null,
     waiting_on: project.waitingOn,
+    outreach_count: project.outreachCount ?? 0,
+    last_outreach_at: project.lastOutreachAt ?? null,
     contact: project.contact,
     links: project.links,
     archived: Boolean(project.archived),

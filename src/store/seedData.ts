@@ -19,6 +19,7 @@ export const seedProjects: Project[] = [
       job_backfill: { status: 'pending' },
     }),
     waitingOn: 'none',
+    outreachCount: 0,
     contact: {
       name: 'Sarah Mitchell',
       email: 'sarah.mitchell@americanstaffing.org',
@@ -57,6 +58,7 @@ export const seedProjects: Project[] = [
       job_backfill: { status: 'pending' },
     }),
     waitingOn: 'scheduling',
+    outreachCount: 0,
     contact: { name: 'John Davis', email: 'john@abcassociation.org', timezone: 'America/Chicago' },
     links: {
       salesforce: 'https://salesforce.com',
@@ -78,6 +80,7 @@ export const seedProjects: Project[] = [
       data_import: { status: 'pending' },
     }),
     waitingOn: 'client_assets',
+    outreachCount: 0,
     contact: { name: 'Emily Chen', email: 'emily@xyzassociation.org', timezone: 'America/Los_Angeles' },
     links: { stagingSite: 'https://staging.xyzassociation.org' },
     notes: [],
@@ -93,6 +96,7 @@ export const seedProjects: Project[] = [
       site_design: { status: 'pending' },
     }),
     waitingOn: 'none',
+    outreachCount: 0,
     contact: { name: 'Dr. Robert Kim', email: 'rkim@healthcaresociety.org', timezone: 'America/New_York' },
     links: { stagingSite: 'https://staging.healthcaresociety.org' },
     notes: [{ id: 'n5', content: 'Homepage mockup in review.', createdAt: '2026-07-09T08:00:00Z' }],
@@ -113,6 +117,7 @@ export const seedProjects: Project[] = [
       )
     ),
     waitingOn: 'none',
+    outreachCount: 0,
     contact: { name: 'Lisa Wong', email: 'lwong@nrf.com', timezone: 'America/New_York' },
     links: { liveSite: 'https://nrf.com' },
     notes: [],
@@ -136,6 +141,7 @@ export const seedProjects: Project[] = [
       job_backfill: { status: 'pending' },
     }),
     waitingOn: 'ready',
+    outreachCount: 0,
     contact: { name: 'Marcus Johnson', email: 'marcus@techinnovators.org', timezone: 'America/Denver' },
     links: {
       stagingSite: 'https://staging.techinnovators.org',
@@ -152,6 +158,7 @@ export const seedProjects: Project[] = [
     launchDate: undefined,
     tasks: tasks(),
     waitingOn: 'scheduling',
+    outreachCount: 0,
     contact: { name: 'Anna Rodriguez', email: 'anna@edpros.org', timezone: 'America/Chicago' },
     links: {},
     notes: [],
@@ -167,6 +174,7 @@ export const seedProjects: Project[] = [
       site_design: { status: 'blocked', blockedReason: 'Waiting on logo files from client' },
     }),
     waitingOn: 'client_assets',
+    outreachCount: 0,
     contact: { name: 'David Green', email: 'david@greenenergy.org', timezone: 'America/Los_Angeles' },
     links: { stagingSite: 'https://staging.greenenergy.org' },
     notes: [{ id: 'n7', content: 'Design blocked — waiting on logo files from client.', createdAt: '2026-07-08T15:00:00Z' }],

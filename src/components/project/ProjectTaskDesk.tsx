@@ -23,28 +23,43 @@ const statusOptions: { value: ProjectTaskStatus; label: string; icon: typeof Che
   { value: 'pending', label: 'To Do', icon: AlertCircle, activeClass: 'bg-[var(--color-accent)]/10 text-[var(--color-accent)] ring-[var(--color-accent)]/30' },
 ]
 
+function notePlaceholder(status: ProjectTaskStatus) {
+  return status === 'blocked' ? 'Why is this blocked?' : 'Add a note…'
+}
+
 export function ProjectTaskDesk({ project, onUpdateTask }: ProjectTaskDeskProps) {
-  const [editingBlock, setEditingBlock] = useState<ProjectTaskKey | null>(null)
-  const [blockDraft, setBlockDraft] = useState('')
+  const [editingNote, setEditingNote] = useState<ProjectTaskKey | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
 
   const progress = calculateProgress(project)
   const label = getLaunchReadinessLabel(progress)
   const counts = getTaskCounts(project)
 
+  const openNoteEditor = (taskKey: ProjectTaskKey, status: ProjectTaskStatus) => {
+    setEditingNote(taskKey)
+    setNoteDraft(project.tasks[taskKey].blockedReason ?? '')
+    onUpdateTask(taskKey, status, project.tasks[taskKey].blockedReason)
+  }
+
   const handleStatus = (taskKey: ProjectTaskKey, status: ProjectTaskStatus) => {
-    if (status === 'blocked') {
-      setEditingBlock(taskKey)
-      setBlockDraft(project.tasks[taskKey].blockedReason ?? '')
-      onUpdateTask(taskKey, 'blocked', project.tasks[taskKey].blockedReason ?? '')
+    if (status === 'blocked' || status === 'pending') {
+      openNoteEditor(taskKey, status)
       return
     }
-    setEditingBlock(null)
+    setEditingNote(null)
     onUpdateTask(taskKey, status)
   }
 
-  const saveBlockReason = (taskKey: ProjectTaskKey) => {
-    onUpdateTask(taskKey, 'blocked', blockDraft.trim() || 'Blocked')
-    setEditingBlock(null)
+  const saveNote = (taskKey: ProjectTaskKey) => {
+    const status = project.tasks[taskKey].status
+    const noteStatus = status === 'blocked' || status === 'pending' ? status : 'pending'
+    const trimmed = noteDraft.trim()
+    onUpdateTask(
+      taskKey,
+      noteStatus,
+      trimmed || (noteStatus === 'blocked' ? 'Blocked' : undefined)
+    )
+    setEditingNote(null)
   }
 
   return (
@@ -125,26 +140,37 @@ export function ProjectTaskDesk({ project, onUpdateTask }: ProjectTaskDeskProps)
                 </div>
               </div>
 
-              {isBlocked && task.blockedReason && editingBlock !== taskKey && (
-                <p className="mt-2 text-xs text-[var(--color-danger)] flex items-start gap-1.5">
-                  <Ban className="h-3 w-3 shrink-0 mt-0.5" />
+              {task.blockedReason && editingNote !== taskKey && (isBlocked || task.status === 'pending') && (
+                <button
+                  type="button"
+                  onClick={() => openNoteEditor(taskKey, task.status)}
+                  className={cn(
+                    'mt-2 text-xs flex items-start gap-1.5 text-left w-full rounded-sm hover:opacity-80 transition-opacity',
+                    isBlocked ? 'text-[var(--color-danger)]' : 'text-[var(--color-muted-foreground)]'
+                  )}
+                >
+                  {isBlocked ? (
+                    <Ban className="h-3 w-3 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
+                  )}
                   {task.blockedReason}
-                </p>
+                </button>
               )}
 
-              {editingBlock === taskKey && (
+              {editingNote === taskKey && (
                 <div className="mt-3 flex gap-2">
                   <Input
-                    placeholder="Why is this blocked?"
-                    value={blockDraft}
-                    onChange={(e) => setBlockDraft(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && saveBlockReason(taskKey)}
+                    placeholder={notePlaceholder(task.status)}
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && saveNote(taskKey)}
                     autoFocus
                     className="text-sm"
                   />
                   <button
                     type="button"
-                    onClick={() => saveBlockReason(taskKey)}
+                    onClick={() => saveNote(taskKey)}
                     className="shrink-0 text-xs font-medium text-[var(--color-accent)] px-2 active:scale-95"
                   >
                     Save

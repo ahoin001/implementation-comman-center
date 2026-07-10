@@ -52,11 +52,24 @@ export type WaitingOn =
   | 'client_assets'
   | 'client_data'
   | 'membership'
+  | 'client_scheduling'
   | 'internal_dev'
   | 'qa'
   | 'scheduling'
   | 'ready'
   | 'none'
+
+/** Reasons where you're blocked on the client — outreach tracking applies */
+export const CLIENT_WAITING_REASONS: WaitingOn[] = [
+  'client_assets',
+  'client_data',
+  'membership',
+  'client_scheduling',
+]
+
+export function isClientWaiting(waitingOn: WaitingOn): boolean {
+  return CLIENT_WAITING_REASONS.includes(waitingOn)
+}
 
 export type ProjectHealth =
   | 'healthy'
@@ -149,6 +162,9 @@ export interface Project {
   launchDate?: string
   tasks: ProjectTasks
   waitingOn: WaitingOn
+  /** Times you've reached out while waiting on the client */
+  outreachCount: number
+  lastOutreachAt?: string
   contact: Contact
   links: ProjectLinks
   notes: Note[]
@@ -200,12 +216,13 @@ export const MILESTONE_WEIGHTS: Record<MilestoneKey, number> = {
 }
 
 export const WAITING_ON_LABELS: Record<WaitingOn, string> = {
-  client_assets: 'Waiting on Client Assets',
-  client_data: 'Waiting on Client Data',
-  membership: 'Waiting on Membership',
-  internal_dev: 'Waiting on Internal Development',
-  qa: 'Waiting on QA',
-  scheduling: 'Waiting on Scheduling',
+  client_assets: 'Client Assets',
+  client_data: 'Client Data',
+  membership: 'Membership',
+  client_scheduling: 'Client Scheduling',
+  internal_dev: 'Internal Development',
+  qa: 'QA',
+  scheduling: 'Internal Scheduling',
   ready: 'Ready',
   none: 'Nobody',
 }
@@ -221,31 +238,64 @@ export const HEALTH_LABELS: Record<ProjectHealth, string> = {
 export type ProjectFilter =
   | 'all'
   | 'launching_soon'
-  | 'waiting_on_client'
-  | 'waiting_on_me'
-  | 'ready_for_launch'
+  | 'needs_attention'
   | 'completed'
   | 'no_launch_date'
-  | 'needs_attention'
+  | 'needs_site_design'
+  | 'needs_kickoff_call'
+  | 'needs_follow_up_email'
+  | 'needs_data_import'
+  | 'needs_sso'
+  | 'needs_smartway_training'
+  | 'needs_schedule'
 
-export const LINK_FIELD_LABELS: Record<keyof ProjectLinks, string> = {
-  salesforce: 'Salesforce',
-  jira: 'Jira',
-  slack: 'Slack',
-  googleDrive: 'Google Drive',
-  stagingSite: 'Staging Site',
-  liveSite: 'Live Site',
-  associationWebsite: 'Association Website',
-  adminLogin: 'Admin Login',
-}
+/** Primary status filters shown as the main row */
+export const STATUS_FILTERS: ProjectFilter[] = [
+  'all',
+  'launching_soon',
+  'needs_attention',
+  'completed',
+  'no_launch_date',
+]
+
+/**
+ * Compact Launch Desk task filters (excludes job backfill).
+ * `needs_schedule` = kickoff or SmartWay training still open.
+ */
+export const TASK_FILTERS: ProjectFilter[] = [
+  'needs_site_design',
+  'needs_data_import',
+  'needs_schedule',
+  'needs_kickoff_call',
+  'needs_follow_up_email',
+  'needs_sso',
+  'needs_smartway_training',
+]
 
 export const FILTER_LABELS: Record<ProjectFilter, string> = {
   all: 'All',
   launching_soon: 'Launching Soon',
-  waiting_on_client: 'Waiting on Client',
-  waiting_on_me: 'Waiting on Me',
-  ready_for_launch: 'Ready for Launch',
+  needs_attention: 'Needs Attention',
   completed: 'Completed',
   no_launch_date: 'No Launch Date',
-  needs_attention: 'Needs Attention',
+  needs_site_design: 'Site Design',
+  needs_kickoff_call: 'Kickoff',
+  needs_follow_up_email: 'Follow-up',
+  needs_data_import: 'Data',
+  needs_sso: 'SSO',
+  needs_smartway_training: 'Training',
+  needs_schedule: 'Schedule',
 }
+
+export const LINK_FIELD_LABELS = {
+  salesforce: 'Salesforce',
+  jira: 'Jira',
+  googleDrive: 'Google Drive',
+  stagingSite: 'Staging Site',
+  associationWebsite: 'Association Website',
+} as const satisfies Partial<Record<keyof ProjectLinks, string>>
+
+export type EditableLinkKey = keyof typeof LINK_FIELD_LABELS
+
+export const EDITABLE_LINK_KEYS = Object.keys(LINK_FIELD_LABELS) as EditableLinkKey[]
+

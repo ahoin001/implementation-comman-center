@@ -1,5 +1,6 @@
 import { differenceInDays, parseISO, isPast, isToday, isTomorrow, format } from 'date-fns'
 import type { Project, ProjectHealth } from '@/types'
+import { isClientWaiting } from '@/types'
 import { calculateProgress, isProjectLaunchComplete, getTaskCounts } from './progress'
 
 export function getDaysRemaining(launchDate?: string): number | null {
@@ -39,7 +40,7 @@ export function calculateHealth(project: Project): ProjectHealth {
     return 'at_risk'
   }
 
-  const clientWaiting = ['client_assets', 'client_data', 'membership'].includes(project.waitingOn)
+  const clientWaiting = isClientWaiting(project.waitingOn)
   if (clientWaiting) return 'waiting_on_client'
 
   const meWaiting = ['internal_dev', 'qa', 'scheduling'].includes(project.waitingOn)

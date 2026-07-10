@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ProjectLinks } from '@/types'
-import { LINK_FIELD_LABELS } from '@/types'
+import { EDITABLE_LINK_KEYS, LINK_FIELD_LABELS } from '@/types'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 
@@ -15,7 +15,7 @@ export function ProjectLinksEditor({ links, onSave }: ProjectLinksEditorProps) {
 
   const handleSave = () => {
     const cleaned = Object.fromEntries(
-      Object.entries(draft).map(([k, v]) => [k, (v as string)?.trim() || undefined])
+      EDITABLE_LINK_KEYS.map((key) => [key, draft[key]?.trim() || undefined])
     ) as Partial<ProjectLinks>
     onSave(cleaned)
     setEditing(false)
@@ -31,7 +31,7 @@ export function ProjectLinksEditor({ links, onSave }: ProjectLinksEditorProps) {
 
   return (
     <div className="space-y-3 mt-4 pt-4 border-t border-[var(--color-border)]">
-      {(Object.keys(LINK_FIELD_LABELS) as (keyof ProjectLinks)[]).map((key) => (
+      {EDITABLE_LINK_KEYS.map((key) => (
         <div key={key}>
           <label className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1 block">
             {LINK_FIELD_LABELS[key]}

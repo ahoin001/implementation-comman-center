@@ -1,12 +1,10 @@
 import {
   ExternalLink,
   Cloud,
-  MessageSquare,
   FolderOpen,
   Globe,
   Monitor,
   Link2,
-  KeyRound,
 } from 'lucide-react'
 import type { ProjectLinks } from '@/types'
 import { cn } from '@/lib/utils'
@@ -14,12 +12,9 @@ import { cn } from '@/lib/utils'
 const linkConfig: { key: keyof ProjectLinks; label: string; icon: typeof ExternalLink; color: string }[] = [
   { key: 'salesforce', label: 'Salesforce', icon: Cloud, color: 'text-[#00A1E0]' },
   { key: 'jira', label: 'Jira', icon: Link2, color: 'text-[#0052CC]' },
-  { key: 'slack', label: 'Slack', icon: MessageSquare, color: 'text-[#4A154B]' },
   { key: 'googleDrive', label: 'Google Drive', icon: FolderOpen, color: 'text-[#4285F4]' },
   { key: 'stagingSite', label: 'Staging', icon: Monitor, color: 'text-[var(--color-accent)]' },
-  { key: 'liveSite', label: 'Live Site', icon: Globe, color: 'text-[var(--color-success)]' },
   { key: 'associationWebsite', label: 'Website', icon: Globe, color: 'text-[var(--color-muted-foreground)]' },
-  { key: 'adminLogin', label: 'Admin', icon: KeyRound, color: 'text-[var(--color-warning)]' },
 ]
 
 interface QuickLinksProps {

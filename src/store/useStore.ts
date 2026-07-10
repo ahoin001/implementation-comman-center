@@ -44,6 +44,8 @@ interface StoreState {
   addActivity: (activity: Omit<Activity, 'id' | 'createdAt'>) => void
   updateProjectTask: (projectId: string, taskKey: ProjectTaskKey, status: ProjectTaskStatus, blockedReason?: string) => void
   updateWaitingOn: (projectId: string, waitingOn: WaitingOn) => void
+  logOutreach: (projectId: string) => void
+  undoOutreach: (projectId: string) => void
   updateProjectLinks: (projectId: string, links: Partial<ProjectLinks>) => void
   updateProjectContact: (projectId: string, contact: Partial<Contact>) => void
   updateIntegrations: (integrations: Partial<IntegrationsConfig>) => void
@@ -146,6 +148,8 @@ export const useStore = create<StoreState>()((set, get) => ({
         abbreviation: updates.abbreviation,
         launchDate: updates.launchDate,
         waitingOn: updates.waitingOn,
+        outreachCount: updates.outreachCount,
+        lastOutreachAt: updates.lastOutreachAt,
         contact: updates.contact,
         links: updates.links,
         archived: updates.archived,
@@ -220,7 +224,8 @@ export const useStore = create<StoreState>()((set, get) => ({
         const tasks = { ...p.tasks }
         tasks[taskKey] = {
           status,
-          blockedReason: status === 'blocked' ? blockedReason : undefined,
+          blockedReason:
+            status === 'blocked' || status === 'pending' ? blockedReason || undefined : undefined,
           completedAt: status === 'done' || status === 'not_needed' ? new Date().toISOString() : undefined,
         }
         return { ...p, tasks, updatedAt: new Date().toISOString() }
@@ -235,6 +240,31 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
 
   updateWaitingOn: (projectId, waitingOn) => get().updateProject(projectId, { waitingOn }),
+
+  logOutreach: (projectId) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    const now = new Date().toISOString()
+    get().updateProject(projectId, {
+      outreachCount: (project.outreachCount ?? 0) + 1,
+      lastOutreachAt: now,
+    })
+    get().addActivity({
+      type: 'email',
+      title: `Reached out — ${project.abbreviation || project.name}`,
+      projectId,
+    })
+  },
+
+  undoOutreach: (projectId) => {
+    const project = get().getProject(projectId)
+    if (!project || (project.outreachCount ?? 0) <= 0) return
+    const next = (project.outreachCount ?? 0) - 1
+    get().updateProject(projectId, {
+      outreachCount: next,
+      lastOutreachAt: next === 0 ? undefined : project.lastOutreachAt,
+    })
+  },
 
   updateProjectLinks: (projectId, links) => {
     const project = get().getProject(projectId)
@@ -263,6 +293,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       launchDate: data.launchDate,
       tasks: createDefaultTasks(),
       waitingOn: 'none',
+      outreachCount: 0,
       contact: {
         name: data.contactName ?? '',
         email: data.contactEmail ?? '',
