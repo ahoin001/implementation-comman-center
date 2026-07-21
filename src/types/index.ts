@@ -14,22 +14,50 @@ export type ProjectTaskKey =
 
 export type ProjectTaskStatus = 'pending' | 'done' | 'not_needed' | 'blocked'
 
-/** Sub-checks inside the Follow-up Launch Desk step */
-export type FollowUpSubstepKey = 'email_sent' | 'documents_received'
-
-export const FOLLOW_UP_SUBSTEPS: { key: FollowUpSubstepKey; label: string }[] = [
-  { key: 'email_sent', label: 'Follow-up email sent' },
-  { key: 'documents_received', label: 'Requested documents received' },
-]
-
-export const FOLLOW_UP_TASK_KEY: ProjectTaskKey = 'follow_up_email'
-
 export interface ProjectTask {
   status: ProjectTaskStatus
   blockedReason?: string
   completedAt?: string
-  /** Used by follow_up_email — both must be true for Done */
-  substeps?: Partial<Record<FollowUpSubstepKey, boolean>>
+}
+
+/** Client / ops deliverables tracked alongside Launch Desk */
+export type DeliverableKey =
+  | 'ach'
+  | 'w9'
+  | 'sso_test_credentials'
+  | 'custom_categories'
+
+export interface DeliverableItem {
+  received: boolean
+  note?: string
+  receivedAt?: string
+}
+
+export type ProjectDeliverables = Record<DeliverableKey, DeliverableItem>
+
+export const DELIVERABLE_KEYS: DeliverableKey[] = [
+  'ach',
+  'w9',
+  'sso_test_credentials',
+  'custom_categories',
+]
+
+/** ACH + W-9 — Missing Docs badge / filter */
+export const REQUIRED_DOC_KEYS: DeliverableKey[] = ['ach', 'w9']
+
+export const DELIVERABLE_LABELS: Record<DeliverableKey, string> = {
+  ach: 'ACH',
+  w9: 'W-9',
+  sso_test_credentials: 'SSO test credentials',
+  custom_categories: 'Custom Categories',
+}
+
+/** Which Launch Desk steps show which deliverables inline */
+export const TASK_DELIVERABLE_KEYS: Partial<Record<ProjectTaskKey, DeliverableKey[]>> = {
+  kickoff_call: ['ach', 'w9'],
+  sso: ['sso_test_credentials'],
+  smartway_training: ['custom_categories'],
+  job_backfill: ['custom_categories'],
 }
 
 export type ProjectTasks = Record<ProjectTaskKey, ProjectTask>
@@ -53,7 +81,7 @@ export const LAUNCH_TASK_KEY: ProjectTaskKey = 'launch'
 export const PROJECT_TASK_LABELS: Record<ProjectTaskKey, string> = {
   site_design: 'Site Design',
   kickoff_call: 'Kickoff Call',
-  follow_up_email: 'Follow-up & Documents',
+  follow_up_email: 'Follow-up Email',
   data_import: 'Data Import',
   sso: 'SSO',
   smartway_training: 'SmartWay Training',
@@ -181,6 +209,7 @@ export interface Project {
   logoUrl?: string
   launchDate?: string
   tasks: ProjectTasks
+  deliverables: ProjectDeliverables
   waitingOn: WaitingOn
   /** Times you've reached out while waiting on the client */
   outreachCount: number
@@ -262,6 +291,7 @@ export type ProjectFilter =
   | 'waiting_on_client'
   | 'completed'
   | 'no_launch_date'
+  | 'missing_required_docs'
   | 'needs_site_design'
   | 'needs_kickoff_call'
   | 'needs_follow_up_email'
@@ -276,6 +306,7 @@ export const STATUS_FILTERS: ProjectFilter[] = [
   'launching_soon',
   'needs_attention',
   'waiting_on_client',
+  'missing_required_docs',
   'completed',
   'no_launch_date',
 ]
@@ -299,11 +330,12 @@ export const FILTER_LABELS: Record<ProjectFilter, string> = {
   launching_soon: 'Launching Soon',
   needs_attention: 'Needs Attention',
   waiting_on_client: 'Waiting on Client',
+  missing_required_docs: 'Missing Docs',
   completed: 'Completed',
   no_launch_date: 'No Launch Date',
   needs_site_design: 'Site Design',
   needs_kickoff_call: 'Kickoff',
-  needs_follow_up_email: 'Follow-up & Docs',
+  needs_follow_up_email: 'Follow-up',
   needs_data_import: 'Data',
   needs_sso: 'SSO',
   needs_smartway_training: 'Training',

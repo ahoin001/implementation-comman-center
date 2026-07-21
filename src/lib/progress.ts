@@ -1,4 +1,4 @@
-import type { Project, ProjectTask, ProjectTaskKey, ProjectTaskStatus, FollowUpSubstepKey } from '@/types'
+import type { Project, ProjectTaskKey, ProjectTaskStatus } from '@/types'
 import {
   LAUNCH_TASK_KEY,
   PRE_LAUNCH_TASK_KEYS,
@@ -8,55 +8,6 @@ import {
 
 export function isTaskComplete(status: ProjectTaskStatus): boolean {
   return status === 'done' || status === 'not_needed'
-}
-
-export function areFollowUpSubstepsComplete(
-  substeps?: Partial<Record<FollowUpSubstepKey, boolean>>
-): boolean {
-  return Boolean(substeps?.email_sent && substeps?.documents_received)
-}
-
-/** Apply a follow-up substep toggle and derive Done/Pending */
-export function applyFollowUpSubstep(
-  task: ProjectTask,
-  key: FollowUpSubstepKey,
-  checked: boolean
-): ProjectTask {
-  const substeps = { ...task.substeps, [key]: checked }
-  if (task.status === 'not_needed' || task.status === 'blocked') {
-    return { ...task, substeps }
-  }
-  const bothDone = areFollowUpSubstepsComplete(substeps)
-  return {
-    ...task,
-    substeps,
-    status: bothDone ? 'done' : 'pending',
-    completedAt: bothDone ? task.completedAt ?? new Date().toISOString() : undefined,
-    blockedReason: bothDone ? undefined : task.blockedReason,
-  }
-}
-
-/** Status button on follow-up — Done/N/A checks both substeps; To Do/Blocked keep progress */
-export function applyFollowUpStatus(
-  task: ProjectTask,
-  status: ProjectTaskStatus,
-  blockedReason?: string
-): ProjectTask {
-  if (status === 'done' || status === 'not_needed') {
-    return {
-      ...task,
-      status,
-      substeps: { email_sent: true, documents_received: true },
-      completedAt: new Date().toISOString(),
-      blockedReason: undefined,
-    }
-  }
-  return {
-    ...task,
-    status,
-    blockedReason: blockedReason || undefined,
-    completedAt: undefined,
-  }
 }
 
 /** All Launch Desk items except Launch itself are Done or N/A */

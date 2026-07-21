@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { Project, ProjectFilter, ProjectTaskKey } from '@/types'
 import { PROJECT_TASK_KEYS, PROJECT_TASK_LABELS } from '@/types'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
+import { isRequiredDocsComplete } from '@/lib/deliverables'
 import {
   getPrimaryOpenTask,
   isProjectLaunchComplete,
@@ -50,6 +51,8 @@ export function filterProjects(projects: Project[], filter: ProjectFilter): Proj
       return projects.filter((p) => calculateHealth(p) === 'complete')
     case 'no_launch_date':
       return projects.filter((p) => !p.launchDate)
+    case 'missing_required_docs':
+      return projects.filter((p) => !isRequiredDocsComplete(p) && calculateHealth(p) !== 'complete')
     case 'needs_site_design':
       return projects.filter((p) => taskNeedsWork(p, 'site_design'))
     case 'needs_kickoff_call':

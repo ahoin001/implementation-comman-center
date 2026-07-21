@@ -15,6 +15,7 @@ type LegacyLaunchChecklist = {
 }
 import { PROJECT_TASK_KEYS } from '@/types'
 import { suggestAbbreviation } from '@/lib/calendar'
+import { normalizeDeliverables } from '@/lib/deliverables'
 
 export function createDefaultTasks(overrides: Partial<Record<ProjectTaskKey, Partial<ProjectTasks[ProjectTaskKey]>>> = {}): ProjectTasks {
   return PROJECT_TASK_KEYS.reduce((acc, key) => {
@@ -56,8 +57,8 @@ export function migrateProject(raw: Record<string, unknown>): Project {
     return {
       ...(p as Project),
       abbreviation: p.abbreviation?.trim() || suggestAbbreviation(p.name),
-      // Fill any newly added task keys (e.g. launch) as pending
       tasks: createDefaultTasks(p.tasks),
+      deliverables: normalizeDeliverables(p.deliverables),
     }
   }
 
@@ -92,9 +93,10 @@ export function migrateProject(raw: Record<string, unknown>): Project {
   } = p as Record<string, unknown> & typeof p
 
   return {
-    ...(rest as Omit<Project, 'tasks' | 'abbreviation'>),
+    ...(rest as Omit<Project, 'tasks' | 'abbreviation' | 'deliverables'>),
     abbreviation: (p.abbreviation as string | undefined)?.trim() || suggestAbbreviation(p.name),
     tasks: createDefaultTasks(overrides),
+    deliverables: normalizeDeliverables(p.deliverables),
   }
 }
 

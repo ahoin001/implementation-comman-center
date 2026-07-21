@@ -6,8 +6,8 @@ import type {
   Contact,
   Note,
   Project,
+  ProjectDeliverables,
   ProjectLinks,
-  ProjectTask,
   ProjectTaskKey,
   ProjectTaskStatus,
   WaitingOn,
@@ -16,6 +16,7 @@ import { PROJECT_TASK_LABELS } from '@/types'
 import { generateId } from '@/lib/utils'
 import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
 import { createDefaultTasks } from '@/lib/migrate'
+import { createDefaultDeliverables } from '@/lib/deliverables'
 import { icc, isSupabaseConfigured, SOLO_USER_ID, supabase } from '@/lib/supabase'
 import {
   type DbActivity,
@@ -107,6 +108,7 @@ export async function insertImplementation(input: {
     abbreviation: input.abbreviation?.trim() || suggestAbbreviation(input.name),
     launchDate: input.launchDate,
     tasks: createDefaultTasks(),
+    deliverables: createDefaultDeliverables(),
     waitingOn: 'none',
     outreachCount: 0,
     contact: { name: input.contactName ?? '', email: input.contactEmail ?? '' },
@@ -161,6 +163,7 @@ export async function patchImplementation(
     lastOutreachAt: string | undefined
     contact: Contact
     links: ProjectLinks
+    deliverables: ProjectDeliverables
     archived: boolean
     archivedAt: string | undefined
   }>
@@ -182,6 +185,7 @@ export async function patchImplementation(
   }
   if (updates.contact !== undefined) row.contact = updates.contact
   if (updates.links !== undefined) row.links = updates.links
+  if (updates.deliverables !== undefined) row.deliverables = updates.deliverables
   if (updates.archived !== undefined) row.archived = updates.archived
   if (updates.archivedAt !== undefined) row.archived_at = updates.archivedAt ?? null
 
@@ -199,8 +203,7 @@ export async function upsertTask(
   implementationId: string,
   taskKey: ProjectTaskKey,
   status: ProjectTaskStatus,
-  blockedReason?: string,
-  substeps?: ProjectTask['substeps']
+  blockedReason?: string
 ): Promise<void> {
   const row: Record<string, unknown> = {
     user_id: SOLO_USER_ID,
@@ -211,9 +214,6 @@ export async function upsertTask(
       status === 'blocked' || status === 'pending' ? blockedReason?.trim() || null : null,
     completed_at: status === 'done' || status === 'not_needed' ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
-  }
-  if (substeps !== undefined) {
-    row.substeps = substeps ?? {}
   }
   const { error } = await icc()
     .from('implementation_tasks')
@@ -244,6 +244,23 @@ export async function insertNote(
     pinned: data.pinned,
     isMeetingSummary: data.is_meeting_summary,
   }
+}
+
+export async function updateNote(
+  noteId: string,
+  updates: Partial<{ content: string; pinned: boolean }>
+): Promise<void> {
+  const row: Record<string, unknown> = {}
+  if (updates.content !== undefined) row.content = updates.content
+  if (updates.pinned !== undefined) row.pinned = updates.pinned
+  if (Object.keys(row).length === 0) return
+  const { error } = await icc().from('notes').update(row).eq('id', noteId)
+  if (error) throw new Error(`update note: ${error.message}`)
+}
+
+export async function deleteNote(noteId: string): Promise<void> {
+  const { error } = await icc().from('notes').delete().eq('id', noteId)
+  if (error) throw new Error(`delete note: ${error.message}`)
 }
 
 export async function insertActivity(input: {

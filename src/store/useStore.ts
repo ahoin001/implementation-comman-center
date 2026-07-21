@@ -11,14 +11,16 @@ import type {
   IntegrationsConfig,
   ProjectTaskKey,
   ProjectTaskStatus,
-  FollowUpSubstepKey,
+  DeliverableKey,
+  DeliverableItem,
 } from '@/types'
-import { FOLLOW_UP_TASK_KEY, PROJECT_TASK_LABELS } from '@/types'
+import { DELIVERABLE_LABELS, PROJECT_TASK_LABELS } from '@/types'
 import { defaultIntegrations, defaultSettings } from './seedData'
 import { generateId } from '@/lib/utils'
 import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
 import { createDefaultTasks } from '@/lib/migrate'
-import { applyFollowUpStatus, applyFollowUpSubstep, canCompleteLaunch } from '@/lib/progress'
+import { applyDeliverablePatch, createDefaultDeliverables } from '@/lib/deliverables'
+import { canCompleteLaunch } from '@/lib/progress'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import * as api from '@/lib/supabaseApi'
 
@@ -43,9 +45,12 @@ interface StoreState {
   updateProject: (id: string, updates: Partial<Project>) => void
   archiveProject: (id: string) => void
   addNote: (projectId: string, content: string, options?: { pinned?: boolean; isMeetingSummary?: boolean }) => void
+  updateNote: (projectId: string, noteId: string, content: string) => void
+  deleteNote: (projectId: string, noteId: string) => void
+  toggleNotePin: (projectId: string, noteId: string) => void
   addActivity: (activity: Omit<Activity, 'id' | 'createdAt'>) => void
   updateProjectTask: (projectId: string, taskKey: ProjectTaskKey, status: ProjectTaskStatus, blockedReason?: string) => void
-  updateFollowUpSubstep: (projectId: string, substep: FollowUpSubstepKey, checked: boolean) => void
+  updateDeliverable: (projectId: string, key: DeliverableKey, patch: Partial<DeliverableItem>) => void
   updateWaitingOn: (projectId: string, waitingOn: WaitingOn) => void
   logOutreach: (projectId: string) => void
   undoOutreach: (projectId: string) => void
@@ -155,6 +160,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         lastOutreachAt: updates.lastOutreachAt,
         contact: updates.contact,
         links: updates.links,
+        deliverables: updates.deliverables,
         archived: updates.archived,
         archivedAt: updates.archivedAt,
       })
@@ -203,6 +209,55 @@ export const useStore = create<StoreState>()((set, get) => ({
       .catch(logSyncError)
   },
 
+  updateNote: (projectId, noteId, content) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              notes: p.notes.map((n) => (n.id === noteId ? { ...n, content } : n)),
+              updatedAt: new Date().toISOString(),
+            }
+          : p
+      ),
+    }))
+    void api.updateNote(noteId, { content }).catch(logSyncError)
+  },
+
+  deleteNote: (projectId, noteId) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              notes: p.notes.filter((n) => n.id !== noteId),
+              updatedAt: new Date().toISOString(),
+            }
+          : p
+      ),
+    }))
+    void api.deleteNote(noteId).catch(logSyncError)
+  },
+
+  toggleNotePin: (projectId, noteId) => {
+    const project = get().getProject(projectId)
+    const note = project?.notes.find((n) => n.id === noteId)
+    if (!note) return
+    const pinned = !note.pinned
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+              ...p,
+              notes: p.notes.map((n) => (n.id === noteId ? { ...n, pinned } : n)),
+              updatedAt: new Date().toISOString(),
+            }
+          : p
+      ),
+    }))
+    void api.updateNote(noteId, { pinned }).catch(logSyncError)
+  },
+
   addActivity: (activity) => {
     const temp: Activity = {
       ...activity,
@@ -229,18 +284,13 @@ export const useStore = create<StoreState>()((set, get) => ({
       if (status === 'done' && !canCompleteLaunch(project)) return
     }
 
-    const current = project.tasks[taskKey]
-    const nextTask =
-      taskKey === FOLLOW_UP_TASK_KEY
-        ? applyFollowUpStatus(current, status, blockedReason)
-        : {
-            status,
-            blockedReason:
-              status === 'blocked' || status === 'pending' ? blockedReason || undefined : undefined,
-            completedAt:
-              status === 'done' || status === 'not_needed' ? new Date().toISOString() : undefined,
-            substeps: current?.substeps,
-          }
+    const nextTask = {
+      status,
+      blockedReason:
+        status === 'blocked' || status === 'pending' ? blockedReason || undefined : undefined,
+      completedAt:
+        status === 'done' || status === 'not_needed' ? new Date().toISOString() : undefined,
+    }
 
     set((state) => ({
       projects: state.projects.map((p) => {
@@ -252,9 +302,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         }
       }),
     }))
-    void api
-      .upsertTask(projectId, taskKey, nextTask.status, nextTask.blockedReason, nextTask.substeps)
-      .catch(logSyncError)
+    void api.upsertTask(projectId, taskKey, nextTask.status, nextTask.blockedReason).catch(logSyncError)
     get().addActivity({
       type: 'milestone',
       title: `${PROJECT_TASK_LABELS[taskKey]} → ${nextTask.status} — ${get().getProject(projectId)?.abbreviation || get().getProject(projectId)?.name}`,
@@ -262,32 +310,25 @@ export const useStore = create<StoreState>()((set, get) => ({
     })
   },
 
-  updateFollowUpSubstep: (projectId, substep, checked) => {
+  updateDeliverable: (projectId, key, patch) => {
     const project = get().getProject(projectId)
     if (!project) return
-    const current = project.tasks[FOLLOW_UP_TASK_KEY]
-    if (!current) return
-
-    const nextTask = applyFollowUpSubstep(current, substep, checked)
+    const deliverables = applyDeliverablePatch(project.deliverables, key, patch)
     set((state) => ({
-      projects: state.projects.map((p) => {
-        if (p.id !== projectId) return p
-        return {
-          ...p,
-          tasks: { ...p.tasks, [FOLLOW_UP_TASK_KEY]: nextTask },
-          updatedAt: new Date().toISOString(),
-        }
-      }),
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? { ...p, deliverables, updatedAt: new Date().toISOString() }
+          : p
+      ),
     }))
-    void api
-      .upsertTask(
+    void api.patchImplementation(projectId, { deliverables }).catch(logSyncError)
+    if (patch.received !== undefined) {
+      get().addActivity({
+        type: 'other',
+        title: `${DELIVERABLE_LABELS[key]} ${patch.received ? 'received' : 'cleared'} — ${project.abbreviation || project.name}`,
         projectId,
-        FOLLOW_UP_TASK_KEY,
-        nextTask.status,
-        nextTask.blockedReason,
-        nextTask.substeps
-      )
-      .catch(logSyncError)
+      })
+    }
   },
 
   updateWaitingOn: (projectId, waitingOn) => get().updateProject(projectId, { waitingOn }),
@@ -343,6 +384,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       abbreviation: data.abbreviation?.trim() || suggestAbbreviation(data.name),
       launchDate: data.launchDate,
       tasks: createDefaultTasks(),
+      deliverables: createDefaultDeliverables(),
       waitingOn: 'none',
       outreachCount: 0,
       contact: {

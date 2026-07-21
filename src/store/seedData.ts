@@ -1,7 +1,9 @@
 import type { AppState, Project, Activity, CalendarEvent, ProjectTaskKey } from '@/types'
 import { createDefaultTasks } from '@/lib/migrate'
+import { createDefaultDeliverables } from '@/lib/deliverables'
 
 const tasks = createDefaultTasks
+const docs = createDefaultDeliverables
 
 export const seedProjects: Project[] = [
   {
@@ -12,15 +14,16 @@ export const seedProjects: Project[] = [
     tasks: tasks({
       site_design: { status: 'done', completedAt: '2026-05-15' },
       kickoff_call: { status: 'done', completedAt: '2026-06-10' },
-      follow_up_email: {
-        status: 'done',
-        completedAt: '2026-06-12',
-        substeps: { email_sent: true, documents_received: true },
-      },
+      follow_up_email: { status: 'done', completedAt: '2026-06-12' },
       data_import: { status: 'done', completedAt: '2026-06-01' },
       sso: { status: 'done', completedAt: '2026-06-05' },
       smartway_training: { status: 'pending' },
       job_backfill: { status: 'pending' },
+    }),
+    deliverables: docs({
+      ach: { received: true, receivedAt: '2026-06-12' },
+      w9: { received: true, receivedAt: '2026-06-12' },
+      sso_test_credentials: { received: true, receivedAt: '2026-06-05' },
     }),
     waitingOn: 'none',
     outreachCount: 0,
@@ -61,6 +64,10 @@ export const seedProjects: Project[] = [
       smartway_training: { status: 'blocked', blockedReason: 'Waiting on client to confirm training date' },
       job_backfill: { status: 'pending' },
     }),
+    deliverables: docs({
+      ach: { received: true, receivedAt: '2026-06-18' },
+      w9: { received: false },
+    }),
     waitingOn: 'scheduling',
     outreachCount: 0,
     contact: { name: 'John Davis', email: 'john@abcassociation.org', timezone: 'America/Chicago' },
@@ -83,6 +90,7 @@ export const seedProjects: Project[] = [
       follow_up_email: { status: 'blocked', blockedReason: 'Waiting on branding assets from client' },
       data_import: { status: 'pending' },
     }),
+    deliverables: docs(),
     waitingOn: 'client_assets',
     outreachCount: 0,
     contact: { name: 'Emily Chen', email: 'emily@xyzassociation.org', timezone: 'America/Los_Angeles' },
@@ -99,6 +107,7 @@ export const seedProjects: Project[] = [
     tasks: tasks({
       site_design: { status: 'pending' },
     }),
+    deliverables: docs(),
     waitingOn: 'none',
     outreachCount: 0,
     contact: { name: 'Dr. Robert Kim', email: 'rkim@healthcaresociety.org', timezone: 'America/New_York' },
@@ -128,6 +137,12 @@ export const seedProjects: Project[] = [
         ).map((k) => [k, { status: 'done' as const, completedAt: '2026-06-28' }])
       )
     ),
+    deliverables: docs({
+      ach: { received: true, receivedAt: '2026-06-01' },
+      w9: { received: true, receivedAt: '2026-06-01' },
+      sso_test_credentials: { received: true, receivedAt: '2026-06-10' },
+      custom_categories: { received: true, receivedAt: '2026-06-20' },
+    }),
     waitingOn: 'none',
     outreachCount: 0,
     contact: { name: 'Lisa Wong', email: 'lwong@nrf.com', timezone: 'America/New_York' },
@@ -153,6 +168,12 @@ export const seedProjects: Project[] = [
       job_backfill: { status: 'done', completedAt: '2026-07-10' },
       launch: { status: 'pending' },
     }),
+    deliverables: docs({
+      ach: { received: true, receivedAt: '2026-06-05' },
+      w9: { received: true, receivedAt: '2026-06-05' },
+      sso_test_credentials: { received: true, receivedAt: '2026-06-10' },
+      custom_categories: { received: true, receivedAt: '2026-07-05' },
+    }),
     waitingOn: 'ready',
     outreachCount: 0,
     contact: { name: 'Marcus Johnson', email: 'marcus@techinnovators.org', timezone: 'America/Denver' },
@@ -170,6 +191,7 @@ export const seedProjects: Project[] = [
     abbreviation: 'EPN',
     launchDate: undefined,
     tasks: tasks(),
+    deliverables: docs(),
     waitingOn: 'scheduling',
     outreachCount: 0,
     contact: { name: 'Anna Rodriguez', email: 'anna@edpros.org', timezone: 'America/Chicago' },
@@ -186,6 +208,7 @@ export const seedProjects: Project[] = [
     tasks: tasks({
       site_design: { status: 'blocked', blockedReason: 'Waiting on logo files from client' },
     }),
+    deliverables: docs(),
     waitingOn: 'client_assets',
     outreachCount: 0,
     contact: { name: 'David Green', email: 'david@greenenergy.org', timezone: 'America/Los_Angeles' },

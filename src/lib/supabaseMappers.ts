@@ -7,6 +7,7 @@ import type {
   Contact,
   Note,
   Project,
+  ProjectDeliverables,
   ProjectLinks,
   ProjectTaskKey,
   ProjectTaskStatus,
@@ -15,6 +16,7 @@ import type {
 } from '@/types'
 import { PROJECT_TASK_KEYS } from '@/types'
 import { createDefaultTasks } from '@/lib/migrate'
+import { normalizeDeliverables } from '@/lib/deliverables'
 import { defaultIntegrations, defaultSettings } from '@/store/seedData'
 
 export type DbImplementation = {
@@ -29,6 +31,7 @@ export type DbImplementation = {
   last_outreach_at: string | null
   contact: Contact
   links: ProjectLinks
+  deliverables: ProjectDeliverables | Record<string, unknown> | null
   archived: boolean
   archived_at: string | null
   created_at: string
@@ -103,7 +106,6 @@ export function tasksFromRows(rows: DbTask[]): ProjectTasks {
       status: row.status,
       blockedReason: row.blocked_reason ?? undefined,
       completedAt: row.completed_at ?? undefined,
-      substeps: row.substeps ?? undefined,
     }
   }
   return tasks
@@ -131,6 +133,7 @@ export function mapImplementation(
       notes: row.contact?.notes,
     },
     links: row.links ?? {},
+    deliverables: normalizeDeliverables(row.deliverables as ProjectDeliverables | null),
     tasks: tasksFromRows(taskRows),
     notes: noteRows
       .slice()
@@ -210,6 +213,7 @@ export function implementationToRow(
     last_outreach_at: project.lastOutreachAt ?? null,
     contact: project.contact,
     links: project.links,
+    deliverables: project.deliverables,
     archived: Boolean(project.archived),
     archived_at: project.archivedAt ?? null,
     created_at: project.createdAt,
