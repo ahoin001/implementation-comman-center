@@ -1,9 +1,11 @@
 import type { AppState, Project, Activity, CalendarEvent, ProjectTaskKey } from '@/types'
 import { createDefaultTasks } from '@/lib/migrate'
 import { createDefaultDeliverables } from '@/lib/deliverables'
+import { createDefaultPathConfig } from '@/lib/pathConfig'
 
 const tasks = createDefaultTasks
 const docs = createDefaultDeliverables
+const path = createDefaultPathConfig
 
 export const seedProjects: Project[] = [
   {
@@ -24,6 +26,16 @@ export const seedProjects: Project[] = [
       ach: { received: true, receivedAt: '2026-06-12' },
       w9: { received: true, receivedAt: '2026-06-12' },
       sso_test_credentials: { received: true, receivedAt: '2026-06-05' },
+    }),
+    pathConfig: path({
+      imageAssets: 'provided',
+      dataAssets: {
+        jobseekers: true,
+        resumes: true,
+        employers: true,
+        transaction_history: false,
+        job_history: true,
+      },
     }),
     waitingOn: 'none',
     outreachCount: 0,
@@ -68,6 +80,7 @@ export const seedProjects: Project[] = [
       ach: { received: true, receivedAt: '2026-06-18' },
       w9: { received: false },
     }),
+    pathConfig: path({ ssoEnabled: false, imageAssets: 'not_providing' }),
     waitingOn: 'scheduling',
     outreachCount: 0,
     contact: { name: 'John Davis', email: 'john@abcassociation.org', timezone: 'America/Chicago' },
@@ -91,6 +104,7 @@ export const seedProjects: Project[] = [
       data_import: { status: 'pending' },
     }),
     deliverables: docs(),
+    pathConfig: path(),
     waitingOn: 'client_assets',
     outreachCount: 0,
     contact: { name: 'Emily Chen', email: 'emily@xyzassociation.org', timezone: 'America/Los_Angeles' },
@@ -108,6 +122,7 @@ export const seedProjects: Project[] = [
       site_design: { status: 'pending' },
     }),
     deliverables: docs(),
+    pathConfig: path(),
     waitingOn: 'none',
     outreachCount: 0,
     contact: { name: 'Dr. Robert Kim', email: 'rkim@healthcaresociety.org', timezone: 'America/New_York' },
@@ -143,6 +158,7 @@ export const seedProjects: Project[] = [
       sso_test_credentials: { received: true, receivedAt: '2026-06-10' },
       custom_categories: { received: true, receivedAt: '2026-06-20' },
     }),
+    pathConfig: path(),
     waitingOn: 'none',
     outreachCount: 0,
     contact: { name: 'Lisa Wong', email: 'lwong@nrf.com', timezone: 'America/New_York' },
@@ -174,6 +190,7 @@ export const seedProjects: Project[] = [
       sso_test_credentials: { received: true, receivedAt: '2026-06-10' },
       custom_categories: { received: true, receivedAt: '2026-07-05' },
     }),
+    pathConfig: path(),
     waitingOn: 'ready',
     outreachCount: 0,
     contact: { name: 'Marcus Johnson', email: 'marcus@techinnovators.org', timezone: 'America/Denver' },
@@ -192,6 +209,7 @@ export const seedProjects: Project[] = [
     launchDate: undefined,
     tasks: tasks(),
     deliverables: docs(),
+    pathConfig: path(),
     waitingOn: 'scheduling',
     outreachCount: 0,
     contact: { name: 'Anna Rodriguez', email: 'anna@edpros.org', timezone: 'America/Chicago' },
@@ -209,6 +227,7 @@ export const seedProjects: Project[] = [
       site_design: { status: 'blocked', blockedReason: 'Waiting on logo files from client' },
     }),
     deliverables: docs(),
+    pathConfig: path(),
     waitingOn: 'client_assets',
     outreachCount: 0,
     contact: { name: 'David Green', email: 'david@greenenergy.org', timezone: 'America/Los_Angeles' },

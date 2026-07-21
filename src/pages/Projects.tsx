@@ -216,7 +216,7 @@ export function ProjectsPage() {
 
         <div className="flex items-center gap-2">
           <span className="shrink-0 text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
-            Launch desk
+            Launch path
           </span>
           <div className="h-px flex-1 bg-[var(--color-border)]" />
         </div>

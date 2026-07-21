@@ -9,6 +9,7 @@ import { ProgressRing } from './ProgressRing'
 import { ProjectAvatar, ProjectTitle } from './ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { RequiredDocsBadge } from '@/components/project/RequiredDocsBadge'
+import { MissingCredentialsBadge } from '@/components/project/MissingCredentialsBadge'
 import { cn } from '@/lib/utils'
 
 interface ProjectCardProps {
@@ -90,6 +91,7 @@ export function ProjectCard({
           <HealthBadge health={health} />
         )}
         <RequiredDocsBadge project={project} />
+        <MissingCredentialsBadge project={project} />
         {project.launchDate && (
           <span className="text-xs text-[var(--color-muted-foreground)]">
             {formatLaunchDate(project.launchDate)}

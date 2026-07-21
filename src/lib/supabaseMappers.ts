@@ -8,6 +8,7 @@ import type {
   Note,
   Project,
   ProjectDeliverables,
+  PathConfig,
   ProjectLinks,
   ProjectTaskKey,
   ProjectTaskStatus,
@@ -17,6 +18,7 @@ import type {
 import { PROJECT_TASK_KEYS } from '@/types'
 import { createDefaultTasks } from '@/lib/migrate'
 import { normalizeDeliverables } from '@/lib/deliverables'
+import { normalizePathConfig } from '@/lib/pathConfig'
 import { defaultIntegrations, defaultSettings } from '@/store/seedData'
 
 export type DbImplementation = {
@@ -32,6 +34,7 @@ export type DbImplementation = {
   contact: Contact
   links: ProjectLinks
   deliverables: ProjectDeliverables | Record<string, unknown> | null
+  path_config: PathConfig | Record<string, unknown> | null
   archived: boolean
   archived_at: string | null
   created_at: string
@@ -134,6 +137,7 @@ export function mapImplementation(
     },
     links: row.links ?? {},
     deliverables: normalizeDeliverables(row.deliverables as ProjectDeliverables | null),
+    pathConfig: normalizePathConfig(row.path_config as PathConfig | null),
     tasks: tasksFromRows(taskRows),
     notes: noteRows
       .slice()
@@ -214,6 +218,7 @@ export function implementationToRow(
     contact: project.contact,
     links: project.links,
     deliverables: project.deliverables,
+    path_config: project.pathConfig,
     archived: Boolean(project.archived),
     archived_at: project.archivedAt ?? null,
     created_at: project.createdAt,

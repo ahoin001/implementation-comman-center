@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
@@ -9,8 +8,8 @@ import { ProgressRing } from '@/components/project/ProgressRing'
 import { ProjectAvatar, ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { RequiredDocsBadge } from '@/components/project/RequiredDocsBadge'
-import { ProjectTaskDesk } from '@/components/project/ProjectTaskDesk'
-import { ProjectPathway } from '@/components/project/ProjectPathway'
+import { MissingCredentialsBadge } from '@/components/project/MissingCredentialsBadge'
+import { ProjectLaunchPath } from '@/components/project/ProjectPathway'
 import { QuickLinks } from '@/components/project/QuickLinks'
 import { ProjectLinksEditor } from '@/components/project/ProjectLinksEditor'
 import { ProjectHeroMeta } from '@/components/project/ProjectHeroMeta'
@@ -18,13 +17,6 @@ import { WaitingOnPanel } from '@/components/project/WaitingOnPanel'
 import { NotesPanel } from '@/components/project/NotesPanel'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { cn } from '@/lib/utils'
-
-type DeskTab = 'desk' | 'pathway'
-
-function tabStorageKey(projectId: string) {
-  return `icc-desk-tab:${projectId}`
-}
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -32,6 +24,9 @@ export function ProjectDetailPage() {
   const project = useStore((s) => s.getProject(id ?? ''))
   const updateProjectTask = useStore((s) => s.updateProjectTask)
   const updateDeliverable = useStore((s) => s.updateDeliverable)
+  const setSsoEnabled = useStore((s) => s.setSsoEnabled)
+  const setImageAssets = useStore((s) => s.setImageAssets)
+  const toggleDataAsset = useStore((s) => s.toggleDataAsset)
   const updateWaitingOn = useStore((s) => s.updateWaitingOn)
   const logOutreach = useStore((s) => s.logOutreach)
   const undoOutreach = useStore((s) => s.undoOutreach)
@@ -43,19 +38,6 @@ export function ProjectDetailPage() {
   const updateProjectLinks = useStore((s) => s.updateProjectLinks)
   const updateProjectContact = useStore((s) => s.updateProjectContact)
   const updateProject = useStore((s) => s.updateProject)
-
-  const [tab, setTab] = useState<DeskTab>('desk')
-
-  useEffect(() => {
-    if (!id) return
-    const saved = sessionStorage.getItem(tabStorageKey(id))
-    if (saved === 'desk' || saved === 'pathway') setTab(saved)
-  }, [id])
-
-  const selectTab = (next: DeskTab) => {
-    setTab(next)
-    if (id) sessionStorage.setItem(tabStorageKey(id), next)
-  }
 
   if (!project) {
     return (
@@ -107,6 +89,7 @@ export function ProjectDetailPage() {
                 <HealthBadge health={health} />
               </motion.div>
               <RequiredDocsBadge project={project} />
+              <MissingCredentialsBadge project={project} />
             </div>
 
             <ProjectHeroMeta
@@ -124,51 +107,16 @@ export function ProjectDetailPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
-          <div
-            role="tablist"
-            className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border)] p-0.5 bg-black/[0.03] dark:bg-white/[0.04]"
-          >
-            {(
-              [
-                { id: 'desk', label: 'Desk' },
-                { id: 'pathway', label: 'Pathway' },
-              ] as const
-            ).map(({ id: tabId, label }) => (
-              <button
-                key={tabId}
-                type="button"
-                role="tab"
-                aria-selected={tab === tabId}
-                onClick={() => selectTab(tabId)}
-                className={cn(
-                  'px-4 py-1.5 text-sm font-medium rounded-[calc(var(--radius-md)-2px)] transition-colors duration-150',
-                  tab === tabId
-                    ? 'bg-[var(--color-card-solid)] text-[var(--color-foreground)] shadow-sm'
-                    : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {tab === 'desk' ? (
-            <ProjectTaskDesk
-              project={project}
-              onUpdateTask={(taskKey, status, blockedReason) =>
-                updateProjectTask(project.id, taskKey, status, blockedReason)
-              }
-              onUpdateDeliverable={(key, patch) => updateDeliverable(project.id, key, patch)}
-            />
-          ) : (
-            <ProjectPathway
-              project={project}
-              onUpdateTask={(taskKey, status, blockedReason) =>
-                updateProjectTask(project.id, taskKey, status, blockedReason)
-              }
-              onUpdateDeliverable={(key, patch) => updateDeliverable(project.id, key, patch)}
-            />
-          )}
+          <ProjectLaunchPath
+            project={project}
+            onUpdateTask={(taskKey, status, blockedReason) =>
+              updateProjectTask(project.id, taskKey, status, blockedReason)
+            }
+            onUpdateDeliverable={(key, patch) => updateDeliverable(project.id, key, patch)}
+            onSetSsoEnabled={(enabled) => setSsoEnabled(project.id, enabled)}
+            onSetImageAssets={(status) => setImageAssets(project.id, status)}
+            onToggleDataAsset={(key, value) => toggleDataAsset(project.id, key, value)}
+          />
 
           <Card>
             <CardHeader>

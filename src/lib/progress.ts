@@ -5,17 +5,36 @@ import {
   PROJECT_TASK_KEYS,
   PROJECT_TASK_LABELS,
 } from '@/types'
+import { isSsoEnabled } from '@/lib/pathConfig'
 
 export function isTaskComplete(status: ProjectTaskStatus): boolean {
   return status === 'done' || status === 'not_needed'
 }
 
-/** All Launch Desk items except Launch itself are Done or N/A */
-export function arePreLaunchTasksComplete(project: Project): boolean {
-  return PRE_LAUNCH_TASK_KEYS.every((key) => {
-    const task = project.tasks[key]
-    return task ? isTaskComplete(task.status) : false
+/** Task keys that count toward launch readiness (SSO skipped when disabled) */
+export function getActiveTaskKeys(project: Project): ProjectTaskKey[] {
+  return PROJECT_TASK_KEYS.filter((key) => {
+    if (key === 'sso' && !isSsoEnabled(project)) return false
+    return true
   })
+}
+
+export function getActivePreLaunchKeys(project: Project): ProjectTaskKey[] {
+  return PRE_LAUNCH_TASK_KEYS.filter((key) => {
+    if (key === 'sso' && !isSsoEnabled(project)) return false
+    return true
+  })
+}
+
+function isTaskEffectivelyComplete(project: Project, key: ProjectTaskKey): boolean {
+  if (key === 'sso' && !isSsoEnabled(project)) return true
+  const task = project.tasks[key]
+  return task ? isTaskComplete(task.status) : false
+}
+
+/** All Launch Path items except Launch itself are Done or N/A (SSO ignored when off) */
+export function arePreLaunchTasksComplete(project: Project): boolean {
+  return getActivePreLaunchKeys(project).every((key) => isTaskEffectivelyComplete(project, key))
 }
 
 /** Launch can only be marked Done once every other task is Done or N/A */
@@ -24,11 +43,10 @@ export function canCompleteLaunch(project: Project): boolean {
 }
 
 export function calculateProgress(project: Project): number {
-  const complete = PROJECT_TASK_KEYS.filter((k) => {
-    const task = project.tasks[k]
-    return task ? isTaskComplete(task.status) : false
-  }).length
-  return Math.round((complete / PROJECT_TASK_KEYS.length) * 100)
+  const keys = getActiveTaskKeys(project)
+  if (keys.length === 0) return 0
+  const complete = keys.filter((k) => isTaskEffectivelyComplete(project, k)).length
+  return Math.round((complete / keys.length) * 100)
 }
 
 export function getLaunchReadinessLabel(project: Project): string {
@@ -42,7 +60,7 @@ export function getLaunchReadinessLabel(project: Project): string {
 
 export function getTaskCounts(project: Project) {
   const counts = { pending: 0, done: 0, not_needed: 0, blocked: 0 }
-  for (const key of PROJECT_TASK_KEYS) {
+  for (const key of getActiveTaskKeys(project)) {
     const task = project.tasks[key]
     if (task) counts[task.status]++
   }
@@ -56,7 +74,8 @@ export function getPrimaryOpenTask(project: Project): {
   status: ProjectTaskStatus
   blockedReason?: string
 } | null {
-  const blocked = PROJECT_TASK_KEYS.find((k) => project.tasks[k]?.status === 'blocked')
+  const keys = getActiveTaskKeys(project)
+  const blocked = keys.find((k) => project.tasks[k]?.status === 'blocked')
   if (blocked) {
     return {
       key: blocked,
@@ -66,7 +85,7 @@ export function getPrimaryOpenTask(project: Project): {
     }
   }
 
-  const pending = PROJECT_TASK_KEYS.find((k) => project.tasks[k]?.status === 'pending')
+  const pending = keys.find((k) => project.tasks[k]?.status === 'pending')
   if (pending) {
     return { key: pending, label: PROJECT_TASK_LABELS[pending], status: 'pending' }
   }

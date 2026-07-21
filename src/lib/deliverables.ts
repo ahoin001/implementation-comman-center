@@ -4,6 +4,7 @@ import {
   DELIVERABLE_LABELS,
   REQUIRED_DOC_KEYS,
 } from '@/types'
+import { isSsoEnabled } from '@/lib/pathConfig'
 
 export function createDefaultDeliverables(
   overrides: Partial<ProjectDeliverables> = {}
@@ -52,9 +53,18 @@ export function getMissingRequiredDocs(project: Project): string[] {
   )
 }
 
+/** Relevant deliverables for progress (exclude SSO creds when SSO off) */
+export function getActiveDeliverableKeys(project: Project): DeliverableKey[] {
+  return DELIVERABLE_KEYS.filter((key) => {
+    if (key === 'sso_test_credentials' && !isSsoEnabled(project)) return false
+    return true
+  })
+}
+
 export function getDeliverableProgress(project: Project): { received: number; total: number } {
-  const received = DELIVERABLE_KEYS.filter((key) => isDeliverableReceived(project, key)).length
-  return { received, total: DELIVERABLE_KEYS.length }
+  const keys = getActiveDeliverableKeys(project)
+  const received = keys.filter((key) => isDeliverableReceived(project, key)).length
+  return { received, total: keys.length }
 }
 
 export function applyDeliverablePatch(

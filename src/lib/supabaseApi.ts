@@ -7,6 +7,7 @@ import type {
   Note,
   Project,
   ProjectDeliverables,
+  PathConfig,
   ProjectLinks,
   ProjectTaskKey,
   ProjectTaskStatus,
@@ -17,6 +18,7 @@ import { generateId } from '@/lib/utils'
 import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
 import { createDefaultTasks } from '@/lib/migrate'
 import { createDefaultDeliverables } from '@/lib/deliverables'
+import { createDefaultPathConfig } from '@/lib/pathConfig'
 import { icc, isSupabaseConfigured, SOLO_USER_ID, supabase } from '@/lib/supabase'
 import {
   type DbActivity,
@@ -109,6 +111,7 @@ export async function insertImplementation(input: {
     launchDate: input.launchDate,
     tasks: createDefaultTasks(),
     deliverables: createDefaultDeliverables(),
+    pathConfig: createDefaultPathConfig(),
     waitingOn: 'none',
     outreachCount: 0,
     contact: { name: input.contactName ?? '', email: input.contactEmail ?? '' },
@@ -164,6 +167,7 @@ export async function patchImplementation(
     contact: Contact
     links: ProjectLinks
     deliverables: ProjectDeliverables
+    pathConfig: PathConfig
     archived: boolean
     archivedAt: string | undefined
   }>
@@ -186,6 +190,7 @@ export async function patchImplementation(
   if (updates.contact !== undefined) row.contact = updates.contact
   if (updates.links !== undefined) row.links = updates.links
   if (updates.deliverables !== undefined) row.deliverables = updates.deliverables
+  if (updates.pathConfig !== undefined) row.path_config = updates.pathConfig
   if (updates.archived !== undefined) row.archived = updates.archived
   if (updates.archivedAt !== undefined) row.archived_at = updates.archivedAt ?? null
 

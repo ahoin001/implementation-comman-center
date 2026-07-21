@@ -3,6 +3,7 @@ import type { Project, ProjectFilter, ProjectTaskKey } from '@/types'
 import { PROJECT_TASK_KEYS, PROJECT_TASK_LABELS } from '@/types'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
 import { isRequiredDocsComplete } from '@/lib/deliverables'
+import { isSsoEnabled, needsSsoCredentials } from '@/lib/pathConfig'
 import {
   getPrimaryOpenTask,
   isProjectLaunchComplete,
@@ -53,6 +54,8 @@ export function filterProjects(projects: Project[], filter: ProjectFilter): Proj
       return projects.filter((p) => !p.launchDate)
     case 'missing_required_docs':
       return projects.filter((p) => !isRequiredDocsComplete(p) && calculateHealth(p) !== 'complete')
+    case 'missing_sso_credentials':
+      return projects.filter((p) => needsSsoCredentials(p) && calculateHealth(p) !== 'complete')
     case 'needs_site_design':
       return projects.filter((p) => taskNeedsWork(p, 'site_design'))
     case 'needs_kickoff_call':
@@ -62,7 +65,7 @@ export function filterProjects(projects: Project[], filter: ProjectFilter): Proj
     case 'needs_data_import':
       return projects.filter((p) => taskNeedsWork(p, 'data_import'))
     case 'needs_sso':
-      return projects.filter((p) => taskNeedsWork(p, 'sso'))
+      return projects.filter((p) => isSsoEnabled(p) && taskNeedsWork(p, 'sso'))
     case 'needs_smartway_training':
       return projects.filter((p) => taskNeedsWork(p, 'smartway_training'))
     case 'needs_schedule':

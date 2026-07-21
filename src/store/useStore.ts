@@ -13,6 +13,9 @@ import type {
   ProjectTaskStatus,
   DeliverableKey,
   DeliverableItem,
+  PathConfig,
+  DataAssetKey,
+  ImageAssetsStatus,
 } from '@/types'
 import { DELIVERABLE_LABELS, PROJECT_TASK_LABELS } from '@/types'
 import { defaultIntegrations, defaultSettings } from './seedData'
@@ -20,6 +23,7 @@ import { generateId } from '@/lib/utils'
 import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
 import { createDefaultTasks } from '@/lib/migrate'
 import { applyDeliverablePatch, createDefaultDeliverables } from '@/lib/deliverables'
+import { createDefaultPathConfig, normalizePathConfig } from '@/lib/pathConfig'
 import { canCompleteLaunch } from '@/lib/progress'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import * as api from '@/lib/supabaseApi'
@@ -51,6 +55,10 @@ interface StoreState {
   addActivity: (activity: Omit<Activity, 'id' | 'createdAt'>) => void
   updateProjectTask: (projectId: string, taskKey: ProjectTaskKey, status: ProjectTaskStatus, blockedReason?: string) => void
   updateDeliverable: (projectId: string, key: DeliverableKey, patch: Partial<DeliverableItem>) => void
+  updatePathConfig: (projectId: string, patch: Partial<PathConfig>) => void
+  setSsoEnabled: (projectId: string, enabled: boolean) => void
+  setImageAssets: (projectId: string, status: ImageAssetsStatus) => void
+  toggleDataAsset: (projectId: string, key: DataAssetKey, value: boolean) => void
   updateWaitingOn: (projectId: string, waitingOn: WaitingOn) => void
   logOutreach: (projectId: string) => void
   undoOutreach: (projectId: string) => void
@@ -161,6 +169,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         contact: updates.contact,
         links: updates.links,
         deliverables: updates.deliverables,
+        pathConfig: updates.pathConfig,
         archived: updates.archived,
         archivedAt: updates.archivedAt,
       })
@@ -331,6 +340,43 @@ export const useStore = create<StoreState>()((set, get) => ({
     }
   },
 
+  updatePathConfig: (projectId, patch) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    const pathConfig = normalizePathConfig({ ...project.pathConfig, ...patch })
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? { ...p, pathConfig, updatedAt: new Date().toISOString() }
+          : p
+      ),
+    }))
+    void api.patchImplementation(projectId, { pathConfig }).catch(logSyncError)
+  },
+
+  setSsoEnabled: (projectId, enabled) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    get().updatePathConfig(projectId, { ssoEnabled: enabled })
+    if (!enabled) {
+      get().updateProjectTask(projectId, 'sso', 'not_needed')
+    } else if (project.tasks.sso?.status === 'not_needed') {
+      get().updateProjectTask(projectId, 'sso', 'pending')
+    }
+  },
+
+  setImageAssets: (projectId, status) => {
+    get().updatePathConfig(projectId, { imageAssets: status })
+  },
+
+  toggleDataAsset: (projectId, key, value) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    get().updatePathConfig(projectId, {
+      dataAssets: { ...project.pathConfig.dataAssets, [key]: value },
+    })
+  },
+
   updateWaitingOn: (projectId, waitingOn) => get().updateProject(projectId, { waitingOn }),
 
   logOutreach: (projectId) => {
@@ -385,6 +431,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       launchDate: data.launchDate,
       tasks: createDefaultTasks(),
       deliverables: createDefaultDeliverables(),
+      pathConfig: createDefaultPathConfig(),
       waitingOn: 'none',
       outreachCount: 0,
       contact: {

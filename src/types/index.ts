@@ -20,7 +20,7 @@ export interface ProjectTask {
   completedAt?: string
 }
 
-/** Client / ops deliverables tracked alongside Launch Desk */
+/** Client / ops deliverables tracked alongside Launch Path */
 export type DeliverableKey =
   | 'ach'
   | 'w9'
@@ -52,7 +52,41 @@ export const DELIVERABLE_LABELS: Record<DeliverableKey, string> = {
   custom_categories: 'Custom Categories',
 }
 
-/** Which Launch Desk steps show which deliverables inline */
+/** Optional client image assets for Site Design */
+export type ImageAssetsStatus = 'pending' | 'provided' | 'not_providing'
+
+export type DataAssetKey =
+  | 'jobseekers'
+  | 'resumes'
+  | 'employers'
+  | 'transaction_history'
+  | 'job_history'
+
+export const DATA_ASSET_KEYS: DataAssetKey[] = [
+  'jobseekers',
+  'resumes',
+  'employers',
+  'transaction_history',
+  'job_history',
+]
+
+export const DATA_ASSET_LABELS: Record<DataAssetKey, string> = {
+  jobseekers: 'Jobseekers',
+  resumes: 'Resumes',
+  employers: 'Employers',
+  transaction_history: 'Transaction History',
+  job_history: 'Job History',
+}
+
+/** Path-level options (SSO on/off, images, import inventory) */
+export interface PathConfig {
+  ssoEnabled: boolean
+  /** Optional — some associations provide images, some do not */
+  imageAssets: ImageAssetsStatus
+  /** Inventory of data types the association has (none required) */
+  dataAssets: Record<DataAssetKey, boolean>
+}
+
 export const TASK_DELIVERABLE_KEYS: Partial<Record<ProjectTaskKey, DeliverableKey[]>> = {
   kickoff_call: ['ach', 'w9'],
   sso: ['sso_test_credentials'],
@@ -210,6 +244,7 @@ export interface Project {
   launchDate?: string
   tasks: ProjectTasks
   deliverables: ProjectDeliverables
+  pathConfig: PathConfig
   waitingOn: WaitingOn
   /** Times you've reached out while waiting on the client */
   outreachCount: number
@@ -292,6 +327,7 @@ export type ProjectFilter =
   | 'completed'
   | 'no_launch_date'
   | 'missing_required_docs'
+  | 'missing_sso_credentials'
   | 'needs_site_design'
   | 'needs_kickoff_call'
   | 'needs_follow_up_email'
@@ -307,12 +343,13 @@ export const STATUS_FILTERS: ProjectFilter[] = [
   'needs_attention',
   'waiting_on_client',
   'missing_required_docs',
+  'missing_sso_credentials',
   'completed',
   'no_launch_date',
 ]
 
 /**
- * Compact Launch Desk task filters (excludes job backfill).
+ * Compact Launch Path task filters (excludes job backfill).
  * `needs_schedule` = kickoff or SmartWay training still open.
  */
 export const TASK_FILTERS: ProjectFilter[] = [
@@ -331,6 +368,7 @@ export const FILTER_LABELS: Record<ProjectFilter, string> = {
   needs_attention: 'Needs Attention',
   waiting_on_client: 'Waiting on Client',
   missing_required_docs: 'Missing Docs',
+  missing_sso_credentials: 'Missing SSO Creds',
   completed: 'Completed',
   no_launch_date: 'No Launch Date',
   needs_site_design: 'Site Design',
