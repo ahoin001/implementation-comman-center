@@ -6,6 +6,8 @@ import type {
   CalendarEventType,
   Contact,
   Note,
+  NoteSeverity,
+  MemberFeatureDefinition,
   Project,
   ProjectDeliverables,
   PathConfig,
@@ -15,10 +17,11 @@ import type {
   ProjectTasks,
   WaitingOn,
 } from '@/types'
-import { PROJECT_TASK_KEYS } from '@/types'
+import { NOTE_SEVERITIES, PROJECT_TASK_KEYS } from '@/types'
 import { createDefaultTasks } from '@/lib/migrate'
 import { normalizeDeliverables } from '@/lib/deliverables'
 import { normalizePathConfig } from '@/lib/pathConfig'
+import { normalizeMemberFeatures } from '@/lib/memberFeatures'
 import { defaultIntegrations, defaultSettings } from '@/store/seedData'
 
 export type DbImplementation = {
@@ -35,10 +38,19 @@ export type DbImplementation = {
   links: ProjectLinks
   deliverables: ProjectDeliverables | Record<string, unknown> | null
   path_config: PathConfig | Record<string, unknown> | null
+  member_features: Record<string, boolean> | null
   archived: boolean
   archived_at: string | null
   created_at: string
   updated_at: string
+}
+
+export type DbMemberFeatureDefinition = {
+  id: string
+  user_id: string
+  label: string
+  sort_order: number
+  created_at: string
 }
 
 export type DbTask = {
@@ -61,6 +73,7 @@ export type DbNote = {
   content: string
   pinned: boolean
   is_meeting_summary: boolean
+  severity: string | null
   created_at: string
 }
 
@@ -138,6 +151,7 @@ export function mapImplementation(
     links: row.links ?? {},
     deliverables: normalizeDeliverables(row.deliverables as ProjectDeliverables | null),
     pathConfig: normalizePathConfig(row.path_config as PathConfig | null),
+    memberFeatures: normalizeMemberFeatures(row.member_features),
     tasks: tasksFromRows(taskRows),
     notes: noteRows
       .slice()
@@ -150,6 +164,11 @@ export function mapImplementation(
   }
 }
 
+function normalizeNoteSeverity(raw: string | null | undefined): NoteSeverity {
+  if (raw && (NOTE_SEVERITIES as string[]).includes(raw)) return raw as NoteSeverity
+  return 'info'
+}
+
 export function mapNote(row: DbNote): Note {
   return {
     id: row.id,
@@ -157,6 +176,16 @@ export function mapNote(row: DbNote): Note {
     createdAt: row.created_at,
     pinned: row.pinned,
     isMeetingSummary: row.is_meeting_summary,
+    severity: normalizeNoteSeverity(row.severity),
+  }
+}
+
+export function mapMemberFeatureDefinition(row: DbMemberFeatureDefinition): MemberFeatureDefinition {
+  return {
+    id: row.id,
+    label: row.label,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
   }
 }
 
@@ -219,6 +248,7 @@ export function implementationToRow(
     links: project.links,
     deliverables: project.deliverables,
     path_config: project.pathConfig,
+    member_features: project.memberFeatures ?? {},
     archived: Boolean(project.archived),
     archived_at: project.archivedAt ?? null,
     created_at: project.createdAt,

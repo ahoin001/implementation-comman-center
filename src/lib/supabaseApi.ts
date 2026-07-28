@@ -5,6 +5,8 @@ import type {
   CalendarEventType,
   Contact,
   Note,
+  NoteSeverity,
+  MemberFeatureDefinition,
   Project,
   ProjectDeliverables,
   PathConfig,
@@ -24,6 +26,7 @@ import {
   type DbActivity,
   type DbCalendarEvent,
   type DbImplementation,
+  type DbMemberFeatureDefinition,
   type DbNote,
   type DbTask,
   type DbUserSettings,
@@ -31,6 +34,7 @@ import {
   mapActivity,
   mapCalendarEvent,
   mapImplementation,
+  mapMemberFeatureDefinition,
   mapSettings,
 } from '@/lib/supabaseMappers'
 
@@ -44,19 +48,26 @@ export async function fetchAllData(): Promise<{
   activities: Activity[]
   calendarEvents: CalendarEvent[]
   settings: AppSettings
+  memberFeatureDefinitions: MemberFeatureDefinition[]
 }> {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase is not configured')
   }
 
-  const [implRes, taskRes, noteRes, eventRes, activityRes, settingsRes] = await Promise.all([
-    icc().from('implementations').select('*').order('updated_at', { ascending: false }),
-    icc().from('implementation_tasks').select('*'),
-    icc().from('notes').select('*').order('created_at', { ascending: false }),
-    icc().from('calendar_events').select('*').order('event_date', { ascending: true }),
-    icc().from('activities').select('*').order('created_at', { ascending: false }).limit(50),
-    icc().from('user_settings').select('*').eq('user_id', SOLO_USER_ID).maybeSingle(),
-  ])
+  const [implRes, taskRes, noteRes, eventRes, activityRes, settingsRes, featureRes] =
+    await Promise.all([
+      icc().from('implementations').select('*').order('updated_at', { ascending: false }),
+      icc().from('implementation_tasks').select('*'),
+      icc().from('notes').select('*').order('created_at', { ascending: false }),
+      icc().from('calendar_events').select('*').order('event_date', { ascending: true }),
+      icc().from('activities').select('*').order('created_at', { ascending: false }).limit(50),
+      icc().from('user_settings').select('*').eq('user_id', SOLO_USER_ID).maybeSingle(),
+      icc()
+        .from('member_feature_definitions')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true }),
+    ])
 
   if (implRes.error) throw new Error(`implementations: ${implRes.error.message}`)
   if (taskRes.error) throw new Error(`tasks: ${taskRes.error.message}`)
@@ -64,12 +75,14 @@ export async function fetchAllData(): Promise<{
   if (eventRes.error) throw new Error(`events: ${eventRes.error.message}`)
   if (activityRes.error) throw new Error(`activities: ${activityRes.error.message}`)
   if (settingsRes.error) throw new Error(`settings: ${settingsRes.error.message}`)
+  if (featureRes.error) throw new Error(`member features: ${featureRes.error.message}`)
 
   const implementations = (implRes.data ?? []) as DbImplementation[]
   const tasks = (taskRes.data ?? []) as DbTask[]
   const notes = (noteRes.data ?? []) as DbNote[]
   const events = (eventRes.data ?? []) as DbCalendarEvent[]
   const activities = (activityRes.data ?? []) as DbActivity[]
+  const featureDefs = (featureRes.data ?? []) as DbMemberFeatureDefinition[]
 
   const projects = implementations.map((impl) =>
     mapImplementation(
@@ -91,6 +104,7 @@ export async function fetchAllData(): Promise<{
     activities: activities.map(mapActivity),
     calendarEvents: events.map(mapCalendarEvent),
     settings,
+    memberFeatureDefinitions: featureDefs.map(mapMemberFeatureDefinition),
   }
 }
 
@@ -112,6 +126,7 @@ export async function insertImplementation(input: {
     tasks: createDefaultTasks(),
     deliverables: createDefaultDeliverables(),
     pathConfig: createDefaultPathConfig(),
+    memberFeatures: {},
     waitingOn: 'none',
     outreachCount: 0,
     contact: { name: input.contactName ?? '', email: input.contactEmail ?? '' },
@@ -168,6 +183,7 @@ export async function patchImplementation(
     links: ProjectLinks
     deliverables: ProjectDeliverables
     pathConfig: PathConfig
+    memberFeatures: Record<string, boolean>
     archived: boolean
     archivedAt: string | undefined
   }>
@@ -191,6 +207,7 @@ export async function patchImplementation(
   if (updates.links !== undefined) row.links = updates.links
   if (updates.deliverables !== undefined) row.deliverables = updates.deliverables
   if (updates.pathConfig !== undefined) row.path_config = updates.pathConfig
+  if (updates.memberFeatures !== undefined) row.member_features = updates.memberFeatures
   if (updates.archived !== undefined) row.archived = updates.archived
   if (updates.archivedAt !== undefined) row.archived_at = updates.archivedAt ?? null
 
@@ -229,9 +246,10 @@ export async function upsertTask(
 export async function insertNote(
   implementationId: string,
   content: string,
-  options?: { pinned?: boolean; isMeetingSummary?: boolean }
+  options?: { pinned?: boolean; isMeetingSummary?: boolean; severity?: NoteSeverity }
 ): Promise<Note> {
   const id = generateId()
+  const severity = options?.severity ?? 'info'
   const row = {
     id,
     user_id: SOLO_USER_ID,
@@ -239,6 +257,7 @@ export async function insertNote(
     content,
     pinned: options?.pinned ?? false,
     is_meeting_summary: options?.isMeetingSummary ?? false,
+    severity,
   }
   const { data, error } = await icc().from('notes').insert(row).select('*').single()
   assertOk(error, data, 'add note')
@@ -248,16 +267,18 @@ export async function insertNote(
     createdAt: data.created_at,
     pinned: data.pinned,
     isMeetingSummary: data.is_meeting_summary,
+    severity: (data.severity as NoteSeverity) || 'info',
   }
 }
 
 export async function updateNote(
   noteId: string,
-  updates: Partial<{ content: string; pinned: boolean }>
+  updates: Partial<{ content: string; pinned: boolean; severity: NoteSeverity }>
 ): Promise<void> {
   const row: Record<string, unknown> = {}
   if (updates.content !== undefined) row.content = updates.content
   if (updates.pinned !== undefined) row.pinned = updates.pinned
+  if (updates.severity !== undefined) row.severity = updates.severity
   if (Object.keys(row).length === 0) return
   const { error } = await icc().from('notes').update(row).eq('id', noteId)
   if (error) throw new Error(`update note: ${error.message}`)
@@ -266,6 +287,37 @@ export async function updateNote(
 export async function deleteNote(noteId: string): Promise<void> {
   const { error } = await icc().from('notes').delete().eq('id', noteId)
   if (error) throw new Error(`delete note: ${error.message}`)
+}
+
+export async function insertMemberFeatureDefinition(label: string): Promise<MemberFeatureDefinition> {
+  const trimmed = label.trim()
+  if (!trimmed) throw new Error('Feature label is required')
+
+  const { data: existing } = await icc()
+    .from('member_feature_definitions')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+
+  const nextOrder = ((existing?.[0] as { sort_order?: number } | undefined)?.sort_order ?? -1) + 1
+  const id = generateId()
+  const { data, error } = await icc()
+    .from('member_feature_definitions')
+    .insert({
+      id,
+      user_id: SOLO_USER_ID,
+      label: trimmed,
+      sort_order: nextOrder,
+    })
+    .select('*')
+    .single()
+  assertOk(error, data, 'add member feature')
+  return mapMemberFeatureDefinition(data as DbMemberFeatureDefinition)
+}
+
+export async function deleteMemberFeatureDefinition(id: string): Promise<void> {
+  const { error } = await icc().from('member_feature_definitions').delete().eq('id', id)
+  if (error) throw new Error(`delete member feature: ${error.message}`)
 }
 
 export async function insertActivity(input: {
@@ -378,6 +430,7 @@ export function subscribeRealtime(handlers: {
     .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'calendar_events' }, handlers.onChange)
     .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'activities' }, handlers.onChange)
     .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'user_settings' }, handlers.onChange)
+    .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'member_feature_definitions' }, handlers.onChange)
     .subscribe()
 
   return () => {

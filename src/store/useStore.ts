@@ -16,6 +16,8 @@ import type {
   PathConfig,
   DataAssetKey,
   ImageAssetsStatus,
+  NoteSeverity,
+  MemberFeatureDefinition,
 } from '@/types'
 import { DELIVERABLE_LABELS, PROJECT_TASK_LABELS } from '@/types'
 import { defaultIntegrations, defaultSettings } from './seedData'
@@ -24,6 +26,7 @@ import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
 import { createDefaultTasks } from '@/lib/migrate'
 import { applyDeliverablePatch, createDefaultDeliverables } from '@/lib/deliverables'
 import { createDefaultPathConfig, normalizePathConfig } from '@/lib/pathConfig'
+import { normalizeMemberFeatures } from '@/lib/memberFeatures'
 import { canCompleteLaunch } from '@/lib/progress'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import * as api from '@/lib/supabaseApi'
@@ -33,6 +36,7 @@ interface StoreState {
   activities: Activity[]
   calendarEvents: CalendarEvent[]
   settings: AppSettings
+  memberFeatureDefinitions: MemberFeatureDefinition[]
   searchQuery: string
   activeFilter: ProjectFilter
   hydrated: boolean
@@ -48,10 +52,19 @@ interface StoreState {
   getProject: (id: string) => Project | undefined
   updateProject: (id: string, updates: Partial<Project>) => void
   archiveProject: (id: string) => void
-  addNote: (projectId: string, content: string, options?: { pinned?: boolean; isMeetingSummary?: boolean }) => void
-  updateNote: (projectId: string, noteId: string, content: string) => void
+  addNote: (
+    projectId: string,
+    content: string,
+    options?: { pinned?: boolean; isMeetingSummary?: boolean; severity?: NoteSeverity }
+  ) => void
+  updateNote: (
+    projectId: string,
+    noteId: string,
+    updates: Partial<{ content: string; severity: NoteSeverity }>
+  ) => void
   deleteNote: (projectId: string, noteId: string) => void
   toggleNotePin: (projectId: string, noteId: string) => void
+  setNoteSeverity: (projectId: string, noteId: string, severity: NoteSeverity) => void
   addActivity: (activity: Omit<Activity, 'id' | 'createdAt'>) => void
   updateProjectTask: (projectId: string, taskKey: ProjectTaskKey, status: ProjectTaskStatus, blockedReason?: string) => void
   updateDeliverable: (projectId: string, key: DeliverableKey, patch: Partial<DeliverableItem>) => void
@@ -59,6 +72,9 @@ interface StoreState {
   setSsoEnabled: (projectId: string, enabled: boolean) => void
   setImageAssets: (projectId: string, status: ImageAssetsStatus) => void
   toggleDataAsset: (projectId: string, key: DataAssetKey, value: boolean) => void
+  toggleMemberFeature: (projectId: string, featureId: string, enabled: boolean) => void
+  addMemberFeatureDefinition: (label: string) => void
+  deleteMemberFeatureDefinition: (id: string) => void
   updateWaitingOn: (projectId: string, waitingOn: WaitingOn) => void
   logOutreach: (projectId: string) => void
   undoOutreach: (projectId: string) => void
@@ -85,6 +101,7 @@ export const useStore = create<StoreState>()((set, get) => ({
   activities: [],
   calendarEvents: [],
   settings: { ...defaultSettings, integrations: { ...defaultIntegrations } },
+  memberFeatureDefinitions: [],
   searchQuery: '',
   activeFilter: 'all',
   hydrated: false,
@@ -107,6 +124,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         activities: data.activities,
         calendarEvents: data.calendarEvents,
         settings: data.settings,
+        memberFeatureDefinitions: data.memberFeatureDefinitions,
         hydrated: true,
         syncing: false,
         syncError: null,
@@ -127,6 +145,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         activities: data.activities,
         calendarEvents: data.calendarEvents,
         settings: data.settings,
+        memberFeatureDefinitions: data.memberFeatureDefinitions,
         syncError: null,
       })
     } catch (err) {
@@ -170,6 +189,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         links: updates.links,
         deliverables: updates.deliverables,
         pathConfig: updates.pathConfig,
+        memberFeatures: updates.memberFeatures,
         archived: updates.archived,
         archivedAt: updates.archivedAt,
       })
@@ -192,6 +212,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       id: tempId,
       content,
       createdAt: new Date().toISOString(),
+      severity: options?.severity ?? ('info' as NoteSeverity),
       ...options,
     }
     set((state) => ({
@@ -218,19 +239,19 @@ export const useStore = create<StoreState>()((set, get) => ({
       .catch(logSyncError)
   },
 
-  updateNote: (projectId, noteId, content) => {
+  updateNote: (projectId, noteId, updates) => {
     set((state) => ({
       projects: state.projects.map((p) =>
         p.id === projectId
           ? {
               ...p,
-              notes: p.notes.map((n) => (n.id === noteId ? { ...n, content } : n)),
+              notes: p.notes.map((n) => (n.id === noteId ? { ...n, ...updates } : n)),
               updatedAt: new Date().toISOString(),
             }
           : p
       ),
     }))
-    void api.updateNote(noteId, { content }).catch(logSyncError)
+    void api.updateNote(noteId, updates).catch(logSyncError)
   },
 
   deleteNote: (projectId, noteId) => {
@@ -265,6 +286,10 @@ export const useStore = create<StoreState>()((set, get) => ({
       ),
     }))
     void api.updateNote(noteId, { pinned }).catch(logSyncError)
+  },
+
+  setNoteSeverity: (projectId, noteId, severity) => {
+    get().updateNote(projectId, noteId, { severity })
   },
 
   addActivity: (activity) => {
@@ -377,6 +402,65 @@ export const useStore = create<StoreState>()((set, get) => ({
     })
   },
 
+  toggleMemberFeature: (projectId, featureId, enabled) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    const memberFeatures = { ...normalizeMemberFeatures(project.memberFeatures) }
+    if (enabled) memberFeatures[featureId] = true
+    else delete memberFeatures[featureId]
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? { ...p, memberFeatures, updatedAt: new Date().toISOString() }
+          : p
+      ),
+    }))
+    void api.patchImplementation(projectId, { memberFeatures }).catch(logSyncError)
+  },
+
+  addMemberFeatureDefinition: (label) => {
+    const trimmed = label.trim()
+    if (!trimmed) return
+    const tempId = generateId()
+    const temp: MemberFeatureDefinition = {
+      id: tempId,
+      label: trimmed,
+      sortOrder: (get().memberFeatureDefinitions.at(-1)?.sortOrder ?? -1) + 1,
+      createdAt: new Date().toISOString(),
+    }
+    set((state) => ({
+      memberFeatureDefinitions: [...state.memberFeatureDefinitions, temp],
+    }))
+    void api
+      .insertMemberFeatureDefinition(trimmed)
+      .then((saved) => {
+        set((state) => ({
+          memberFeatureDefinitions: state.memberFeatureDefinitions.map((d) =>
+            d.id === tempId ? saved : d
+          ),
+        }))
+      })
+      .catch((err) => {
+        logSyncError(err)
+        set((state) => ({
+          memberFeatureDefinitions: state.memberFeatureDefinitions.filter((d) => d.id !== tempId),
+        }))
+      })
+  },
+
+  deleteMemberFeatureDefinition: (id) => {
+    set((state) => ({
+      memberFeatureDefinitions: state.memberFeatureDefinitions.filter((d) => d.id !== id),
+      projects: state.projects.map((p) => {
+        if (!p.memberFeatures?.[id]) return p
+        const memberFeatures = { ...p.memberFeatures }
+        delete memberFeatures[id]
+        return { ...p, memberFeatures }
+      }),
+    }))
+    void api.deleteMemberFeatureDefinition(id).catch(logSyncError)
+  },
+
   updateWaitingOn: (projectId, waitingOn) => get().updateProject(projectId, { waitingOn }),
 
   logOutreach: (projectId) => {
@@ -432,6 +516,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       tasks: createDefaultTasks(),
       deliverables: createDefaultDeliverables(),
       pathConfig: createDefaultPathConfig(),
+      memberFeatures: {},
       waitingOn: 'none',
       outreachCount: 0,
       contact: {

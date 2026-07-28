@@ -5,9 +5,11 @@ import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
 import { ProjectCard } from '@/components/project/ProjectCard'
 import { NewProjectButton } from '@/components/project/NewProjectButton'
 import { BulkAddProjectsModal } from '@/components/project/BulkAddProjectsModal'
+import { ProjectsStickyBoard } from '@/components/project/ProjectsStickyBoard'
+import { AttentionStrip } from '@/components/project/AttentionStrip'
 import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
-import { useFilteredProjects } from '@/hooks/useProjects'
+import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
 import { cn } from '@/lib/utils'
 
 function FilterChip({
@@ -45,9 +47,11 @@ export function ProjectsPage() {
   const activeFilter = useStore((s) => s.activeFilter)
   const setActiveFilter = useStore((s) => s.setActiveFilter)
   const deleteProjects = useStore((s) => s.deleteProjects)
+  const addNote = useStore((s) => s.addNote)
 
   const [inProgressFirst, setInProgressFirst] = useState(true)
   const projects = useFilteredProjects({ inProgressFirst })
+  const activeProjects = useActiveProjects()
 
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -243,27 +247,43 @@ export function ProjectsPage() {
         </div>
       </div>
 
+      {!selectMode && (
+        <>
+          <AttentionStrip
+            projects={activeProjects}
+            activeFilter={activeFilter}
+            onSelectFilter={handleSelectFilter}
+          />
+          <ProjectsStickyBoard
+            projects={projects}
+            onAddSticky={(projectId, content, severity) =>
+              addNote(projectId, content, { pinned: true, severity })
+            }
+          />
+        </>
+      )}
+
       {projects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                selectable={selectMode}
-                selected={selectedIds.has(project.id)}
-                onToggleSelect={() => toggleSelect(project.id)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="glass rounded-[var(--radius-lg)] p-12 text-center">
-            <p className="text-[var(--color-muted-foreground)] mb-4">No projects match this filter.</p>
-            <Button variant="secondary" onClick={() => setBulkAddOpen(true)}>
-              <ListPlus className="h-4 w-4" />
-              Bulk Add Projects
-            </Button>
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {projects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              selectable={selectMode}
+              selected={selectedIds.has(project.id)}
+              onToggleSelect={() => toggleSelect(project.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="glass rounded-[var(--radius-lg)] p-12 text-center">
+          <p className="text-[var(--color-muted-foreground)] mb-4">No projects match this filter.</p>
+          <Button variant="secondary" onClick={() => setBulkAddOpen(true)}>
+            <ListPlus className="h-4 w-4" />
+            Bulk Add Projects
+          </Button>
+        </div>
+      )}
 
       <BulkAddProjectsModal open={bulkAddOpen} onClose={() => setBulkAddOpen(false)} />
     </div>

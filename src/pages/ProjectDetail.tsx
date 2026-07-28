@@ -10,6 +10,7 @@ import { HealthBadge } from '@/components/ui/HealthBadge'
 import { RequiredDocsBadge } from '@/components/project/RequiredDocsBadge'
 import { MissingCredentialsBadge } from '@/components/project/MissingCredentialsBadge'
 import { ProjectLaunchPath } from '@/components/project/ProjectPathway'
+import { MemberFeaturesPanel } from '@/components/project/MemberFeaturesPanel'
 import { QuickLinks } from '@/components/project/QuickLinks'
 import { ProjectLinksEditor } from '@/components/project/ProjectLinksEditor'
 import { ProjectHeroMeta } from '@/components/project/ProjectHeroMeta'
@@ -22,11 +23,15 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const project = useStore((s) => s.getProject(id ?? ''))
+  const memberFeatureDefinitions = useStore((s) => s.memberFeatureDefinitions)
   const updateProjectTask = useStore((s) => s.updateProjectTask)
   const updateDeliverable = useStore((s) => s.updateDeliverable)
   const setSsoEnabled = useStore((s) => s.setSsoEnabled)
   const setImageAssets = useStore((s) => s.setImageAssets)
   const toggleDataAsset = useStore((s) => s.toggleDataAsset)
+  const toggleMemberFeature = useStore((s) => s.toggleMemberFeature)
+  const addMemberFeatureDefinition = useStore((s) => s.addMemberFeatureDefinition)
+  const deleteMemberFeatureDefinition = useStore((s) => s.deleteMemberFeatureDefinition)
   const updateWaitingOn = useStore((s) => s.updateWaitingOn)
   const logOutreach = useStore((s) => s.logOutreach)
   const undoOutreach = useStore((s) => s.undoOutreach)
@@ -118,13 +123,15 @@ export function ProjectDetailPage() {
             onToggleDataAsset={(key, value) => toggleDataAsset(project.id, key, value)}
           />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Links</CardTitle>
-            </CardHeader>
-            <QuickLinks links={project.links} />
-            <ProjectLinksEditor links={project.links} onSave={(links) => updateProjectLinks(project.id, links)} />
-          </Card>
+          <MemberFeaturesPanel
+            project={project}
+            definitions={memberFeatureDefinitions}
+            onToggle={(featureId, enabled) =>
+              toggleMemberFeature(project.id, featureId, enabled)
+            }
+            onAddDefinition={addMemberFeatureDefinition}
+            onDeleteDefinition={deleteMemberFeatureDefinition}
+          />
         </div>
 
         <div className="space-y-6">
@@ -140,10 +147,21 @@ export function ProjectDetailPage() {
             />
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Links</CardTitle>
+            </CardHeader>
+            <QuickLinks links={project.links} />
+            <ProjectLinksEditor
+              links={project.links}
+              onSave={(links) => updateProjectLinks(project.id, links)}
+            />
+          </Card>
+
           <NotesPanel
             notes={project.notes}
-            onAdd={(content) => addNote(project.id, content)}
-            onUpdate={(noteId, content) => updateNote(project.id, noteId, content)}
+            onAdd={(content, severity) => addNote(project.id, content, { severity })}
+            onUpdate={(noteId, updates) => updateNote(project.id, noteId, updates)}
             onDelete={(noteId) => deleteNote(project.id, noteId)}
             onTogglePin={(noteId) => toggleNotePin(project.id, noteId)}
           />

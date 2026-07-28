@@ -195,12 +195,24 @@ export interface Contact {
   notes?: string
 }
 
+export type NoteSeverity = 'info' | 'warning' | 'urgent'
+
+export const NOTE_SEVERITIES: NoteSeverity[] = ['info', 'warning', 'urgent']
+
+export const NOTE_SEVERITY_LABELS: Record<NoteSeverity, string> = {
+  info: 'Info',
+  warning: 'Warning',
+  urgent: 'Urgent',
+}
+
 export interface Note {
   id: string
   content: string
   createdAt: string
   pinned?: boolean
   isMeetingSummary?: boolean
+  /** Glance priority — defaults to info */
+  severity?: NoteSeverity
 }
 
 export interface EmailLog {
@@ -245,6 +257,8 @@ export interface Project {
   tasks: ProjectTasks
   deliverables: ProjectDeliverables
   pathConfig: PathConfig
+  /** Per-project on/off for shared member feature definitions */
+  memberFeatures: Record<string, boolean>
   waitingOn: WaitingOn
   /** Times you've reached out while waiting on the client */
   outreachCount: number
@@ -256,6 +270,14 @@ export interface Project {
   archivedAt?: string
   createdAt: string
   updatedAt: string
+}
+
+/** Global catalog entry — one list shared by all projects */
+export interface MemberFeatureDefinition {
+  id: string
+  label: string
+  sortOrder: number
+  createdAt: string
 }
 
 export interface IntegrationsConfig {

@@ -17,6 +17,7 @@ import { PROJECT_TASK_KEYS } from '@/types'
 import { suggestAbbreviation } from '@/lib/calendar'
 import { normalizeDeliverables } from '@/lib/deliverables'
 import { normalizePathConfig } from '@/lib/pathConfig'
+import { normalizeMemberFeatures } from '@/lib/memberFeatures'
 
 export function createDefaultTasks(overrides: Partial<Record<ProjectTaskKey, Partial<ProjectTasks[ProjectTaskKey]>>> = {}): ProjectTasks {
   return PROJECT_TASK_KEYS.reduce((acc, key) => {
@@ -61,6 +62,7 @@ export function migrateProject(raw: Record<string, unknown>): Project {
       tasks: createDefaultTasks(p.tasks),
       deliverables: normalizeDeliverables(p.deliverables),
       pathConfig: normalizePathConfig(p.pathConfig),
+      memberFeatures: normalizeMemberFeatures(p.memberFeatures),
     }
   }
 
@@ -95,11 +97,12 @@ export function migrateProject(raw: Record<string, unknown>): Project {
   } = p as Record<string, unknown> & typeof p
 
   return {
-    ...(rest as Omit<Project, 'tasks' | 'abbreviation' | 'deliverables' | 'pathConfig'>),
+    ...(rest as Omit<Project, 'tasks' | 'abbreviation' | 'deliverables' | 'pathConfig' | 'memberFeatures'>),
     abbreviation: (p.abbreviation as string | undefined)?.trim() || suggestAbbreviation(p.name),
     tasks: createDefaultTasks(overrides),
     deliverables: normalizeDeliverables(p.deliverables),
     pathConfig: normalizePathConfig(p.pathConfig),
+    memberFeatures: normalizeMemberFeatures(p.memberFeatures),
   }
 }
 

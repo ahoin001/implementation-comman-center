@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { Check } from 'lucide-react'
+import { Check, Pin } from 'lucide-react'
 import type { Project } from '@/types'
-import { WAITING_ON_LABELS, isClientWaiting } from '@/types'
+import { NOTE_SEVERITY_LABELS, WAITING_ON_LABELS, isClientWaiting } from '@/types'
 import { calculateProgress, getCurrentStageLabel, getPrimaryOpenTask } from '@/lib/progress'
 import { calculateHealth, getDaysRemaining, formatLaunchDate } from '@/lib/health'
+import { getTopStickyNote, noteSeverity } from '@/lib/projectNotes'
 import { ProgressRing } from './ProgressRing'
 import { ProjectAvatar, ProjectTitle } from './ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
@@ -21,6 +22,18 @@ interface ProjectCardProps {
 
 const sharedTransition = { type: 'spring' as const, bounce: 0, duration: 0.35 }
 
+const stickyBorder: Record<string, string> = {
+  info: 'border-[var(--color-accent)]/50',
+  warning: 'border-[var(--color-warning)]',
+  urgent: 'border-[var(--color-danger)]',
+}
+
+const stickyBadge: Record<string, string> = {
+  info: 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]',
+  warning: 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]',
+  urgent: 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]',
+}
+
 export function ProjectCard({
   project,
   selectable = false,
@@ -32,6 +45,7 @@ export function ProjectCard({
   const stageLabel = getCurrentStageLabel(project)
   const openTask = getPrimaryOpenTask(project)
   const daysRemaining = getDaysRemaining(project.launchDate)
+  const sticky = selectable ? null : getTopStickyNote(project)
   const id = project.id
   const enableShared = !selectable
 
@@ -113,6 +127,31 @@ export function ProjectCard({
               : 'All tasks complete'}
           </p>
         </div>
+
+        {sticky && (
+          <div
+            className={cn(
+              'rounded-[var(--radius-md)] border-l-2 bg-black/[0.02] dark:bg-white/[0.03] px-2.5 py-2',
+              stickyBorder[noteSeverity(sticky)]
+            )}
+          >
+            <div className="flex items-center gap-1.5 mb-1">
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                  stickyBadge[noteSeverity(sticky)]
+                )}
+              >
+                {NOTE_SEVERITY_LABELS[noteSeverity(sticky)]}
+              </span>
+              {sticky.pinned && <Pin className="h-2.5 w-2.5 text-[var(--color-accent)]" />}
+            </div>
+            <p className="text-xs text-[var(--color-foreground)] line-clamp-2 whitespace-pre-wrap">
+              {sticky.content}
+            </p>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-2 text-xs text-[var(--color-muted-foreground)]">
           <span className="min-w-0 truncate">
             Waiting on {WAITING_ON_LABELS[project.waitingOn]}
