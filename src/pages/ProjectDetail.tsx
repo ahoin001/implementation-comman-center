@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { useStore } from '@/store/useStore'
@@ -10,6 +11,7 @@ import { HealthBadge } from '@/components/ui/HealthBadge'
 import { RequiredDocsBadge } from '@/components/project/RequiredDocsBadge'
 import { MissingCredentialsBadge } from '@/components/project/MissingCredentialsBadge'
 import { ProjectLaunchPath } from '@/components/project/ProjectPathway'
+import { ProjectLaunchSetup } from '@/components/project/ProjectLaunchSetup'
 import { MemberFeaturesPanel } from '@/components/project/MemberFeaturesPanel'
 import { QuickLinks } from '@/components/project/QuickLinks'
 import { ProjectLinksEditor } from '@/components/project/ProjectLinksEditor'
@@ -18,6 +20,23 @@ import { WaitingOnPanel } from '@/components/project/WaitingOnPanel'
 import { NotesPanel } from '@/components/project/NotesPanel'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { cn } from '@/lib/utils'
+
+type LaunchPathTab = 'classic' | 'setup'
+
+function launchPathTabKey(projectId: string) {
+  return `icc-launch-path-tab:${projectId}`
+}
+
+function readLaunchPathTab(projectId: string): LaunchPathTab {
+  try {
+    const stored = sessionStorage.getItem(launchPathTabKey(projectId))
+    if (stored === 'classic' || stored === 'setup') return stored
+  } catch {
+    /* ignore */
+  }
+  return 'classic'
+}
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -44,6 +63,25 @@ export function ProjectDetailPage() {
   const updateProjectContact = useStore((s) => s.updateProjectContact)
   const updateProject = useStore((s) => s.updateProject)
 
+  const [launchPathTab, setLaunchPathTab] = useState<LaunchPathTab>(() =>
+    id ? readLaunchPathTab(id) : 'classic'
+  )
+
+  useEffect(() => {
+    if (!id) return
+    setLaunchPathTab(readLaunchPathTab(id))
+  }, [id])
+
+  const setTab = (tab: LaunchPathTab) => {
+    setLaunchPathTab(tab)
+    if (!id) return
+    try {
+      sessionStorage.setItem(launchPathTabKey(id), tab)
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (!project) {
     return (
       <div className="text-center py-20">
@@ -58,6 +96,23 @@ export function ProjectDetailPage() {
   const stageLabel = getCurrentStageLabel(project)
   const daysRemaining = getDaysRemaining(project.launchDate)
   const pid = project.id
+
+  const pathHandlers = {
+    onUpdateTask: (
+      taskKey: Parameters<typeof updateProjectTask>[1],
+      status: Parameters<typeof updateProjectTask>[2],
+      blockedReason?: string
+    ) => updateProjectTask(project.id, taskKey, status, blockedReason),
+    onUpdateDeliverable: (
+      key: Parameters<typeof updateDeliverable>[1],
+      patch: Parameters<typeof updateDeliverable>[2]
+    ) => updateDeliverable(project.id, key, patch),
+    onSetSsoEnabled: (enabled: boolean) => setSsoEnabled(project.id, enabled),
+    onSetImageAssets: (status: Parameters<typeof setImageAssets>[1]) =>
+      setImageAssets(project.id, status),
+    onToggleDataAsset: (key: Parameters<typeof toggleDataAsset>[1], value: boolean) =>
+      toggleDataAsset(project.id, key, value),
+  }
 
   return (
     <div>
@@ -112,16 +167,42 @@ export function ProjectDetailPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
-          <ProjectLaunchPath
-            project={project}
-            onUpdateTask={(taskKey, status, blockedReason) =>
-              updateProjectTask(project.id, taskKey, status, blockedReason)
-            }
-            onUpdateDeliverable={(key, patch) => updateDeliverable(project.id, key, patch)}
-            onSetSsoEnabled={(enabled) => setSsoEnabled(project.id, enabled)}
-            onSetImageAssets={(status) => setImageAssets(project.id, status)}
-            onToggleDataAsset={(key, value) => toggleDataAsset(project.id, key, value)}
-          />
+          <div className="space-y-3">
+            <div
+              className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border)] p-0.5"
+              role="tablist"
+              aria-label="Launch Path view"
+            >
+              {(
+                [
+                  { id: 'classic' as const, label: 'Classic' },
+                  { id: 'setup' as const, label: 'Setup' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={launchPathTab === tab.id}
+                  onClick={() => setTab(tab.id)}
+                  className={cn(
+                    'rounded-[calc(var(--radius-md)-2px)] px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+                    launchPathTab === tab.id
+                      ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
+                      : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {launchPathTab === 'classic' ? (
+              <ProjectLaunchPath project={project} {...pathHandlers} />
+            ) : (
+              <ProjectLaunchSetup project={project} {...pathHandlers} />
+            )}
+          </div>
 
           <MemberFeaturesPanel
             project={project}

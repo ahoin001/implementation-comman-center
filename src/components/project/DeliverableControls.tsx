@@ -10,6 +10,8 @@ interface DeliverableCheckboxProps {
   onToggle: (key: DeliverableKey, received: boolean) => void
   onNoteChange?: (key: DeliverableKey, note: string) => void
   required?: boolean
+  /** Softer badge for Setup tab — ops recommended, not launch-blocking */
+  recommended?: boolean
   compact?: boolean
 }
 
@@ -19,6 +21,7 @@ export function DeliverableCheckbox({
   onToggle,
   onNoteChange,
   required = false,
+  recommended = false,
   compact = false,
 }: DeliverableCheckboxProps) {
   const item = project.deliverables[deliverableKey]
@@ -60,6 +63,11 @@ export function DeliverableCheckbox({
         {required && (
           <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-danger)]/80 shrink-0">
             Required
+          </span>
+        )}
+        {recommended && !required && (
+          <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)] shrink-0">
+            Recommended
           </span>
         )}
       </label>
