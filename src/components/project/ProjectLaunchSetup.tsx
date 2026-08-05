@@ -9,7 +9,7 @@ import type {
   ProjectTaskStatus,
 } from '@/types'
 import {
-  DATA_ASSET_KEYS,
+  DATA_IMPORT_INVENTORY_KEYS,
   DATA_ASSET_LABELS,
   LAUNCH_TASK_KEY,
   PROJECT_TASK_LABELS,
@@ -27,6 +27,7 @@ import {
 import { getMissingRequiredDocs } from '@/lib/deliverables'
 import {
   getDataAssetsReceived,
+  hasResumeData,
   isSsoEnabled,
   needsSsoCredentials,
 } from '@/lib/pathConfig'
@@ -36,6 +37,7 @@ import {
   DeliverableCheckbox,
   RequiredDocsCallout,
 } from '@/components/project/DeliverableControls'
+import { ResumeDataControl } from '@/components/project/ResumeDataControl'
 import { cn } from '@/lib/utils'
 
 interface ProjectLaunchSetupProps {
@@ -47,6 +49,7 @@ interface ProjectLaunchSetupProps {
   ) => void
   onUpdateDeliverable: (key: DeliverableKey, patch: { received?: boolean; note?: string }) => void
   onSetSsoEnabled: (enabled: boolean) => void
+  onSetHasResumeData: (enabled: boolean) => void
   onSetImageAssets: (status: ImageAssetsStatus) => void
   onToggleDataAsset: (key: DataAssetKey, value: boolean) => void
 }
@@ -96,10 +99,12 @@ export function ProjectLaunchSetup({
   onUpdateTask,
   onUpdateDeliverable,
   onSetSsoEnabled,
+  onSetHasResumeData,
   onSetImageAssets,
   onToggleDataAsset,
 }: ProjectLaunchSetupProps) {
   const ssoOn = isSsoEnabled(project)
+  const resumesOn = hasResumeData(project)
   const progress = calculateProgress(project)
   const label = getLaunchReadinessLabel(project)
   const counts = getTaskCounts(project)
@@ -398,12 +403,12 @@ export function ProjectLaunchSetup({
 
             <OpsGroup
               title="Data inventory"
-              badge={`${dataGot.length}/${DATA_ASSET_KEYS.length}`}
+              badge={`${dataGot.length} types`}
             >
               <p className="text-[11px] text-[var(--color-muted-foreground)] px-2 pb-1">
                 Mark what the association has — Data Import task is in Required above
               </p>
-              {DATA_ASSET_KEYS.map((key) => {
+              {DATA_IMPORT_INVENTORY_KEYS.map((key) => {
                 const checked = Boolean(project.pathConfig.dataAssets[key])
                 return (
                   <label
@@ -436,6 +441,9 @@ export function ProjectLaunchSetup({
                   </label>
                 )
               })}
+              <div className="pt-2">
+                <ResumeDataControl enabled={resumesOn} onChange={onSetHasResumeData} />
+              </div>
             </OpsGroup>
 
             {ssoOn && (
@@ -450,7 +458,14 @@ export function ProjectLaunchSetup({
               </OpsGroup>
             )}
 
-            <OpsGroup title="Enablement extras">
+            <OpsGroup title="Pre-launch refinements">
+              <div className="px-0 pb-1">
+                <ResumeDataControl
+                  enabled={resumesOn}
+                  onChange={onSetHasResumeData}
+                  compact
+                />
+              </div>
               <DeliverableCheckbox
                 deliverableKey="custom_categories"
                 project={project}

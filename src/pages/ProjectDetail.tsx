@@ -46,6 +46,7 @@ export function ProjectDetailPage() {
   const updateProjectTask = useStore((s) => s.updateProjectTask)
   const updateDeliverable = useStore((s) => s.updateDeliverable)
   const setSsoEnabled = useStore((s) => s.setSsoEnabled)
+  const setHasResumeData = useStore((s) => s.setHasResumeData)
   const setImageAssets = useStore((s) => s.setImageAssets)
   const toggleDataAsset = useStore((s) => s.toggleDataAsset)
   const toggleMemberFeature = useStore((s) => s.toggleMemberFeature)
@@ -108,6 +109,7 @@ export function ProjectDetailPage() {
       patch: Parameters<typeof updateDeliverable>[2]
     ) => updateDeliverable(project.id, key, patch),
     onSetSsoEnabled: (enabled: boolean) => setSsoEnabled(project.id, enabled),
+    onSetHasResumeData: (enabled: boolean) => setHasResumeData(project.id, enabled),
     onSetImageAssets: (status: Parameters<typeof setImageAssets>[1]) =>
       setImageAssets(project.id, status),
     onToggleDataAsset: (key: Parameters<typeof toggleDataAsset>[1], value: boolean) =>
@@ -161,7 +163,13 @@ export function ProjectDetailPage() {
               onContactSave={(contact) => updateProjectContact(project.id, contact)}
             />
           </div>
-          <ProgressRing progress={progress} size={80} strokeWidth={5} layoutId={`project-progress-${pid}`} />
+          <ProgressRing
+            progress={progress}
+            size={80}
+            strokeWidth={5}
+            launched={health === 'complete'}
+            layoutId={`project-progress-${pid}`}
+          />
         </div>
       </motion.div>
 

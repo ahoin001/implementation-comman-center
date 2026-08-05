@@ -42,6 +42,7 @@ export function ProjectCard({
 }: ProjectCardProps) {
   const progress = calculateProgress(project)
   const health = calculateHealth(project)
+  const launched = health === 'complete'
   const stageLabel = getCurrentStageLabel(project)
   const openTask = getPrimaryOpenTask(project)
   const daysRemaining = getDaysRemaining(project.launchDate)
@@ -92,6 +93,7 @@ export function ProjectCard({
           progress={progress}
           size={52}
           strokeWidth={3}
+          launched={launched}
           layoutId={enableShared ? `project-progress-${id}` : undefined}
         />
       </div>
@@ -108,9 +110,15 @@ export function ProjectCard({
         <MissingCredentialsBadge project={project} />
         {project.launchDate && (
           <span className="text-xs text-[var(--color-muted-foreground)]">
-            {formatLaunchDate(project.launchDate)}
-            {daysRemaining !== null && daysRemaining >= 0 && (
-              <span className="ml-1">· {daysRemaining}d</span>
+            {launched ? (
+              <>Launched · {formatLaunchDate(project.launchDate)}</>
+            ) : (
+              <>
+                {formatLaunchDate(project.launchDate)}
+                {daysRemaining !== null && daysRemaining >= 0 && (
+                  <span className="ml-1">· {daysRemaining}d</span>
+                )}
+              </>
             )}
           </span>
         )}
@@ -118,13 +126,17 @@ export function ProjectCard({
 
       <div className="space-y-2 pt-3 border-t border-[var(--color-border)]">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] mb-0.5">To Do</p>
+          <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] mb-0.5">
+            {launched ? 'Status' : 'To Do'}
+          </p>
           <p className="text-sm font-medium text-[var(--color-foreground)]">
-            {openTask
-              ? openTask.status === 'blocked'
-                ? `${openTask.label} — blocked`
-                : openTask.label
-              : 'All tasks complete'}
+            {launched
+              ? 'Launched'
+              : openTask
+                ? openTask.status === 'blocked'
+                  ? `${openTask.label} — blocked`
+                  : openTask.label
+                : 'All tasks complete'}
           </p>
         </div>
 

@@ -29,6 +29,7 @@ export const seedProjects: Project[] = [
     }),
     pathConfig: path({
       imageAssets: 'provided',
+      hasResumeData: true,
       dataAssets: {
         jobseekers: true,
         resumes: true,

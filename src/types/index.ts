@@ -70,6 +70,17 @@ export const DATA_ASSET_KEYS: DataAssetKey[] = [
   'job_history',
 ]
 
+/**
+ * Import inventory checkboxes only — resumes are controlled by
+ * PathConfig.hasResumeData (site setting), synced into dataAssets.resumes.
+ */
+export const DATA_IMPORT_INVENTORY_KEYS: DataAssetKey[] = [
+  'jobseekers',
+  'employers',
+  'transaction_history',
+  'job_history',
+]
+
 export const DATA_ASSET_LABELS: Record<DataAssetKey, string> = {
   jobseekers: 'Jobseekers',
   resumes: 'Resumes',
@@ -83,6 +94,12 @@ export interface PathConfig {
   ssoEnabled: boolean
   /** Optional — some associations provide images, some do not */
   imageAssets: ImageAssetsStatus
+  /**
+   * Site setting: enable Resumes on the association site.
+   * Mirrors operational intent that resume files are part of the data import.
+   * Kept in sync with dataAssets.resumes.
+   */
+  hasResumeData: boolean
   /** Inventory of data types the association has (none required) */
   dataAssets: Record<DataAssetKey, boolean>
 }
@@ -338,7 +355,7 @@ export const HEALTH_LABELS: Record<ProjectHealth, string> = {
   waiting_on_me: 'Waiting on Me',
   waiting_on_client: 'Waiting on Client',
   at_risk: 'At Risk',
-  complete: 'Complete',
+  complete: 'Launched',
 }
 
 export type ProjectFilter =
@@ -391,7 +408,7 @@ export const FILTER_LABELS: Record<ProjectFilter, string> = {
   waiting_on_client: 'Waiting on Client',
   missing_required_docs: 'Missing Docs',
   missing_sso_credentials: 'Missing SSO Creds',
-  completed: 'Completed',
+  completed: 'Launched',
   no_launch_date: 'No Launch Date',
   needs_site_design: 'Site Design',
   needs_kickoff_call: 'Kickoff',

@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion'
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ProgressRingProps {
@@ -8,6 +9,8 @@ interface ProgressRingProps {
   className?: string
   showLabel?: boolean
   layoutId?: string
+  /** Full green ring + check — project Launch path is complete */
+  launched?: boolean
 }
 
 export function ProgressRing({
@@ -17,11 +20,15 @@ export function ProgressRing({
   className,
   showLabel = true,
   layoutId,
+  launched = false,
 }: ProgressRingProps) {
   const shouldReduceMotion = useReducedMotion()
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
-  const offset = circumference - (progress / 100) * circumference
+  const displayProgress = launched ? 100 : progress
+  const offset = circumference - (displayProgress / 100) * circumference
+  const stroke = launched ? 'var(--color-success)' : 'var(--color-accent)'
+  const checkSize = Math.max(12, Math.round(size * 0.34))
 
   const Wrapper = layoutId ? motion.div : 'div'
   const wrapperProps = layoutId
@@ -49,7 +56,7 @@ export function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--color-accent)"
+          stroke={stroke}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -63,11 +70,19 @@ export function ProgressRing({
           }
         />
       </svg>
-      {showLabel && (
-        <span className="absolute text-xs font-semibold tabular-nums tracking-tight">
-          {Math.round(progress)}%
-        </span>
-      )}
+      {showLabel &&
+        (launched ? (
+          <Check
+            className="absolute text-[var(--color-success)]"
+            style={{ width: checkSize, height: checkSize }}
+            strokeWidth={2.75}
+            aria-label="Launched"
+          />
+        ) : (
+          <span className="absolute text-xs font-semibold tabular-nums tracking-tight">
+            {Math.round(progress)}%
+          </span>
+        ))}
     </Wrapper>
   )
 }

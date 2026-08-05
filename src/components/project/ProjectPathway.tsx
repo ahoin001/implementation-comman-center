@@ -9,6 +9,7 @@ import type {
   ProjectTaskStatus,
 } from '@/types'
 import {
+  DATA_IMPORT_INVENTORY_KEYS,
   DATA_ASSET_KEYS,
   DATA_ASSET_LABELS,
   DELIVERABLE_LABELS,
@@ -27,6 +28,8 @@ import { getDeliverableProgress, getMissingRequiredDocs } from '@/lib/deliverabl
 import {
   getDataAssetsReceived,
   getImageAssetsLabel,
+  getResumeDataLabel,
+  hasResumeData,
   isSsoEnabled,
   needsSsoCredentials,
 } from '@/lib/pathConfig'
@@ -37,6 +40,7 @@ import {
   DeliverableChip,
   RequiredDocsCallout,
 } from '@/components/project/DeliverableControls'
+import { ResumeDataControl } from '@/components/project/ResumeDataControl'
 import { cn } from '@/lib/utils'
 
 interface ProjectLaunchPathProps {
@@ -48,6 +52,7 @@ interface ProjectLaunchPathProps {
   ) => void
   onUpdateDeliverable: (key: DeliverableKey, patch: { received?: boolean; note?: string }) => void
   onSetSsoEnabled: (enabled: boolean) => void
+  onSetHasResumeData: (enabled: boolean) => void
   onSetImageAssets: (status: ImageAssetsStatus) => void
   onToggleDataAsset: (key: DataAssetKey, value: boolean) => void
 }
@@ -57,6 +62,7 @@ type PhaseItem =
   | { kind: 'deliverable'; key: DeliverableKey; required?: boolean }
   | { kind: 'image_assets' }
   | { kind: 'data_assets' }
+  | { kind: 'resume_site' }
 
 interface Phase {
   id: string
@@ -99,9 +105,10 @@ function buildPhases(ssoOn: boolean): Phase[] {
       items: buildItems,
     },
     {
-      id: 'enablement',
-      title: 'Enablement',
+      id: 'pre_launch_refinements',
+      title: 'Pre Launch Refinements',
       items: [
+        { kind: 'resume_site' },
         { kind: 'task', key: 'smartway_training' },
         { kind: 'deliverable', key: 'custom_categories', required: true },
         { kind: 'task', key: 'job_backfill' },
@@ -157,12 +164,16 @@ function itemComplete(project: Project, item: PhaseItem): boolean {
   if (item.kind === 'image_assets') {
     return project.pathConfig.imageAssets !== 'pending'
   }
+  if (item.kind === 'resume_site') {
+    // Decision is binary; always resolved once path config exists
+    return true
+  }
   // data assets are informational — always "complete" for phase progress
   return true
 }
 
 function itemCountsTowardProgress(item: PhaseItem): boolean {
-  return item.kind !== 'data_assets'
+  return item.kind !== 'data_assets' && item.kind !== 'resume_site'
 }
 
 function phaseProgress(project: Project, phase: Phase): { done: number; total: number } {
@@ -201,6 +212,12 @@ function phaseCollapsedChips(project: Project, phase: Phase): { label: string; o
         label: got.length ? `Data: ${got.length}/${DATA_ASSET_KEYS.length}` : 'No data types yet',
         ok: got.length > 0 || project.tasks.data_import?.status === 'not_needed',
       })
+    } else if (item.kind === 'resume_site') {
+      const on = hasResumeData(project)
+      chips.push({
+        label: getResumeDataLabel(on),
+        ok: true,
+      })
     }
   }
   return chips
@@ -211,10 +228,12 @@ export function ProjectLaunchPath({
   onUpdateTask,
   onUpdateDeliverable,
   onSetSsoEnabled,
+  onSetHasResumeData,
   onSetImageAssets,
   onToggleDataAsset,
 }: ProjectLaunchPathProps) {
   const ssoOn = isSsoEnabled(project)
+  const resumesOn = hasResumeData(project)
   const phases = useMemo(() => buildPhases(ssoOn), [ssoOn])
 
   const [openPhase, setOpenPhase] = useState<string | null>(() => {
@@ -464,57 +483,84 @@ export function ProjectLaunchPath({
                         )
                       }
 
+                      if (item.kind === 'resume_site') {
+                        return (
+                          <li key="resume_site">
+                            <ResumeDataControl
+                              enabled={resumesOn}
+                              onChange={onSetHasResumeData}
+                              compact
+                            />
+                          </li>
+                        )
+                      }
+
                       if (item.kind === 'data_assets') {
-                        const got = getDataAssetsReceived(project)
+                        const inventoryGot = DATA_IMPORT_INVENTORY_KEYS.filter((key) =>
+                          Boolean(project.pathConfig.dataAssets[key])
+                        )
                         return (
                           <li
                             key="data_assets"
-                            className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] p-3 space-y-2"
+                            className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] p-3 space-y-3"
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium">Data available</p>
-                              <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-                                Inventory · {got.length}/{DATA_ASSET_KEYS.length}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                              Mark what the association has — none are required
-                            </p>
-                            <div className="space-y-1">
-                              {DATA_ASSET_KEYS.map((key) => {
-                                const checked = Boolean(project.pathConfig.dataAssets[key])
-                                return (
-                                  <label
-                                    key={key}
-                                    className={cn(
-                                      'flex items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-1.5 text-sm cursor-pointer',
-                                      'hover:bg-black/5 dark:hover:bg-white/5',
-                                      checked
-                                        ? 'text-[var(--color-foreground)]'
-                                        : 'text-[var(--color-muted-foreground)]'
-                                    )}
-                                  >
-                                    <span
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium">Data available</p>
+                                <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                                  Inventory · {inventoryGot.length}/
+                                  {DATA_IMPORT_INVENTORY_KEYS.length}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                                Mark what the association has for import — none are required
+                              </p>
+                              <div className="space-y-1">
+                                {DATA_IMPORT_INVENTORY_KEYS.map((key) => {
+                                  const checked = Boolean(project.pathConfig.dataAssets[key])
+                                  return (
+                                    <label
+                                      key={key}
                                       className={cn(
-                                        'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                                        'flex items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-1.5 text-sm cursor-pointer',
+                                        'hover:bg-black/5 dark:hover:bg-white/5',
                                         checked
-                                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
-                                          : 'border-[var(--color-border)]'
+                                          ? 'text-[var(--color-foreground)]'
+                                          : 'text-[var(--color-muted-foreground)]'
                                       )}
                                     >
-                                      {checked && <Check className="h-3 w-3" strokeWidth={3} />}
-                                    </span>
-                                    <input
-                                      type="checkbox"
-                                      className="sr-only"
-                                      checked={checked}
-                                      onChange={(e) => onToggleDataAsset(key, e.target.checked)}
-                                    />
-                                    {DATA_ASSET_LABELS[key]}
-                                  </label>
-                                )
-                              })}
+                                      <span
+                                        className={cn(
+                                          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                                          checked
+                                            ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                                            : 'border-[var(--color-border)]'
+                                        )}
+                                      >
+                                        {checked && <Check className="h-3 w-3" strokeWidth={3} />}
+                                      </span>
+                                      <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={checked}
+                                        onChange={(e) => onToggleDataAsset(key, e.target.checked)}
+                                      />
+                                      {DATA_ASSET_LABELS[key]}
+                                    </label>
+                                  )
+                                })}
+                              </div>
                             </div>
+
+                            <ResumeDataControl
+                              enabled={resumesOn}
+                              onChange={onSetHasResumeData}
+                            />
+                            {resumesOn && (
+                              <p className="text-[11px] text-[var(--color-accent)] px-0.5">
+                                Resume files expected in this data import · enable Resumes on site
+                              </p>
+                            )}
                           </li>
                         )
                       }

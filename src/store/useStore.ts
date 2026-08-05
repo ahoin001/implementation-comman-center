@@ -70,6 +70,7 @@ interface StoreState {
   updateDeliverable: (projectId: string, key: DeliverableKey, patch: Partial<DeliverableItem>) => void
   updatePathConfig: (projectId: string, patch: Partial<PathConfig>) => void
   setSsoEnabled: (projectId: string, enabled: boolean) => void
+  setHasResumeData: (projectId: string, enabled: boolean) => void
   setImageAssets: (projectId: string, status: ImageAssetsStatus) => void
   toggleDataAsset: (projectId: string, key: DataAssetKey, value: boolean) => void
   toggleMemberFeature: (projectId: string, featureId: string, enabled: boolean) => void
@@ -390,6 +391,15 @@ export const useStore = create<StoreState>()((set, get) => ({
     }
   },
 
+  setHasResumeData: (projectId, enabled) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    get().updatePathConfig(projectId, {
+      hasResumeData: enabled,
+      dataAssets: { ...project.pathConfig.dataAssets, resumes: enabled },
+    })
+  },
+
   setImageAssets: (projectId, status) => {
     get().updatePathConfig(projectId, { imageAssets: status })
   },
@@ -397,6 +407,10 @@ export const useStore = create<StoreState>()((set, get) => ({
   toggleDataAsset: (projectId, key, value) => {
     const project = get().getProject(projectId)
     if (!project) return
+    if (key === 'resumes') {
+      get().setHasResumeData(projectId, value)
+      return
+    }
     get().updatePathConfig(projectId, {
       dataAssets: { ...project.pathConfig.dataAssets, [key]: value },
     })
