@@ -47,6 +47,7 @@ export function ProjectDetailPage() {
   const updateDeliverable = useStore((s) => s.updateDeliverable)
   const setSsoEnabled = useStore((s) => s.setSsoEnabled)
   const setHasResumeData = useStore((s) => s.setHasResumeData)
+  const setWeHandleSales = useStore((s) => s.setWeHandleSales)
   const setImageAssets = useStore((s) => s.setImageAssets)
   const toggleDataAsset = useStore((s) => s.toggleDataAsset)
   const toggleMemberFeature = useStore((s) => s.toggleMemberFeature)
@@ -110,6 +111,7 @@ export function ProjectDetailPage() {
     ) => updateDeliverable(project.id, key, patch),
     onSetSsoEnabled: (enabled: boolean) => setSsoEnabled(project.id, enabled),
     onSetHasResumeData: (enabled: boolean) => setHasResumeData(project.id, enabled),
+    onSetWeHandleSales: (enabled: boolean) => setWeHandleSales(project.id, enabled),
     onSetImageAssets: (status: Parameters<typeof setImageAssets>[1]) =>
       setImageAssets(project.id, status),
     onToggleDataAsset: (key: Parameters<typeof toggleDataAsset>[1], value: boolean) =>

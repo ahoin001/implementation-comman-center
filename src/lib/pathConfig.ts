@@ -25,6 +25,7 @@ export function createDefaultPathConfig(overrides: Partial<PathConfig> = {}): Pa
     ssoEnabled: overrides.ssoEnabled ?? true,
     imageAssets: overrides.imageAssets ?? 'pending',
     hasResumeData,
+    weHandleSales: overrides.weHandleSales ?? false,
     dataAssets: { ...dataAssets, resumes: hasResumeData },
   }
 }
@@ -45,6 +46,7 @@ export function normalizePathConfig(raw?: Partial<PathConfig> | null): PathConfi
     ssoEnabled: raw?.ssoEnabled !== false,
     imageAssets,
     hasResumeData,
+    weHandleSales: Boolean(raw?.weHandleSales),
     dataAssets: raw?.dataAssets,
   })
 }
@@ -58,6 +60,10 @@ export function hasResumeData(project: Project): boolean {
     project.pathConfig?.hasResumeData === true ||
     Boolean(project.pathConfig?.dataAssets?.resumes)
   )
+}
+
+export function weHandleSales(project: Project): boolean {
+  return project.pathConfig?.weHandleSales === true
 }
 
 /** SSO credentials required only when SSO is enabled for this association */

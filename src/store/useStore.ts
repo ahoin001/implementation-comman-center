@@ -71,6 +71,7 @@ interface StoreState {
   updatePathConfig: (projectId: string, patch: Partial<PathConfig>) => void
   setSsoEnabled: (projectId: string, enabled: boolean) => void
   setHasResumeData: (projectId: string, enabled: boolean) => void
+  setWeHandleSales: (projectId: string, enabled: boolean) => void
   setImageAssets: (projectId: string, status: ImageAssetsStatus) => void
   toggleDataAsset: (projectId: string, key: DataAssetKey, value: boolean) => void
   toggleMemberFeature: (projectId: string, featureId: string, enabled: boolean) => void
@@ -398,6 +399,10 @@ export const useStore = create<StoreState>()((set, get) => ({
       hasResumeData: enabled,
       dataAssets: { ...project.pathConfig.dataAssets, resumes: enabled },
     })
+  },
+
+  setWeHandleSales: (projectId, enabled) => {
+    get().updatePathConfig(projectId, { weHandleSales: enabled })
   },
 
   setImageAssets: (projectId, status) => {

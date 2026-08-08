@@ -1,5 +1,6 @@
 import type { Project, ProjectTaskKey, ProjectTaskStatus } from '@/types'
 import {
+  FLEXIBLE_TASK_KEYS,
   LAUNCH_TASK_KEY,
   PRE_LAUNCH_TASK_KEYS,
   PROJECT_TASK_KEYS,
@@ -11,7 +12,11 @@ export function isTaskComplete(status: ProjectTaskStatus): boolean {
   return status === 'done' || status === 'not_needed'
 }
 
-/** Task keys that count toward launch readiness (SSO skipped when disabled) */
+export function isFlexibleTask(key: ProjectTaskKey): boolean {
+  return FLEXIBLE_TASK_KEYS.includes(key)
+}
+
+/** Task keys that count toward overall progress (SSO skipped when disabled) */
 export function getActiveTaskKeys(project: Project): ProjectTaskKey[] {
   return PROJECT_TASK_KEYS.filter((key) => {
     if (key === 'sso' && !isSsoEnabled(project)) return false
@@ -19,8 +24,13 @@ export function getActiveTaskKeys(project: Project): ProjectTaskKey[] {
   })
 }
 
+/**
+ * Tasks that must be Done/N/A before Launch Done unlocks.
+ * Excludes SSO when off and flexible tasks (e.g. SmartWay Training).
+ */
 export function getActivePreLaunchKeys(project: Project): ProjectTaskKey[] {
   return PRE_LAUNCH_TASK_KEYS.filter((key) => {
+    if (isFlexibleTask(key)) return false
     if (key === 'sso' && !isSsoEnabled(project)) return false
     return true
   })
@@ -32,12 +42,12 @@ function isTaskEffectivelyComplete(project: Project, key: ProjectTaskKey): boole
   return task ? isTaskComplete(task.status) : false
 }
 
-/** All Launch Path items except Launch itself are Done or N/A (SSO ignored when off) */
+/** Launch-gating tasks complete (flexible tasks never block) */
 export function arePreLaunchTasksComplete(project: Project): boolean {
   return getActivePreLaunchKeys(project).every((key) => isTaskEffectivelyComplete(project, key))
 }
 
-/** Launch can only be marked Done once every other task is Done or N/A */
+/** Launch can only be marked Done once launch-gating tasks are Done or N/A */
 export function canCompleteLaunch(project: Project): boolean {
   return arePreLaunchTasksComplete(project)
 }
@@ -74,7 +84,13 @@ export function getPrimaryOpenTask(project: Project): {
   status: ProjectTaskStatus
   blockedReason?: string
 } | null {
-  const keys = getActiveTaskKeys(project)
+  // Prefer launch-gating work over flexible training so cards stay go-live focused
+  const keys = [
+    ...getActivePreLaunchKeys(project),
+    LAUNCH_TASK_KEY,
+    ...FLEXIBLE_TASK_KEYS.filter((k) => !(k === 'sso' && !isSsoEnabled(project))),
+  ]
+
   const blocked = keys.find((k) => project.tasks[k]?.status === 'blocked')
   if (blocked) {
     return {
@@ -85,7 +101,13 @@ export function getPrimaryOpenTask(project: Project): {
     }
   }
 
-  const pending = keys.find((k) => project.tasks[k]?.status === 'pending')
+  const pending = keys.find((k) => {
+    if (k === LAUNCH_TASK_KEY) {
+      if (!canCompleteLaunch(project)) return false
+      return project.tasks[k]?.status === 'pending'
+    }
+    return project.tasks[k]?.status === 'pending'
+  })
   if (pending) {
     return { key: pending, label: PROJECT_TASK_LABELS[pending], status: 'pending' }
   }
@@ -101,7 +123,7 @@ export function getCurrentStageLabel(project: Project): string {
   return 'In Progress'
 }
 
-/** Fully launched — Launch step Done (requires all other tasks Done/N/A) */
+/** Fully launched — Launch step Done (requires gating tasks Done/N/A; training optional) */
 export function isProjectLaunchComplete(project: Project): boolean {
   const launch = project.tasks[LAUNCH_TASK_KEY]
   return launch?.status === 'done' && arePreLaunchTasksComplete(project)

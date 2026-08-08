@@ -11,6 +11,7 @@ import type {
 import {
   DATA_IMPORT_INVENTORY_KEYS,
   DATA_ASSET_LABELS,
+  FLEXIBLE_TASK_KEYS,
   LAUNCH_TASK_KEY,
   PROJECT_TASK_LABELS,
   PROJECT_TASK_STATUS_LABELS,
@@ -26,10 +27,11 @@ import {
 } from '@/lib/progress'
 import { getMissingRequiredDocs } from '@/lib/deliverables'
 import {
-  getDataAssetsReceived,
+  getInventoryAssetsReceived,
   hasResumeData,
   isSsoEnabled,
   needsSsoCredentials,
+  weHandleSales,
 } from '@/lib/pathConfig'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -37,7 +39,7 @@ import {
   DeliverableCheckbox,
   RequiredDocsCallout,
 } from '@/components/project/DeliverableControls'
-import { ResumeDataControl } from '@/components/project/ResumeDataControl'
+import { PathProjectSettings } from '@/components/project/PathProjectSettings'
 import { cn } from '@/lib/utils'
 
 interface ProjectLaunchSetupProps {
@@ -50,6 +52,7 @@ interface ProjectLaunchSetupProps {
   onUpdateDeliverable: (key: DeliverableKey, patch: { received?: boolean; note?: string }) => void
   onSetSsoEnabled: (enabled: boolean) => void
   onSetHasResumeData: (enabled: boolean) => void
+  onSetWeHandleSales: (enabled: boolean) => void
   onSetImageAssets: (status: ImageAssetsStatus) => void
   onToggleDataAsset: (key: DataAssetKey, value: boolean) => void
 }
@@ -100,11 +103,13 @@ export function ProjectLaunchSetup({
   onUpdateDeliverable,
   onSetSsoEnabled,
   onSetHasResumeData,
+  onSetWeHandleSales,
   onSetImageAssets,
   onToggleDataAsset,
 }: ProjectLaunchSetupProps) {
   const ssoOn = isSsoEnabled(project)
   const resumesOn = hasResumeData(project)
+  const salesOn = weHandleSales(project)
   const progress = calculateProgress(project)
   const label = getLaunchReadinessLabel(project)
   const counts = getTaskCounts(project)
@@ -116,7 +121,7 @@ export function ProjectLaunchSetup({
   const optionalMissing = countOptionalMissing(project)
   const openTasks = counts.pending + counts.blocked
   const requiredKeys = getActivePreLaunchKeys(project)
-  const dataGot = getDataAssetsReceived(project)
+  const inventoryGot = getInventoryAssetsReceived(project)
 
   const [editingNote, setEditingNote] = useState<ProjectTaskKey | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
@@ -148,11 +153,11 @@ export function ProjectLaunchSetup({
     setEditingNote(null)
   }
 
-  const renderTaskRow = (taskKey: ProjectTaskKey) => {
+  const renderTaskRow = (taskKey: ProjectTaskKey, options?: { flexible?: boolean }) => {
     const task = project.tasks[taskKey]
     if (!task) return null
     const isLaunch = taskKey === LAUNCH_TASK_KEY
-    const options = isLaunch
+    const statusButtons = isLaunch
       ? statusOptions.filter((o) => o.value !== 'not_needed')
       : statusOptions
     const isBlocked = task.status === 'blocked'
@@ -163,7 +168,8 @@ export function ProjectLaunchSetup({
         className={cn(
           'rounded-[var(--radius-md)] border border-[var(--color-border)] p-3',
           isBlocked && 'border-[var(--color-danger)]/30',
-          isLaunch && readyToLaunch && 'border-[var(--color-accent)]/40'
+          isLaunch && readyToLaunch && 'border-[var(--color-accent)]/40',
+          options?.flexible && 'border-dashed'
         )}
       >
         <div className="flex flex-col gap-2.5">
@@ -182,10 +188,15 @@ export function ProjectLaunchSetup({
             <span className="text-[10px] text-[var(--color-muted-foreground)]">
               {PROJECT_TASK_STATUS_LABELS[task.status]}
             </span>
+            {options?.flexible && (
+              <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                Flexible
+              </span>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-1.5">
-            {options.map(({ value, label: optLabel, icon: Icon, activeClass }) => {
+            {statusButtons.map(({ value, label: optLabel, icon: Icon, activeClass }) => {
               const active = task.status === value
               const lockedDone = isLaunch && value === 'done' && !launchUnlocked
               return (
@@ -285,31 +296,14 @@ export function ProjectLaunchSetup({
             </div>
           </div>
 
-          <label className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">SSO enabled</p>
-              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                Turn off when this association will not use SSO
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={ssoOn}
-              onClick={() => onSetSsoEnabled(!ssoOn)}
-              className={cn(
-                'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200',
-                ssoOn ? 'bg-[var(--color-accent)]' : 'bg-black/15 dark:bg-white/20'
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200',
-                  ssoOn && 'translate-x-5'
-                )}
-              />
-            </button>
-          </label>
+          <PathProjectSettings
+            ssoEnabled={ssoOn}
+            hasResumeData={resumesOn}
+            weHandleSales={salesOn}
+            onSetSsoEnabled={onSetSsoEnabled}
+            onSetHasResumeData={onSetHasResumeData}
+            onSetWeHandleSales={onSetWeHandleSales}
+          />
 
           {(missingDocs.length > 0 || missingCreds) && (
             <div className="space-y-2">
@@ -336,6 +330,20 @@ export function ProjectLaunchSetup({
           <ul className="space-y-2">
             {requiredKeys.map((key) => renderTaskRow(key))}
             {renderTaskRow(LAUNCH_TASK_KEY)}
+          </ul>
+        </section>
+
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold tracking-tight text-[var(--color-muted-foreground)]">
+              Anytime
+            </h3>
+            <p className="text-[11px] text-[var(--color-muted-foreground)] mt-0.5">
+              Before or after go-live — does not block Launch
+            </p>
+          </div>
+          <ul className="space-y-2">
+            {FLEXIBLE_TASK_KEYS.map((key) => renderTaskRow(key, { flexible: true }))}
           </ul>
         </section>
 
@@ -403,10 +411,11 @@ export function ProjectLaunchSetup({
 
             <OpsGroup
               title="Data inventory"
-              badge={`${dataGot.length} types`}
+              badge={`${inventoryGot.length}/${DATA_IMPORT_INVENTORY_KEYS.length}`}
             >
               <p className="text-[11px] text-[var(--color-muted-foreground)] px-2 pb-1">
                 Mark what the association has — Data Import task is in Required above
+                {resumesOn && ' · Resumes on site is on in settings'}
               </p>
               {DATA_IMPORT_INVENTORY_KEYS.map((key) => {
                 const checked = Boolean(project.pathConfig.dataAssets[key])
@@ -441,9 +450,6 @@ export function ProjectLaunchSetup({
                   </label>
                 )
               })}
-              <div className="pt-2">
-                <ResumeDataControl enabled={resumesOn} onChange={onSetHasResumeData} />
-              </div>
             </OpsGroup>
 
             {ssoOn && (
@@ -458,14 +464,7 @@ export function ProjectLaunchSetup({
               </OpsGroup>
             )}
 
-            <OpsGroup title="Pre-launch refinements">
-              <div className="px-0 pb-1">
-                <ResumeDataControl
-                  enabled={resumesOn}
-                  onChange={onSetHasResumeData}
-                  compact
-                />
-              </div>
+            <OpsGroup title="Enablement extras">
               <DeliverableCheckbox
                 deliverableKey="custom_categories"
                 project={project}

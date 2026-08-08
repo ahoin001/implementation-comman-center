@@ -100,6 +100,10 @@ export interface PathConfig {
    * Kept in sync with dataAssets.resumes.
    */
   hasResumeData: boolean
+  /**
+   * We configure Sales for this association (vs. they handle Sales themselves).
+   */
+  weHandleSales: boolean
   /** Inventory of data types the association has (none required) */
   dataAssets: Record<DataAssetKey, boolean>
 }
@@ -107,8 +111,6 @@ export interface PathConfig {
 export const TASK_DELIVERABLE_KEYS: Partial<Record<ProjectTaskKey, DeliverableKey[]>> = {
   kickoff_call: ['ach', 'w9'],
   sso: ['sso_test_credentials'],
-  smartway_training: ['custom_categories'],
-  job_backfill: ['custom_categories'],
 }
 
 export type ProjectTasks = Record<ProjectTaskKey, ProjectTask>
@@ -126,6 +128,12 @@ export const PROJECT_TASK_KEYS: ProjectTaskKey[] = [
 
 /** Everything except the final Launch step */
 export const PRE_LAUNCH_TASK_KEYS: ProjectTaskKey[] = PROJECT_TASK_KEYS.filter((k) => k !== 'launch')
+
+/**
+ * Tasks that may finish before or after go-live.
+ * Never required to unlock Launch Done.
+ */
+export const FLEXIBLE_TASK_KEYS: ProjectTaskKey[] = ['smartway_training']
 
 export const LAUNCH_TASK_KEY: ProjectTaskKey = 'launch'
 

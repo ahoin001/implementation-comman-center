@@ -10,7 +10,6 @@ import type {
 } from '@/types'
 import {
   DATA_IMPORT_INVENTORY_KEYS,
-  DATA_ASSET_KEYS,
   DATA_ASSET_LABELS,
   DELIVERABLE_LABELS,
   LAUNCH_TASK_KEY,
@@ -26,12 +25,12 @@ import {
 } from '@/lib/progress'
 import { getDeliverableProgress, getMissingRequiredDocs } from '@/lib/deliverables'
 import {
-  getDataAssetsReceived,
   getImageAssetsLabel,
-  getResumeDataLabel,
+  getInventoryAssetsReceived,
   hasResumeData,
   isSsoEnabled,
   needsSsoCredentials,
+  weHandleSales,
 } from '@/lib/pathConfig'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -40,7 +39,7 @@ import {
   DeliverableChip,
   RequiredDocsCallout,
 } from '@/components/project/DeliverableControls'
-import { ResumeDataControl } from '@/components/project/ResumeDataControl'
+import { PathProjectSettings } from '@/components/project/PathProjectSettings'
 import { cn } from '@/lib/utils'
 
 interface ProjectLaunchPathProps {
@@ -53,20 +52,22 @@ interface ProjectLaunchPathProps {
   onUpdateDeliverable: (key: DeliverableKey, patch: { received?: boolean; note?: string }) => void
   onSetSsoEnabled: (enabled: boolean) => void
   onSetHasResumeData: (enabled: boolean) => void
+  onSetWeHandleSales: (enabled: boolean) => void
   onSetImageAssets: (status: ImageAssetsStatus) => void
   onToggleDataAsset: (key: DataAssetKey, value: boolean) => void
 }
 
 type PhaseItem =
   | { kind: 'task'; key: ProjectTaskKey }
-  | { kind: 'deliverable'; key: DeliverableKey; required?: boolean }
+  | { kind: 'deliverable'; key: DeliverableKey; optional?: boolean }
   | { kind: 'image_assets' }
   | { kind: 'data_assets' }
-  | { kind: 'resume_site' }
 
 interface Phase {
   id: string
   title: string
+  /** Soft subtitle for flexible / optional phases */
+  hint?: string
   items: PhaseItem[]
 }
 
@@ -80,7 +81,7 @@ function buildPhases(ssoOn: boolean): Phase[] {
   if (ssoOn) {
     buildItems.push(
       { kind: 'task', key: 'sso' },
-      { kind: 'deliverable', key: 'sso_test_credentials', required: true }
+      { kind: 'deliverable', key: 'sso_test_credentials' }
     )
   }
 
@@ -90,8 +91,8 @@ function buildPhases(ssoOn: boolean): Phase[] {
       title: 'Kickoff & paperwork',
       items: [
         { kind: 'task', key: 'kickoff_call' },
-        { kind: 'deliverable', key: 'ach', required: true },
-        { kind: 'deliverable', key: 'w9', required: true },
+        { kind: 'deliverable', key: 'ach' },
+        { kind: 'deliverable', key: 'w9' },
       ],
     },
     {
@@ -105,19 +106,23 @@ function buildPhases(ssoOn: boolean): Phase[] {
       items: buildItems,
     },
     {
-      id: 'pre_launch_refinements',
-      title: 'Pre Launch Refinements',
-      items: [
-        { kind: 'resume_site' },
-        { kind: 'task', key: 'smartway_training' },
-        { kind: 'deliverable', key: 'custom_categories', required: true },
-        { kind: 'task', key: 'job_backfill' },
-      ],
+      id: 'enablement',
+      title: 'Enablement',
+      items: [{ kind: 'task', key: 'job_backfill' }],
     },
     {
       id: 'golive',
       title: 'Go live',
       items: [{ kind: 'task', key: 'launch' }],
+    },
+    {
+      id: 'anytime',
+      title: 'Anytime',
+      hint: 'Can complete before or after launch — does not block go-live',
+      items: [
+        { kind: 'task', key: 'smartway_training' },
+        { kind: 'deliverable', key: 'custom_categories', optional: true },
+      ],
     },
   ]
 }
@@ -159,21 +164,21 @@ function itemComplete(project: Project, item: PhaseItem): boolean {
     return isTaskComplete(project.tasks[item.key]?.status ?? 'pending')
   }
   if (item.kind === 'deliverable') {
+    // Optional deliverables never block phase completion
+    if (item.optional) return true
     return Boolean(project.deliverables[item.key]?.received)
   }
   if (item.kind === 'image_assets') {
     return project.pathConfig.imageAssets !== 'pending'
-  }
-  if (item.kind === 'resume_site') {
-    // Decision is binary; always resolved once path config exists
-    return true
   }
   // data assets are informational — always "complete" for phase progress
   return true
 }
 
 function itemCountsTowardProgress(item: PhaseItem): boolean {
-  return item.kind !== 'data_assets' && item.kind !== 'resume_site'
+  if (item.kind === 'data_assets') return false
+  if (item.kind === 'deliverable' && item.optional) return false
+  return true
 }
 
 function phaseProgress(project: Project, phase: Phase): { done: number; total: number } {
@@ -198,7 +203,7 @@ function phaseCollapsedChips(project: Project, phase: Phase): { label: string; o
       const ok = Boolean(project.deliverables[item.key]?.received)
       chips.push({
         label: ok ? `✓ ${DELIVERABLE_LABELS[item.key]}` : DELIVERABLE_LABELS[item.key],
-        ok,
+        ok: item.optional ? true : ok,
       })
     } else if (item.kind === 'image_assets') {
       const status = project.pathConfig.imageAssets
@@ -207,16 +212,12 @@ function phaseCollapsedChips(project: Project, phase: Phase): { label: string; o
         ok: status !== 'pending',
       })
     } else if (item.kind === 'data_assets') {
-      const got = getDataAssetsReceived(project)
+      const got = getInventoryAssetsReceived(project)
       chips.push({
-        label: got.length ? `Data: ${got.length}/${DATA_ASSET_KEYS.length}` : 'No data types yet',
+        label: got.length
+          ? `Data: ${got.length}/${DATA_IMPORT_INVENTORY_KEYS.length}`
+          : 'No data types yet',
         ok: got.length > 0 || project.tasks.data_import?.status === 'not_needed',
-      })
-    } else if (item.kind === 'resume_site') {
-      const on = hasResumeData(project)
-      chips.push({
-        label: getResumeDataLabel(on),
-        ok: true,
       })
     }
   }
@@ -229,11 +230,13 @@ export function ProjectLaunchPath({
   onUpdateDeliverable,
   onSetSsoEnabled,
   onSetHasResumeData,
+  onSetWeHandleSales,
   onSetImageAssets,
   onToggleDataAsset,
 }: ProjectLaunchPathProps) {
   const ssoOn = isSsoEnabled(project)
   const resumesOn = hasResumeData(project)
+  const salesOn = weHandleSales(project)
   const phases = useMemo(() => buildPhases(ssoOn), [ssoOn])
 
   const [openPhase, setOpenPhase] = useState<string | null>(() => {
@@ -302,31 +305,14 @@ export function ProjectLaunchPath({
             </div>
           </div>
 
-          <label className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">SSO enabled</p>
-              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                Turn off when this association will not use SSO
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={ssoOn}
-              onClick={() => onSetSsoEnabled(!ssoOn)}
-              className={cn(
-                'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200',
-                ssoOn ? 'bg-[var(--color-accent)]' : 'bg-black/15 dark:bg-white/20'
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200',
-                  ssoOn && 'translate-x-5'
-                )}
-              />
-            </button>
-          </label>
+          <PathProjectSettings
+            ssoEnabled={ssoOn}
+            hasResumeData={resumesOn}
+            weHandleSales={salesOn}
+            onSetSsoEnabled={onSetSsoEnabled}
+            onSetHasResumeData={onSetHasResumeData}
+            onSetWeHandleSales={onSetWeHandleSales}
+          />
 
           {(missingDocs.length > 0 || missingCreds) && (
             <div className="space-y-2">
@@ -394,11 +380,16 @@ export function ProjectLaunchPath({
                     )}
                   />
                   <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <h3 className="text-sm font-semibold tracking-tight">{phase.title}</h3>
-                      <span className="text-[11px] text-[var(--color-muted-foreground)] tabular-nums shrink-0">
-                        {done}/{total}
-                      </span>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <h3 className="text-sm font-semibold tracking-tight">{phase.title}</h3>
+                        <span className="text-[11px] text-[var(--color-muted-foreground)] tabular-nums shrink-0">
+                          {done}/{total}
+                        </span>
+                      </div>
+                      {phase.hint && (
+                        <p className="text-[11px] text-[var(--color-muted-foreground)]">{phase.hint}</p>
+                      )}
                     </div>
                     {!isOpen && (
                       <div className="flex flex-wrap gap-1.5">
@@ -432,7 +423,7 @@ export function ProjectLaunchPath({
                             <DeliverableCheckbox
                               deliverableKey={item.key}
                               project={project}
-                              required={item.required}
+                              recommended={item.optional}
                               onToggle={(k, received) => onUpdateDeliverable(k, { received })}
                               onNoteChange={(k, note) => onUpdateDeliverable(k, { note })}
                             />
@@ -483,84 +474,59 @@ export function ProjectLaunchPath({
                         )
                       }
 
-                      if (item.kind === 'resume_site') {
-                        return (
-                          <li key="resume_site">
-                            <ResumeDataControl
-                              enabled={resumesOn}
-                              onChange={onSetHasResumeData}
-                              compact
-                            />
-                          </li>
-                        )
-                      }
-
                       if (item.kind === 'data_assets') {
-                        const inventoryGot = DATA_IMPORT_INVENTORY_KEYS.filter((key) =>
-                          Boolean(project.pathConfig.dataAssets[key])
-                        )
+                        const inventoryGot = getInventoryAssetsReceived(project)
                         return (
                           <li
                             key="data_assets"
-                            className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] p-3 space-y-3"
+                            className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] p-3 space-y-2"
                           >
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-medium">Data available</p>
-                                <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-                                  Inventory · {inventoryGot.length}/
-                                  {DATA_IMPORT_INVENTORY_KEYS.length}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                                Mark what the association has for import — none are required
-                              </p>
-                              <div className="space-y-1">
-                                {DATA_IMPORT_INVENTORY_KEYS.map((key) => {
-                                  const checked = Boolean(project.pathConfig.dataAssets[key])
-                                  return (
-                                    <label
-                                      key={key}
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium">Data available</p>
+                              <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                                Inventory · {inventoryGot.length}/
+                                {DATA_IMPORT_INVENTORY_KEYS.length}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                              Mark what the association has for import — none are required
+                              {resumesOn && ' · Resumes on site is on in settings above'}
+                            </p>
+                            <div className="space-y-1">
+                              {DATA_IMPORT_INVENTORY_KEYS.map((key) => {
+                                const checked = Boolean(project.pathConfig.dataAssets[key])
+                                return (
+                                  <label
+                                    key={key}
+                                    className={cn(
+                                      'flex items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-1.5 text-sm cursor-pointer',
+                                      'hover:bg-black/5 dark:hover:bg-white/5',
+                                      checked
+                                        ? 'text-[var(--color-foreground)]'
+                                        : 'text-[var(--color-muted-foreground)]'
+                                    )}
+                                  >
+                                    <span
                                       className={cn(
-                                        'flex items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-1.5 text-sm cursor-pointer',
-                                        'hover:bg-black/5 dark:hover:bg-white/5',
+                                        'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
                                         checked
-                                          ? 'text-[var(--color-foreground)]'
-                                          : 'text-[var(--color-muted-foreground)]'
+                                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                                          : 'border-[var(--color-border)]'
                                       )}
                                     >
-                                      <span
-                                        className={cn(
-                                          'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-                                          checked
-                                            ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
-                                            : 'border-[var(--color-border)]'
-                                        )}
-                                      >
-                                        {checked && <Check className="h-3 w-3" strokeWidth={3} />}
-                                      </span>
-                                      <input
-                                        type="checkbox"
-                                        className="sr-only"
-                                        checked={checked}
-                                        onChange={(e) => onToggleDataAsset(key, e.target.checked)}
-                                      />
-                                      {DATA_ASSET_LABELS[key]}
-                                    </label>
-                                  )
-                                })}
-                              </div>
+                                      {checked && <Check className="h-3 w-3" strokeWidth={3} />}
+                                    </span>
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only"
+                                      checked={checked}
+                                      onChange={(e) => onToggleDataAsset(key, e.target.checked)}
+                                    />
+                                    {DATA_ASSET_LABELS[key]}
+                                  </label>
+                                )
+                              })}
                             </div>
-
-                            <ResumeDataControl
-                              enabled={resumesOn}
-                              onChange={onSetHasResumeData}
-                            />
-                            {resumesOn && (
-                              <p className="text-[11px] text-[var(--color-accent)] px-0.5">
-                                Resume files expected in this data import · enable Resumes on site
-                              </p>
-                            )}
                           </li>
                         )
                       }
