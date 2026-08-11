@@ -6,6 +6,8 @@ import { isRequiredDocsComplete } from '@/lib/deliverables'
 import { isSsoEnabled, needsSsoCredentials } from '@/lib/pathConfig'
 import {
   getPrimaryOpenTask,
+  hasOpenFlexibleTasks,
+  isLaunchFullyWrapped,
   isProjectLaunchComplete,
   isTaskComplete,
 } from '@/lib/progress'
@@ -105,7 +107,7 @@ export function searchProjects(projects: Project[], query: string): Project[] {
   return projects.filter((p) => projectMatchesSearch(p, q))
 }
 
-/** Completed projects last, then alphabetical by name */
+/** Fully wrapped (launched + training done) last, then alphabetical by name */
 export function sortProjects(
   projects: Project[],
   options: { inProgressFirst?: boolean } = {}
@@ -113,8 +115,9 @@ export function sortProjects(
   const { inProgressFirst = true } = options
   return [...projects].sort((a, b) => {
     if (inProgressFirst) {
-      const aDone = calculateHealth(a) === 'complete' ? 1 : 0
-      const bDone = calculateHealth(b) === 'complete' ? 1 : 0
+      // Launched but still needing training stays with active work
+      const aDone = isLaunchFullyWrapped(a) ? 1 : 0
+      const bDone = isLaunchFullyWrapped(b) ? 1 : 0
       if (aDone !== bDone) return aDone - bDone
     }
     const byName = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
@@ -160,11 +163,23 @@ export function useMyDayActions() {
   const projects = useActiveProjects()
   return useMemo(() => {
     const priority = projects
-      .filter((p) => !isProjectLaunchComplete(p))
       .map((p) => ({ project: p, task: getPrimaryOpenTask(p) }))
       .filter((item) => item.task !== null)
       .sort((a, b) => {
-        const healthOrder = { at_risk: 0, waiting_on_me: 1, healthy: 2, waiting_on_client: 3, complete: 4 }
+        // Prefer open work still needed after launch (e.g. training)
+        const aLaunchOpen =
+          isProjectLaunchComplete(a.project) && hasOpenFlexibleTasks(a.project) ? 0 : 1
+        const bLaunchOpen =
+          isProjectLaunchComplete(b.project) && hasOpenFlexibleTasks(b.project) ? 0 : 1
+        if (aLaunchOpen !== bLaunchOpen) return aLaunchOpen - bLaunchOpen
+
+        const healthOrder = {
+          at_risk: 0,
+          waiting_on_me: 1,
+          healthy: 2,
+          waiting_on_client: 3,
+          complete: 4,
+        }
         const ha = calculateHealth(a.project)
         const hb = calculateHealth(b.project)
         const diff = healthOrder[ha] - healthOrder[hb]

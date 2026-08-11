@@ -59,8 +59,60 @@ export function calculateProgress(project: Project): number {
   return Math.round((complete / keys.length) * 100)
 }
 
+export type OpenFlexibleTask = {
+  key: ProjectTaskKey
+  label: string
+  status: ProjectTaskStatus
+  blockedReason?: string
+}
+
+/**
+ * Flexible tasks still open — required client work that does not gate Launch.
+ * e.g. SmartWay Training before or after go-live.
+ */
+export function getOpenFlexibleTasks(project: Project): OpenFlexibleTask[] {
+  return FLEXIBLE_TASK_KEYS.flatMap((key) => {
+    const task = project.tasks[key]
+    if (!task || isTaskComplete(task.status)) return []
+    return [
+      {
+        key,
+        label: PROJECT_TASK_LABELS[key],
+        status: task.status,
+        blockedReason: task.blockedReason,
+      },
+    ]
+  })
+}
+
+export function hasOpenFlexibleTasks(project: Project): boolean {
+  return getOpenFlexibleTasks(project).length > 0
+}
+
+/** Short badge labels for open flexible work */
+export function getOpenFlexibleBadgeLabels(project: Project): string[] {
+  return getOpenFlexibleTasks(project).map((t) => {
+    if (t.key === 'smartway_training') {
+      return t.status === 'blocked' ? 'Training blocked' : 'Needs training'
+    }
+    return t.status === 'blocked' ? `${t.label} blocked` : t.label
+  })
+}
+
+/** Launch Done + no open flexible follow-up (training wrap complete) */
+export function isLaunchFullyWrapped(project: Project): boolean {
+  return isProjectLaunchComplete(project) && !hasOpenFlexibleTasks(project)
+}
+
 export function getLaunchReadinessLabel(project: Project): string {
-  if (isProjectLaunchComplete(project)) return 'Launched'
+  if (isProjectLaunchComplete(project)) {
+    if (hasOpenFlexibleTasks(project)) {
+      const training = getOpenFlexibleTasks(project).find((t) => t.key === 'smartway_training')
+      if (training) return 'Launched · Needs training'
+      return 'Launched · Follow-up open'
+    }
+    return 'Launched'
+  }
   if (arePreLaunchTasksComplete(project)) return 'Ready to Launch'
   const percent = calculateProgress(project)
   if (percent >= 80) return 'Ready Soon'
@@ -88,7 +140,7 @@ export function getPrimaryOpenTask(project: Project): {
   const keys = [
     ...getActivePreLaunchKeys(project),
     LAUNCH_TASK_KEY,
-    ...FLEXIBLE_TASK_KEYS.filter((k) => !(k === 'sso' && !isSsoEnabled(project))),
+    ...FLEXIBLE_TASK_KEYS,
   ]
 
   const blocked = keys.find((k) => project.tasks[k]?.status === 'blocked')
@@ -116,14 +168,20 @@ export function getPrimaryOpenTask(project: Project): {
 }
 
 export function getCurrentStageLabel(project: Project): string {
-  if (isProjectLaunchComplete(project)) return 'Launched'
+  if (isProjectLaunchComplete(project)) {
+    if (hasOpenFlexibleTasks(project)) {
+      const open = getOpenFlexibleTasks(project)[0]
+      return open ? `Launched · ${open.label}` : 'Launched · Follow-up open'
+    }
+    return 'Launched'
+  }
   if (arePreLaunchTasksComplete(project)) return 'Ready to Launch'
   const open = getPrimaryOpenTask(project)
   if (open) return open.label
   return 'In Progress'
 }
 
-/** Fully launched — Launch step Done (requires gating tasks Done/N/A; training optional) */
+/** Fully launched — Launch step Done (requires gating tasks Done/N/A; training flexible) */
 export function isProjectLaunchComplete(project: Project): boolean {
   const launch = project.tasks[LAUNCH_TASK_KEY]
   return launch?.status === 'done' && arePreLaunchTasksComplete(project)

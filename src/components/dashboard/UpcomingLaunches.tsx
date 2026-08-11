@@ -3,9 +3,15 @@ import { ArrowRight, Rocket } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { ProgressRing } from '@/components/project/ProgressRing'
+import { FlexibleFollowUpBadges } from '@/components/project/FlexibleFollowUpBadges'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects } from '@/hooks/useProjects'
-import { calculateProgress, isProjectLaunchComplete } from '@/lib/progress'
+import {
+  calculateProgress,
+  hasOpenFlexibleTasks,
+  isLaunchFullyWrapped,
+  isProjectLaunchComplete,
+} from '@/lib/progress'
 import { calculateHealth, getDaysRemaining, formatLaunchDate } from '@/lib/health'
 import { cn } from '@/lib/utils'
 
@@ -14,9 +20,12 @@ export function UpcomingLaunches() {
   const projects = useActiveProjects()
     .filter((p) => p.launchDate)
     .sort((a, b) => {
-      const aDone = isProjectLaunchComplete(a) ? 1 : 0
-      const bDone = isProjectLaunchComplete(b) ? 1 : 0
-      if (aDone !== bDone) return aDone - bDone
+      // incomplete flexible follow-up stays more visible near top of launched items
+      const aScore =
+        (isProjectLaunchComplete(a) ? 2 : 0) + (hasOpenFlexibleTasks(a) && isProjectLaunchComplete(a) ? -1 : 0)
+      const bScore =
+        (isProjectLaunchComplete(b) ? 2 : 0) + (hasOpenFlexibleTasks(b) && isProjectLaunchComplete(b) ? -1 : 0)
+      if (aScore !== bScore) return aScore - bScore
       return (a.launchDate ?? '').localeCompare(b.launchDate ?? '')
     })
     .slice(0, 5)
@@ -50,6 +59,8 @@ export function UpcomingLaunches() {
             const progress = calculateProgress(project)
             const health = calculateHealth(project)
             const launched = isProjectLaunchComplete(project)
+            const fullyWrapped = isLaunchFullyWrapped(project)
+            const flexOpen = hasOpenFlexibleTasks(project)
             const days = getDaysRemaining(project.launchDate)
 
             return (
@@ -58,22 +69,24 @@ export function UpcomingLaunches() {
                 to={`/projects/${project.id}`}
                 className={cn(
                   'flex items-center gap-3 rounded-[var(--radius-md)] px-2 py-2.5 -mx-2 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.99] group',
-                  launched
+                  fullyWrapped
                     ? 'bg-[var(--color-success)]/[0.06] hover:bg-[var(--color-success)]/[0.1]'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5'
+                    : launched && flexOpen
+                      ? 'bg-[var(--color-warning)]/[0.07] hover:bg-[var(--color-warning)]/[0.12]'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5'
                 )}
               >
                 <ProgressRing
                   progress={progress}
                   size={40}
                   strokeWidth={3}
-                  launched={launched}
+                  launched={fullyWrapped}
                 />
                 <div className="flex-1 min-w-0">
                   <p
                     className={cn(
                       'text-sm font-medium truncate',
-                      launched && 'text-[var(--color-muted-foreground)]'
+                      fullyWrapped && 'text-[var(--color-muted-foreground)]'
                     )}
                   >
                     {project.name}
@@ -93,11 +106,14 @@ export function UpcomingLaunches() {
                     )}
                   </p>
                 </div>
-                {launched ? (
-                  <HealthBadge health="complete" />
-                ) : (
-                  <HealthBadge health={health} showLabel={false} />
-                )}
+                <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0 max-w-[42%]">
+                  {launched ? (
+                    <HealthBadge health="complete" />
+                  ) : (
+                    <HealthBadge health={health} showLabel={false} />
+                  )}
+                  <FlexibleFollowUpBadges project={project} compact />
+                </div>
                 <ArrowRight className="h-4 w-4 text-[var(--color-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </Link>
             )

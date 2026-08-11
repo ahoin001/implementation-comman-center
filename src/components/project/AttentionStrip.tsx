@@ -4,6 +4,7 @@ import { FILTER_LABELS } from '@/types'
 import { calculateHealth } from '@/lib/health'
 import { isRequiredDocsComplete } from '@/lib/deliverables'
 import { needsSsoCredentials } from '@/lib/pathConfig'
+import { hasOpenFlexibleTasks } from '@/lib/progress'
 import { hasTaskNotes } from '@/hooks/useProjects'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +26,12 @@ export function AttentionStrip({ projects, activeFilter, onSelectFilter }: Atten
   const items = useMemo((): AttentionItem[] => {
     const incomplete = projects.filter((p) => calculateHealth(p) !== 'complete')
     return [
+      {
+        filter: 'needs_smartway_training' as const,
+        label: FILTER_LABELS.needs_smartway_training,
+        count: projects.filter(hasOpenFlexibleTasks).length,
+        tone: 'warning' as const,
+      },
       {
         filter: 'missing_required_docs' as const,
         label: FILTER_LABELS.missing_required_docs,

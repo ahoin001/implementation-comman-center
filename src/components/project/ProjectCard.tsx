@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom'
 import { Check, Pin } from 'lucide-react'
 import type { Project } from '@/types'
 import { NOTE_SEVERITY_LABELS, WAITING_ON_LABELS, isClientWaiting } from '@/types'
-import { calculateProgress, getCurrentStageLabel, getPrimaryOpenTask } from '@/lib/progress'
+import {
+  calculateProgress,
+  getCurrentStageLabel,
+  getPrimaryOpenTask,
+  hasOpenFlexibleTasks,
+  isLaunchFullyWrapped,
+  isProjectLaunchComplete,
+} from '@/lib/progress'
 import { calculateHealth, getDaysRemaining, formatLaunchDate } from '@/lib/health'
 import { getTopStickyNote, noteSeverity } from '@/lib/projectNotes'
 import { ProgressRing } from './ProgressRing'
@@ -11,6 +18,7 @@ import { ProjectAvatar, ProjectTitle } from './ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { RequiredDocsBadge } from '@/components/project/RequiredDocsBadge'
 import { MissingCredentialsBadge } from '@/components/project/MissingCredentialsBadge'
+import { FlexibleFollowUpBadges } from '@/components/project/FlexibleFollowUpBadges'
 import { cn } from '@/lib/utils'
 
 interface ProjectCardProps {
@@ -42,13 +50,30 @@ export function ProjectCard({
 }: ProjectCardProps) {
   const progress = calculateProgress(project)
   const health = calculateHealth(project)
-  const launched = health === 'complete'
+  const launched = isProjectLaunchComplete(project)
+  const fullyWrapped = isLaunchFullyWrapped(project)
+  const flexOpen = hasOpenFlexibleTasks(project)
   const stageLabel = getCurrentStageLabel(project)
   const openTask = getPrimaryOpenTask(project)
   const daysRemaining = getDaysRemaining(project.launchDate)
   const sticky = selectable ? null : getTopStickyNote(project)
   const id = project.id
   const enableShared = !selectable
+
+  const statusLine = (() => {
+    if (fullyWrapped) return 'Launched · All set'
+    if (launched && openTask) {
+      return openTask.status === 'blocked'
+        ? `${openTask.label} — blocked`
+        : openTask.label
+    }
+    if (openTask) {
+      return openTask.status === 'blocked'
+        ? `${openTask.label} — blocked`
+        : openTask.label
+    }
+    return 'All tasks complete'
+  })()
 
   const cardBody = (
     <motion.article
@@ -59,7 +84,8 @@ export function ProjectCard({
         'transition-[box-shadow,border-color] duration-200 ease-[var(--ease-out)]',
         'hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20',
         selectable && 'cursor-pointer',
-        selected && 'ring-2 ring-[var(--color-accent)] border-transparent'
+        selected && 'ring-2 ring-[var(--color-accent)] border-transparent',
+        launched && flexOpen && 'ring-1 ring-[var(--color-warning)]/35'
       )}
     >
       {selectable && (
@@ -93,7 +119,7 @@ export function ProjectCard({
           progress={progress}
           size={52}
           strokeWidth={3}
-          launched={launched}
+          launched={fullyWrapped}
           layoutId={enableShared ? `project-progress-${id}` : undefined}
         />
       </div>
@@ -106,6 +132,7 @@ export function ProjectCard({
         ) : (
           <HealthBadge health={health} />
         )}
+        <FlexibleFollowUpBadges project={project} />
         <RequiredDocsBadge project={project} />
         <MissingCredentialsBadge project={project} />
         {project.launchDate && (
@@ -127,16 +154,17 @@ export function ProjectCard({
       <div className="space-y-2 pt-3 border-t border-[var(--color-border)]">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] mb-0.5">
-            {launched ? 'Status' : 'To Do'}
+            {fullyWrapped ? 'Status' : flexOpen && launched ? 'Still open' : 'To Do'}
           </p>
-          <p className="text-sm font-medium text-[var(--color-foreground)]">
-            {launched
-              ? 'Launched'
-              : openTask
-                ? openTask.status === 'blocked'
-                  ? `${openTask.label} — blocked`
-                  : openTask.label
-                : 'All tasks complete'}
+          <p
+            className={cn(
+              'text-sm font-medium',
+              flexOpen && launched
+                ? 'text-[var(--color-warning)]'
+                : 'text-[var(--color-foreground)]'
+            )}
+          >
+            {statusLine}
           </p>
         </div>
 

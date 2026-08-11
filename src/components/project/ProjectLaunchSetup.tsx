@@ -40,6 +40,7 @@ import {
   RequiredDocsCallout,
 } from '@/components/project/DeliverableControls'
 import { PathProjectSettings } from '@/components/project/PathProjectSettings'
+import { AnytimeTaskBadge } from '@/components/project/FlexibleFollowUpBadges'
 import { cn } from '@/lib/utils'
 
 interface ProjectLaunchSetupProps {
@@ -161,6 +162,14 @@ export function ProjectLaunchSetup({
       ? statusOptions.filter((o) => o.value !== 'not_needed')
       : statusOptions
     const isBlocked = task.status === 'blocked'
+    const flexibleStatus =
+      options?.flexible
+        ? isTaskComplete(task.status)
+          ? ('done' as const)
+          : isBlocked
+            ? ('blocked' as const)
+            : ('open' as const)
+        : null
 
     return (
       <li
@@ -169,7 +178,8 @@ export function ProjectLaunchSetup({
           'rounded-[var(--radius-md)] border border-[var(--color-border)] p-3',
           isBlocked && 'border-[var(--color-danger)]/30',
           isLaunch && readyToLaunch && 'border-[var(--color-accent)]/40',
-          options?.flexible && 'border-dashed'
+          options?.flexible && !isTaskComplete(task.status) && 'border-[var(--color-warning)]/40',
+          options?.flexible && isTaskComplete(task.status) && 'border-dashed'
         )}
       >
         <div className="flex flex-col gap-2.5">
@@ -188,11 +198,7 @@ export function ProjectLaunchSetup({
             <span className="text-[10px] text-[var(--color-muted-foreground)]">
               {PROJECT_TASK_STATUS_LABELS[task.status]}
             </span>
-            {options?.flexible && (
-              <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-                Flexible
-              </span>
-            )}
+            {flexibleStatus && <AnytimeTaskBadge status={flexibleStatus} />}
           </div>
 
           <div className="flex flex-wrap gap-1.5">
@@ -339,7 +345,7 @@ export function ProjectLaunchSetup({
               Anytime
             </h3>
             <p className="text-[11px] text-[var(--color-muted-foreground)] mt-0.5">
-              Before or after go-live — does not block Launch
+              Required client work — before or after go-live, does not block Launch
             </p>
           </div>
           <ul className="space-y-2">

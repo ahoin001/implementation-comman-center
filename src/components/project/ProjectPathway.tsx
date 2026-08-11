@@ -22,6 +22,7 @@ import {
   getLaunchReadinessLabel,
   getTaskCounts,
   isTaskComplete,
+  isFlexibleTask,
 } from '@/lib/progress'
 import { getDeliverableProgress, getMissingRequiredDocs } from '@/lib/deliverables'
 import {
@@ -40,6 +41,7 @@ import {
   RequiredDocsCallout,
 } from '@/components/project/DeliverableControls'
 import { PathProjectSettings } from '@/components/project/PathProjectSettings'
+import { AnytimeTaskBadge } from '@/components/project/FlexibleFollowUpBadges'
 import { cn } from '@/lib/utils'
 
 interface ProjectLaunchPathProps {
@@ -118,7 +120,7 @@ function buildPhases(ssoOn: boolean): Phase[] {
     {
       id: 'anytime',
       title: 'Anytime',
-      hint: 'Can complete before or after launch — does not block go-live',
+      hint: 'Required client work — before or after launch, does not block go-live',
       items: [
         { kind: 'task', key: 'smartway_training' },
         { kind: 'deliverable', key: 'custom_categories', optional: true },
@@ -535,6 +537,7 @@ export function ProjectLaunchPath({
                       const task = project.tasks[taskKey]
                       if (!task) return null
                       const isLaunch = taskKey === LAUNCH_TASK_KEY
+                      const isFlexible = isFlexibleTask(taskKey)
                       const options = isLaunch
                         ? statusOptions.filter((o) => o.value !== 'not_needed')
                         : statusOptions
@@ -545,6 +548,13 @@ export function ProjectLaunchPath({
                           : taskKey === 'sso'
                             ? (['sso_test_credentials'] as DeliverableKey[])
                             : []
+                      const flexibleStatus = isFlexible
+                        ? isTaskComplete(task.status)
+                          ? ('done' as const)
+                          : isBlocked
+                            ? ('blocked' as const)
+                            : ('open' as const)
+                        : null
 
                       return (
                         <li
@@ -552,7 +562,10 @@ export function ProjectLaunchPath({
                           className={cn(
                             'rounded-[var(--radius-md)] border border-[var(--color-border)] p-3',
                             isBlocked && 'border-[var(--color-danger)]/30',
-                            isLaunch && readyToLaunch && 'border-[var(--color-accent)]/40'
+                            isLaunch && readyToLaunch && 'border-[var(--color-accent)]/40',
+                            isFlexible &&
+                              !isTaskComplete(task.status) &&
+                              'border-[var(--color-warning)]/40'
                           )}
                         >
                           <div className="flex flex-col gap-2.5">
@@ -572,6 +585,7 @@ export function ProjectLaunchPath({
                               <span className="text-[10px] text-[var(--color-muted-foreground)]">
                                 {PROJECT_TASK_STATUS_LABELS[task.status]}
                               </span>
+                              {flexibleStatus && <AnytimeTaskBadge status={flexibleStatus} />}
                               {linked.map((key) => (
                                 <DeliverableChip
                                   key={key}

@@ -423,7 +423,7 @@ export const FILTER_LABELS: Record<ProjectFilter, string> = {
   needs_follow_up_email: 'Follow-up',
   needs_data_import: 'Data',
   needs_sso: 'SSO',
-  needs_smartway_training: 'Training',
+  needs_smartway_training: 'Needs Training',
   needs_schedule: 'Schedule',
 }
 

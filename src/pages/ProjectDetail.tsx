@@ -3,13 +3,14 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import { calculateProgress, getCurrentStageLabel } from '@/lib/progress'
+import { calculateProgress, getCurrentStageLabel, isLaunchFullyWrapped } from '@/lib/progress'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
 import { ProgressRing } from '@/components/project/ProgressRing'
 import { ProjectAvatar, ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { RequiredDocsBadge } from '@/components/project/RequiredDocsBadge'
 import { MissingCredentialsBadge } from '@/components/project/MissingCredentialsBadge'
+import { FlexibleFollowUpBadges } from '@/components/project/FlexibleFollowUpBadges'
 import { ProjectLaunchPath } from '@/components/project/ProjectPathway'
 import { ProjectLaunchSetup } from '@/components/project/ProjectLaunchSetup'
 import { MemberFeaturesPanel } from '@/components/project/MemberFeaturesPanel'
@@ -152,6 +153,7 @@ export function ProjectDetailPage() {
               >
                 <HealthBadge health={health} />
               </motion.div>
+              <FlexibleFollowUpBadges project={project} />
               <RequiredDocsBadge project={project} />
               <MissingCredentialsBadge project={project} />
             </div>
@@ -169,7 +171,7 @@ export function ProjectDetailPage() {
             progress={progress}
             size={80}
             strokeWidth={5}
-            launched={health === 'complete'}
+            launched={isLaunchFullyWrapped(project)}
             layoutId={`project-progress-${pid}`}
           />
         </div>
