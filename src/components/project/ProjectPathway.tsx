@@ -19,10 +19,12 @@ import {
 import {
   arePreLaunchTasksComplete,
   canCompleteLaunch,
+  canCompletePostLaunchTask,
   getLaunchReadinessLabel,
   getTaskCounts,
-  isTaskComplete,
   isFlexibleTask,
+  isPostLaunchTask,
+  isTaskComplete,
 } from '@/lib/progress'
 import { getDeliverableProgress, getMissingRequiredDocs } from '@/lib/deliverables'
 import {
@@ -115,7 +117,10 @@ function buildPhases(ssoOn: boolean): Phase[] {
     {
       id: 'golive',
       title: 'Go live',
-      items: [{ kind: 'task', key: 'launch' }],
+      items: [
+        { kind: 'task', key: 'launch' },
+        { kind: 'task', key: 'salesforce_sync' },
+      ],
     },
     {
       id: 'anytime',
@@ -123,6 +128,7 @@ function buildPhases(ssoOn: boolean): Phase[] {
       hint: 'Required client work — before or after launch, does not block go-live',
       items: [
         { kind: 'task', key: 'smartway_training' },
+        { kind: 'task', key: 'pricing_plan' },
         { kind: 'deliverable', key: 'custom_categories', optional: true },
       ],
     },
@@ -269,6 +275,9 @@ export function ProjectLaunchPath({
     if (taskKey === LAUNCH_TASK_KEY) {
       if (status === 'not_needed') return
       if (status === 'done' && !launchUnlocked) return
+    }
+    if (isPostLaunchTask(taskKey) && status === 'done' && !canCompletePostLaunchTask(project)) {
+      return
     }
     if (status === 'blocked' || status === 'pending') {
       openNoteEditor(taskKey, status)
@@ -538,6 +547,7 @@ export function ProjectLaunchPath({
                       if (!task) return null
                       const isLaunch = taskKey === LAUNCH_TASK_KEY
                       const isFlexible = isFlexibleTask(taskKey)
+                      const isPost = isPostLaunchTask(taskKey)
                       const options = isLaunch
                         ? statusOptions.filter((o) => o.value !== 'not_needed')
                         : statusOptions
@@ -565,7 +575,11 @@ export function ProjectLaunchPath({
                             isLaunch && readyToLaunch && 'border-[var(--color-accent)]/40',
                             isFlexible &&
                               !isTaskComplete(task.status) &&
-                              'border-[var(--color-warning)]/40'
+                              'border-[var(--color-warning)]/40',
+                            isPost &&
+                              canCompletePostLaunchTask(project) &&
+                              !isTaskComplete(task.status) &&
+                              'border-[var(--color-accent)]/35'
                           )}
                         >
                           <div className="flex flex-col gap-2.5">
@@ -585,6 +599,11 @@ export function ProjectLaunchPath({
                               <span className="text-[10px] text-[var(--color-muted-foreground)]">
                                 {PROJECT_TASK_STATUS_LABELS[task.status]}
                               </span>
+                              {isPost && (
+                                <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                                  After launch
+                                </span>
+                              )}
                               {flexibleStatus && <AnytimeTaskBadge status={flexibleStatus} />}
                               {linked.map((key) => (
                                 <DeliverableChip
@@ -598,7 +617,9 @@ export function ProjectLaunchPath({
                             <div className="flex flex-wrap gap-1.5">
                               {options.map(({ value, label: optLabel, icon: Icon, activeClass }) => {
                                 const active = task.status === value
-                                const lockedDone = isLaunch && value === 'done' && !launchUnlocked
+                                const lockedDone =
+                                  (isLaunch && value === 'done' && !launchUnlocked) ||
+                                  (isPost && value === 'done' && !canCompletePostLaunchTask(project))
                                 return (
                                   <button
                                     key={value}
@@ -619,6 +640,12 @@ export function ProjectLaunchPath({
                                 )
                               })}
                             </div>
+
+                            {isPost && !canCompletePostLaunchTask(project) && (
+                              <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                                Mark Launch Done first, then complete Salesforce Sync
+                              </p>
+                            )}
 
                             {task.blockedReason &&
                               editingNote !== taskKey &&

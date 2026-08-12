@@ -13,6 +13,7 @@ import {
   DATA_ASSET_LABELS,
   FLEXIBLE_TASK_KEYS,
   LAUNCH_TASK_KEY,
+  POST_LAUNCH_TASK_KEYS,
   PROJECT_TASK_LABELS,
   PROJECT_TASK_STATUS_LABELS,
 } from '@/types'
@@ -20,9 +21,11 @@ import {
   arePreLaunchTasksComplete,
   calculateProgress,
   canCompleteLaunch,
+  canCompletePostLaunchTask,
   getActivePreLaunchKeys,
   getLaunchReadinessLabel,
   getTaskCounts,
+  isPostLaunchTask,
   isTaskComplete,
 } from '@/lib/progress'
 import { getMissingRequiredDocs } from '@/lib/deliverables'
@@ -138,6 +141,9 @@ export function ProjectLaunchSetup({
       if (status === 'not_needed') return
       if (status === 'done' && !launchUnlocked) return
     }
+    if (isPostLaunchTask(taskKey) && status === 'done' && !canCompletePostLaunchTask(project)) {
+      return
+    }
     if (status === 'blocked' || status === 'pending') {
       openNoteEditor(taskKey, status)
       return
@@ -154,10 +160,14 @@ export function ProjectLaunchSetup({
     setEditingNote(null)
   }
 
-  const renderTaskRow = (taskKey: ProjectTaskKey, options?: { flexible?: boolean }) => {
+  const renderTaskRow = (
+    taskKey: ProjectTaskKey,
+    options?: { flexible?: boolean; postLaunch?: boolean }
+  ) => {
     const task = project.tasks[taskKey]
     if (!task) return null
     const isLaunch = taskKey === LAUNCH_TASK_KEY
+    const isPost = Boolean(options?.postLaunch) || isPostLaunchTask(taskKey)
     const statusButtons = isLaunch
       ? statusOptions.filter((o) => o.value !== 'not_needed')
       : statusOptions
@@ -170,6 +180,7 @@ export function ProjectLaunchSetup({
             ? ('blocked' as const)
             : ('open' as const)
         : null
+    const postUnlocked = canCompletePostLaunchTask(project)
 
     return (
       <li
@@ -179,7 +190,8 @@ export function ProjectLaunchSetup({
           isBlocked && 'border-[var(--color-danger)]/30',
           isLaunch && readyToLaunch && 'border-[var(--color-accent)]/40',
           options?.flexible && !isTaskComplete(task.status) && 'border-[var(--color-warning)]/40',
-          options?.flexible && isTaskComplete(task.status) && 'border-dashed'
+          options?.flexible && isTaskComplete(task.status) && 'border-dashed',
+          isPost && postUnlocked && !isTaskComplete(task.status) && 'border-[var(--color-accent)]/35'
         )}
       >
         <div className="flex flex-col gap-2.5">
@@ -198,13 +210,20 @@ export function ProjectLaunchSetup({
             <span className="text-[10px] text-[var(--color-muted-foreground)]">
               {PROJECT_TASK_STATUS_LABELS[task.status]}
             </span>
+            {isPost && (
+              <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                After launch
+              </span>
+            )}
             {flexibleStatus && <AnytimeTaskBadge status={flexibleStatus} />}
           </div>
 
           <div className="flex flex-wrap gap-1.5">
             {statusButtons.map(({ value, label: optLabel, icon: Icon, activeClass }) => {
               const active = task.status === value
-              const lockedDone = isLaunch && value === 'done' && !launchUnlocked
+              const lockedDone =
+                (isLaunch && value === 'done' && !launchUnlocked) ||
+                (isPost && value === 'done' && !postUnlocked)
               return (
                 <button
                   key={value}
@@ -229,6 +248,12 @@ export function ProjectLaunchSetup({
           {isLaunch && !launchUnlocked && (
             <p className="text-[11px] text-[var(--color-muted-foreground)]">
               Complete all required tasks above (Done or N/A) to unlock Launch Done
+            </p>
+          )}
+
+          {isPost && !postUnlocked && (
+            <p className="text-[11px] text-[var(--color-muted-foreground)]">
+              Mark Launch Done first, then complete Salesforce Sync
             </p>
           )}
 
@@ -335,7 +360,19 @@ export function ProjectLaunchSetup({
           </div>
           <ul className="space-y-2">
             {requiredKeys.map((key) => renderTaskRow(key))}
+          </ul>
+        </section>
+
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold tracking-tight">Go live</h3>
+            <p className="text-[11px] text-[var(--color-muted-foreground)] mt-0.5">
+              Launch the site, then run Salesforce Sync
+            </p>
+          </div>
+          <ul className="space-y-2">
             {renderTaskRow(LAUNCH_TASK_KEY)}
+            {POST_LAUNCH_TASK_KEYS.map((key) => renderTaskRow(key, { postLaunch: true }))}
           </ul>
         </section>
 

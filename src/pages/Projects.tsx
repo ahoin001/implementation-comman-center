@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { CheckSquare, ListPlus, Trash2, X } from 'lucide-react'
-import type { ProjectFilter } from '@/types'
+import { CheckSquare, GraduationCap, ListPlus, Trash2, X } from 'lucide-react'
+import type { Project, ProjectFilter } from '@/types'
 import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
 import { ProjectCard } from '@/components/project/ProjectCard'
 import { NewProjectButton } from '@/components/project/NewProjectButton'
@@ -10,7 +10,18 @@ import { AttentionStrip } from '@/components/project/AttentionStrip'
 import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
+import { isLaunchedWithoutTraining } from '@/lib/progress'
 import { cn } from '@/lib/utils'
+
+const GROUP_TRAINING_KEY = 'icc-projects-group-training'
+
+function readGroupTrainingToggle(): boolean {
+  try {
+    return sessionStorage.getItem(GROUP_TRAINING_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 function FilterChip({
   filter,
@@ -43,6 +54,94 @@ function FilterChip({
   )
 }
 
+function ViewToggle({
+  checked,
+  onChange,
+  label,
+  activeTone = 'accent',
+}: {
+  checked: boolean
+  onChange: (next: boolean) => void
+  label: string
+  activeTone?: 'accent' | 'warning'
+}) {
+  const on =
+    activeTone === 'warning'
+      ? {
+          border: 'border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
+          track: 'bg-[var(--color-warning)]',
+        }
+      : {
+          border: 'border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)]',
+          track: 'bg-[var(--color-accent)]',
+        }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
+        checked
+          ? on.border
+          : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+      )}
+    >
+      <span
+        className={cn(
+          'relative h-4 w-7 rounded-full transition-colors duration-150',
+          checked ? on.track : 'bg-[var(--color-border)]'
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-150',
+            checked ? 'translate-x-3.5' : 'translate-x-0.5'
+          )}
+        />
+      </span>
+      {label}
+    </button>
+  )
+}
+
+function ProjectGrid({
+  projects,
+  selectMode,
+  selectedIds,
+  onToggleSelect,
+  emphasizeTrainingGap,
+}: {
+  projects: Project[]
+  selectMode: boolean
+  selectedIds: Set<string>
+  onToggleSelect: (id: string) => void
+  emphasizeTrainingGap?: boolean
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {projects.map((project) => (
+        <div
+          key={project.id}
+          className={cn(
+            emphasizeTrainingGap &&
+              'rounded-[calc(var(--radius-lg)+2px)] ring-1 ring-[var(--color-warning)]/40 ring-offset-2 ring-offset-[var(--color-background)]'
+          )}
+        >
+          <ProjectCard
+            project={project}
+            selectable={selectMode}
+            selected={selectedIds.has(project.id)}
+            onToggleSelect={() => onToggleSelect(project.id)}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ProjectsPage() {
   const activeFilter = useStore((s) => s.activeFilter)
   const setActiveFilter = useStore((s) => s.setActiveFilter)
@@ -50,6 +149,7 @@ export function ProjectsPage() {
   const addNote = useStore((s) => s.addNote)
 
   const [inProgressFirst, setInProgressFirst] = useState(true)
+  const [groupTrainingGaps, setGroupTrainingGaps] = useState(readGroupTrainingToggle)
   const projects = useFilteredProjects({ inProgressFirst })
   const activeProjects = useActiveProjects()
 
@@ -64,6 +164,19 @@ export function ProjectsPage() {
     [projects, selectedIds]
   )
   const taskFilterActive = TASK_FILTERS.includes(activeFilter)
+
+  const { trainingGaps, otherProjects } = useMemo(() => {
+    if (!groupTrainingGaps) {
+      return { trainingGaps: [] as Project[], otherProjects: projects }
+    }
+    const gaps: Project[] = []
+    const others: Project[] = []
+    for (const p of projects) {
+      if (isLaunchedWithoutTraining(p)) gaps.push(p)
+      else others.push(p)
+    }
+    return { trainingGaps: gaps, otherProjects: others }
+  }, [projects, groupTrainingGaps])
 
   const exitSelectMode = () => {
     setSelectMode(false)
@@ -106,6 +219,15 @@ export function ProjectsPage() {
     setActiveFilter(activeFilter === filter && filter !== 'all' ? 'all' : filter)
   }
 
+  const setGroupTraining = (on: boolean) => {
+    setGroupTrainingGaps(on)
+    try {
+      sessionStorage.setItem(GROUP_TRAINING_KEY, on ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <div>
       <div className="flex items-start justify-between gap-4 mb-6">
@@ -115,6 +237,12 @@ export function ProjectsPage() {
             {projects.length} implementation{projects.length !== 1 ? 's' : ''}
             {activeFilter !== 'all' && (
               <span className="text-[var(--color-muted)]"> · {FILTER_LABELS[activeFilter]}</span>
+            )}
+            {groupTrainingGaps && trainingGaps.length > 0 && (
+              <span className="text-[var(--color-warning)]">
+                {' '}
+                · {trainingGaps.length} need training
+              </span>
             )}
           </p>
         </div>
@@ -177,8 +305,8 @@ export function ProjectsPage() {
       )}
 
       <div className="mb-6 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none flex-1 min-w-0">
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
             {STATUS_FILTERS.map((filter) => (
               <FilterChip
                 key={filter}
@@ -189,33 +317,19 @@ export function ProjectsPage() {
             ))}
           </div>
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={inProgressFirst}
-            onClick={() => setInProgressFirst((v) => !v)}
-            className={cn(
-              'shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
-              inProgressFirst
-                ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
-                : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-            )}
-          >
-            <span
-              className={cn(
-                'relative h-4 w-7 rounded-full transition-colors duration-150',
-                inProgressFirst ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border)]'
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-150',
-                  inProgressFirst ? 'translate-x-3.5' : 'translate-x-0.5'
-                )}
-              />
-            </span>
-            In Progress First
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ViewToggle
+              checked={inProgressFirst}
+              onChange={setInProgressFirst}
+              label="In Progress First"
+            />
+            <ViewToggle
+              checked={groupTrainingGaps}
+              onChange={setGroupTraining}
+              label="Group training gaps"
+              activeTone="warning"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -264,17 +378,59 @@ export function ProjectsPage() {
       )}
 
       {projects.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              selectable={selectMode}
-              selected={selectedIds.has(project.id)}
-              onToggleSelect={() => toggleSelect(project.id)}
-            />
-          ))}
-        </div>
+        groupTrainingGaps && trainingGaps.length > 0 ? (
+          <div className="space-y-8">
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning)]/15 px-2.5 py-1 text-xs font-medium text-[var(--color-warning)]">
+                  <GraduationCap className="h-3.5 w-3.5" />
+                  Launched · Needs training
+                </span>
+                <span className="text-xs tabular-nums text-[var(--color-muted-foreground)]">
+                  {trainingGaps.length}
+                </span>
+                <div className="h-px flex-1 min-w-[2rem] bg-[var(--color-warning)]/25" />
+              </div>
+              <p className="text-[11px] text-[var(--color-muted-foreground)] -mt-1">
+                Site is live; SmartWay Training still open
+              </p>
+              <ProjectGrid
+                projects={trainingGaps}
+                selectMode={selectMode}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                emphasizeTrainingGap
+              />
+            </section>
+
+            {otherProjects.length > 0 && (
+              <section className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
+                    Other projects
+                  </span>
+                  <span className="text-xs tabular-nums text-[var(--color-muted-foreground)]">
+                    {otherProjects.length}
+                  </span>
+                  <div className="h-px flex-1 min-w-[2rem] bg-[var(--color-border)]" />
+                </div>
+                <ProjectGrid
+                  projects={otherProjects}
+                  selectMode={selectMode}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                />
+              </section>
+            )}
+          </div>
+        ) : (
+          <ProjectGrid
+            projects={projects}
+            selectMode={selectMode}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+          />
+        )
       ) : (
         <div className="glass rounded-[var(--radius-lg)] p-12 text-center">
           <p className="text-[var(--color-muted-foreground)] mb-4">No projects match this filter.</p>

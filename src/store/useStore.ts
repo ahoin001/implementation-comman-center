@@ -319,6 +319,13 @@ export const useStore = create<StoreState>()((set, get) => ({
       if (status === 'not_needed') return
       if (status === 'done' && !canCompleteLaunch(project)) return
     }
+    if (
+      taskKey === 'salesforce_sync' &&
+      status === 'done' &&
+      project.tasks.launch?.status !== 'done'
+    ) {
+      return
+    }
 
     const nextTask = {
       status,

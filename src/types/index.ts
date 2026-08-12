@@ -11,6 +11,8 @@ export type ProjectTaskKey =
   | 'smartway_training'
   | 'job_backfill'
   | 'launch'
+  | 'salesforce_sync'
+  | 'pricing_plan'
 
 export type ProjectTaskStatus = 'pending' | 'done' | 'not_needed' | 'blocked'
 
@@ -122,18 +124,31 @@ export const PROJECT_TASK_KEYS: ProjectTaskKey[] = [
   'data_import',
   'sso',
   'smartway_training',
+  'pricing_plan',
   'job_backfill',
   'launch',
+  'salesforce_sync',
 ]
 
-/** Everything except the final Launch step */
-export const PRE_LAUNCH_TASK_KEYS: ProjectTaskKey[] = PROJECT_TASK_KEYS.filter((k) => k !== 'launch')
+/**
+ * Tasks after go-live site cutover (do not gate Launch Done).
+ * Shown under Go Live after Launch.
+ */
+export const POST_LAUNCH_TASK_KEYS: ProjectTaskKey[] = ['salesforce_sync']
 
 /**
  * Tasks that may finish before or after go-live.
  * Never required to unlock Launch Done.
  */
-export const FLEXIBLE_TASK_KEYS: ProjectTaskKey[] = ['smartway_training']
+export const FLEXIBLE_TASK_KEYS: ProjectTaskKey[] = ['smartway_training', 'pricing_plan']
+
+/** Everything that gates Launch Done (not Launch itself, not post-launch, not flexible) */
+export const PRE_LAUNCH_TASK_KEYS: ProjectTaskKey[] = PROJECT_TASK_KEYS.filter(
+  (k) =>
+    k !== 'launch' &&
+    !POST_LAUNCH_TASK_KEYS.includes(k) &&
+    !FLEXIBLE_TASK_KEYS.includes(k)
+)
 
 export const LAUNCH_TASK_KEY: ProjectTaskKey = 'launch'
 
@@ -144,8 +159,10 @@ export const PROJECT_TASK_LABELS: Record<ProjectTaskKey, string> = {
   data_import: 'Data Import',
   sso: 'SSO',
   smartway_training: 'SmartWay Training',
+  pricing_plan: 'Pricing Plan',
   job_backfill: 'Enable Job Backfill',
   launch: 'Launch',
+  salesforce_sync: 'Salesforce Sync',
 }
 
 export const PROJECT_TASK_STATUS_LABELS: Record<ProjectTaskStatus, string> = {

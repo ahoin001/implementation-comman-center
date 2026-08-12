@@ -153,6 +153,7 @@ export const seedProjects: Project[] = [
             'smartway_training',
             'job_backfill',
             'launch',
+            'salesforce_sync',
           ] as ProjectTaskKey[]
         ).map((k) => [k, { status: 'done' as const, completedAt: '2026-06-28' }])
       )
