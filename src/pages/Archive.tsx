@@ -1,14 +1,18 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { useArchivedProjects } from '@/hooks/useProjects'
-import { ProgressRing } from '@/components/project/ProgressRing'
-import { calculateProgress } from '@/lib/progress'
-import { Input } from '@/components/ui/Input'
+import { ArchiveRestore } from 'lucide-react'
 import { useState } from 'react'
-import { searchProjects } from '@/hooks/useProjects'
+import { useArchivedProjects, searchProjects } from '@/hooks/useProjects'
+import { ProgressRing } from '@/components/project/ProgressRing'
+import { calculateProgress, isLaunchFullyWrapped } from '@/lib/progress'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { useStore } from '@/store/useStore'
 
 export function ArchivePage() {
   const archived = useArchivedProjects()
+  const unarchiveProject = useStore((s) => s.unarchiveProject)
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const projects = query ? searchProjects(archived, query) : archived
 
@@ -17,7 +21,7 @@ export function ArchivePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Archive</h1>
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Completed implementations — read only
+          Completed implementations — open to view or restore
         </p>
       </div>
 
@@ -36,20 +40,46 @@ export function ArchivePage() {
       ) : (
         <div className="space-y-3">
           {projects.map((project) => (
-            <Link
+            <div
               key={project.id}
-              to={`/projects/${project.id}`}
-              className="glass flex items-center gap-4 rounded-[var(--radius-lg)] p-4 transition-[transform,box-shadow] duration-200 hover:shadow-md active:scale-[0.99]"
+              className="glass flex items-center gap-4 rounded-[var(--radius-lg)] p-4"
             >
-              <ProgressRing progress={calculateProgress(project)} size={48} strokeWidth={3} />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{project.name}</p>
-                <p className="text-sm text-[var(--color-muted-foreground)]">
-                  Launched {project.archivedAt ? format(parseISO(project.archivedAt), 'MMM d, yyyy') : '—'}
-                </p>
-              </div>
-              <span className="text-xs text-[var(--color-muted-foreground)]">View →</span>
-            </Link>
+              <Link
+                to={`/projects/${project.id}`}
+                className="flex flex-1 min-w-0 items-center gap-4 transition-[transform,opacity] duration-150 hover:opacity-90 active:scale-[0.99]"
+              >
+                <ProgressRing
+                  progress={calculateProgress(project)}
+                  size={48}
+                  strokeWidth={3}
+                  launched={isLaunchFullyWrapped(project)}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{project.name}</p>
+                  <p className="text-sm text-[var(--color-muted-foreground)]">
+                    Archived{' '}
+                    {project.archivedAt
+                      ? format(parseISO(project.archivedAt), 'MMM d, yyyy')
+                      : '—'}
+                  </p>
+                </div>
+                <span className="text-xs text-[var(--color-muted-foreground)] shrink-0">
+                  View →
+                </span>
+              </Link>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  unarchiveProject(project.id)
+                  navigate(`/projects/${project.id}`)
+                }}
+              >
+                <ArchiveRestore className="h-4 w-4" />
+                Unarchive
+              </Button>
+            </div>
           ))}
         </div>
       )}

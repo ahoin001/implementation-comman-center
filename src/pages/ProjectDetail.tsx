@@ -62,6 +62,7 @@ export function ProjectDetailPage() {
   const deleteNote = useStore((s) => s.deleteNote)
   const toggleNotePin = useStore((s) => s.toggleNotePin)
   const archiveProject = useStore((s) => s.archiveProject)
+  const unarchiveProject = useStore((s) => s.unarchiveProject)
   const updateProjectLinks = useStore((s) => s.updateProjectLinks)
   const updateProjectContact = useStore((s) => s.updateProjectContact)
   const updateProject = useStore((s) => s.updateProject)
@@ -122,11 +123,11 @@ export function ProjectDetailPage() {
   return (
     <div>
       <Link
-        to="/projects"
+        to={project.archived ? '/archive' : '/projects'}
         className="inline-flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] mb-6 transition-colors duration-150"
       >
         <ArrowLeft className="h-4 w-4" />
-        Projects
+        {project.archived ? 'Archive' : 'Projects'}
       </Link>
 
       <motion.div
@@ -153,6 +154,11 @@ export function ProjectDetailPage() {
               >
                 <HealthBadge health={health} />
               </motion.div>
+              {project.archived && (
+                <span className="inline-flex items-center rounded-full bg-black/5 dark:bg-white/10 px-2.5 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
+                  Archived
+                </span>
+              )}
               <FlexibleFollowUpBadges project={project} />
               <RequiredDocsBadge project={project} />
               <MissingCredentialsBadge project={project} />
@@ -259,7 +265,18 @@ export function ProjectDetailPage() {
             onTogglePin={(noteId) => toggleNotePin(project.id, noteId)}
           />
 
-          {!project.archived && (
+          {project.archived ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                unarchiveProject(project.id)
+                navigate('/projects')
+              }}
+            >
+              Unarchive Project
+            </Button>
+          ) : (
             <Button
               variant="outline"
               className="w-full"

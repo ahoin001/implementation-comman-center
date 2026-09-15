@@ -52,6 +52,7 @@ interface StoreState {
   getProject: (id: string) => Project | undefined
   updateProject: (id: string, updates: Partial<Project>) => void
   archiveProject: (id: string) => void
+  unarchiveProject: (id: string) => void
   addNote: (
     projectId: string,
     content: string,
@@ -206,6 +207,20 @@ export const useStore = create<StoreState>()((set, get) => ({
       ),
     }))
     void api.patchImplementation(id, { archived: true, archivedAt }).catch(logSyncError)
+  },
+
+  unarchiveProject: (id) => {
+    const updatedAt = new Date().toISOString()
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === id
+          ? { ...p, archived: false, archivedAt: undefined, updatedAt }
+          : p
+      ),
+    }))
+    void api
+      .patchImplementation(id, { archived: false, archivedAt: undefined })
+      .catch(logSyncError)
   },
 
   addNote: (projectId, content, options) => {
