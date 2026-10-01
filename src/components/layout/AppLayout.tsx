@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { LayoutGroup } from 'framer-motion'
 import { Sidebar, MobileNav } from './Navigation'
+import { ProfileChip } from './ProfileChip'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
 
 /**
@@ -23,6 +24,7 @@ export function AppLayout() {
           </main>
         </div>
         <MobileNav />
+        <ProfileChip />
       </div>
     </LayoutGroup>
   )

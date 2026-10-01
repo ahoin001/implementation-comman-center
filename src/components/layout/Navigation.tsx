@@ -7,9 +7,7 @@ import {
   Archive,
   Settings,
   Command,
-  LogOut,
 } from 'lucide-react'
-import { signOut } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -63,16 +61,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="px-3 pb-4">
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium text-[var(--color-muted-foreground)] hover:bg-black/5 hover:text-[var(--color-foreground)] dark:hover:bg-white/5"
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          Sign out
-        </button>
-      </div>
     </aside>
   )
 }
