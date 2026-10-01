@@ -4,7 +4,7 @@ import type { HTMLAttributes } from 'react'
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('glass rounded-[var(--radius-lg)] p-5', className)}
+      className={cn('float-panel p-5', className)}
       {...props}
     />
   )

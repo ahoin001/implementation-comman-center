@@ -13,7 +13,7 @@ function initials(name: string) {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
-export function ProfileChip() {
+export function ProfileChip({ docked = false }: { docked?: boolean }) {
   const currentUserId = useStore((s) => s.currentUserId)
   const profiles = useStore((s) => s.profiles)
   const userName = useStore((s) => s.settings.userName)
@@ -52,13 +52,20 @@ export function ProfileChip() {
   return (
     <div
       ref={rootRef}
-      className="fixed z-[60] right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:right-6 lg:bottom-6"
+      className={
+        docked
+          ? 'relative'
+          : 'fixed z-[60] right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:hidden'
+      }
     >
       {open && (
         <div
           id={menuId}
           role="menu"
-          className="glass absolute bottom-[calc(100%+0.5rem)] right-0 w-56 overflow-hidden rounded-[var(--radius-lg)] shadow-lg"
+          className={cn(
+            'float-panel absolute bottom-[calc(100%+0.5rem)] w-56 overflow-hidden p-0',
+            docked ? 'left-0' : 'right-0'
+          )}
         >
           <div className="px-3 py-2.5 border-b border-[var(--color-border)]">
             <p className="text-sm font-medium truncate">{name}</p>
@@ -96,9 +103,10 @@ export function ProfileChip() {
         aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          'glass flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 shadow-lg',
-          'transition-[transform,background-color] duration-150 active:scale-[0.98]',
-          'hover:bg-[var(--color-card-solid)]'
+          'flex items-center gap-2.5 transition-[transform,background-color] duration-150 active:scale-[0.98]',
+          docked
+            ? 'w-full rounded-2xl px-2 py-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/5'
+            : 'glass rounded-full py-1 pl-1 pr-2.5 shadow-lg hover:bg-[var(--color-card-solid)]'
         )}
       >
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent)] text-[11px] font-semibold text-white">

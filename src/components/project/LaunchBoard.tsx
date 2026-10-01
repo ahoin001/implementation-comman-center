@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { Check, ChevronDown, MessageSquare, Search } from 'lucide-react'
 import type { LaunchTask, Profile, Project } from '@/types'
 import type { LaunchParty, LaunchTaskStatus } from '@/lib/launchTemplate'
 import {
@@ -8,21 +9,30 @@ import {
   LAUNCH_PHASES,
   LAUNCH_STATUS_LABELS,
   isLaunchApplicable,
-  launchBoardProgress,
 } from '@/lib/launchTemplate'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 
-type BoardFilter = 'open' | 'mine' | 'client' | 'webscribble'
+type BoardView = 'all' | 'open' | 'mine' | 'client' | 'webscribble'
+
+const VIEWS: { id: BoardView; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'open', label: 'Open' },
+  { id: 'mine', label: 'Mine' },
+  { id: 'client', label: 'Client' },
+  { id: 'webscribble', label: 'Web Scribble' },
+]
 
 const STATUS_TONE: Record<LaunchTaskStatus, string> = {
-  not_started: 'bg-black/5 text-[var(--color-muted-foreground)] dark:bg-white/10',
-  in_progress: 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]',
-  complete: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  na: 'bg-black/5 text-[var(--color-muted)] dark:bg-white/5',
-  as_needed: 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]',
+  not_started: 'bg-[#eef1f6] text-[#5c6784]',
+  in_progress: 'bg-[#e5f8ee] text-[#178a45]',
+  complete: 'bg-[#e7eefe] text-[#2451d6]',
+  na: 'bg-[#eef1f6] text-[#8b95b2]',
+  as_needed: 'bg-[#fff4e5] text-[#b86b00]',
 }
+
+const EASE = [0.23, 1, 0.32, 1] as const
 
 function formatDue(value?: string) {
   if (!value) return 'No date'
@@ -41,6 +51,12 @@ function formatWhen(iso: string) {
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+function cycleStatus(status: LaunchTaskStatus): LaunchTaskStatus {
+  if (status === 'not_started') return 'in_progress'
+  if (status === 'in_progress') return 'complete'
+  return 'not_started'
 }
 
 interface LaunchBoardProps {
@@ -68,143 +84,120 @@ export function LaunchBoard({
 }: LaunchBoardProps) {
   const tasks = project.launchTasks ?? []
   const [phaseKey, setPhaseKey] = useState<string | null>(null)
-  const [filters, setFilters] = useState<BoardFilter[]>([])
+  const [view, setView] = useState<BoardView>('all')
+  const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const names = useMemo(() => {
-    const map = new Map(profiles.map((profile) => [profile.id, profile.displayName]))
-    return map
-  }, [profiles])
-
-  const toggleFilter = (filter: BoardFilter) => {
-    setFilters((current) => {
-      if (current.includes(filter)) return current.filter((item) => item !== filter)
-      const withoutOpposite = current.filter((item) => {
-        if (filter === 'client' && item === 'webscribble') return false
-        if (filter === 'webscribble' && item === 'client') return false
-        return true
-      })
-      return [...withoutOpposite, filter]
-    })
-  }
+  const names = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.displayName])), [profiles])
 
   const matches = (task: LaunchTask) => {
     if (task.legacy) return false
     if (phaseKey && task.phaseKey !== phaseKey) return false
-    if (filters.includes('open') && task.status !== 'not_started' && task.status !== 'in_progress') {
-      return false
-    }
-    if (filters.includes('mine') && task.assigneeId !== currentUserId) return false
-    if (filters.includes('client') && task.party !== 'client') return false
-    if (filters.includes('webscribble') && task.party !== 'webscribble') return false
+    if (query && !task.title.toLowerCase().includes(query.trim().toLowerCase())) return false
+    if (view === 'open' && task.status !== 'not_started' && task.status !== 'in_progress') return false
+    if (view === 'mine' && task.assigneeId !== currentUserId) return false
+    if (view === 'client' && task.party !== 'client') return false
+    if (view === 'webscribble' && task.party !== 'webscribble') return false
     return true
   }
 
   const visible = tasks.filter(matches)
   const earlier = tasks.filter((task) => task.legacy)
-  const activeFilters = filters.length > 0 || phaseKey !== null
+  const filtering = view !== 'all' || phaseKey !== null || query.trim().length > 0
 
   return (
-    <section className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto pb-0.5">
-        {LAUNCH_PHASES.map((phase) => {
-          const phaseTasks = tasks.filter((task) => task.phaseKey === phase.key && !task.legacy)
-          const progress = launchBoardProgress(phaseTasks)
-          const selected = phaseKey === phase.key
-          return (
-            <button
-              key={phase.key}
-              type="button"
-              onClick={() => setPhaseKey(selected ? null : phase.key)}
-              className={cn(
-                'shrink-0 rounded-full border px-3 py-1.5 text-left transition-colors duration-150',
-                selected
-                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                  : 'border-[var(--color-border)] hover:border-[var(--color-accent)]/30'
-              )}
-            >
-              <span className="block text-xs font-medium">{phase.title}</span>
-              <span className="block text-[10px] tabular-nums text-[var(--color-muted-foreground)]">
-                {progress}% applicable
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        {(
-          [
-            { id: 'open' as const, label: 'Open' },
-            { id: 'mine' as const, label: 'Assigned to me' },
-            { id: 'client' as const, label: 'Client' },
-            { id: 'webscribble' as const, label: 'Web Scribble' },
-          ]
-        ).map((filter) => {
-          const on = filters.includes(filter.id)
-          return (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={() => toggleFilter(filter.id)}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150',
-                on
-                  ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
-                  : 'border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-              )}
-            >
-              {filter.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {LAUNCH_GROUPS.map((group) => {
-        if (phaseKey && group.phaseKey !== phaseKey) return null
-        const rows = visible
-          .filter((task) => task.groupKey === group.key)
-          .sort((a, b) => a.sort - b.sort)
-        if (rows.length === 0) return null
-        const applicable = rows.filter((task) => isLaunchApplicable(task.status))
-        const done = applicable.filter((task) => task.status === 'complete').length
-        return (
-          <div key={group.key} className="space-y-1">
-            <div className="flex items-baseline justify-between gap-3 px-1 pt-2">
-              <h3 className="text-[11px] font-medium uppercase tracking-wider text-[var(--color-muted)]">
-                {group.title}
-              </h3>
-              <span className="text-[10px] tabular-nums text-[var(--color-muted)]">
-                {applicable.length === 0 ? 'As needed' : `${done}/${applicable.length}`}
-              </span>
-            </div>
-            <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] overflow-hidden">
-              {rows.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  names={names}
-                  profiles={profiles}
-                  open={openId === task.id}
-                  onToggle={() => setOpenId(openId === task.id ? null : task.id)}
-                  onUpdate={(patch) => onUpdateTask(task.id, patch)}
-                  onAddComment={(body) => onAddComment(task.id, body)}
-                />
-              ))}
-            </div>
+    <section className="float-panel p-3 sm:p-4">
+      <div className="flex flex-col gap-3 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-muted)]" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search tasks"
+              aria-label="Search tasks"
+              className="h-9 w-44 rounded-full bg-[#f4f7fb] pl-8 sm:w-52"
+            />
           </div>
-        )
-      })}
+          <div className="inline-flex rounded-full bg-[#f4f7fb] p-1">
+            {VIEWS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setView(item.id)}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-medium transition-[background-color,color,box-shadow] duration-150',
+                  view === item.id
+                    ? 'bg-[#1d2433] text-white shadow-sm'
+                    : 'text-[#5c6784] hover:text-[#1d2433]'
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <PhaseChip label="Every phase" selected={phaseKey === null} onClick={() => setPhaseKey(null)} />
+        {LAUNCH_PHASES.map((phase) => (
+          <PhaseChip
+            key={phase.key}
+            label={phase.title}
+            selected={phaseKey === phase.key}
+            onClick={() => setPhaseKey(phaseKey === phase.key ? null : phase.key)}
+          />
+        ))}
+      </div>
+
+      <div className="space-y-5">
+        {LAUNCH_GROUPS.map((group) => {
+          if (phaseKey && group.phaseKey !== phaseKey) return null
+          const rows = visible.filter((task) => task.groupKey === group.key).sort((a, b) => a.sort - b.sort)
+          if (rows.length === 0) return null
+          const applicable = rows.filter((task) => isLaunchApplicable(task.status))
+          const done = applicable.filter((task) => task.status === 'complete').length
+          return (
+            <div key={group.key}>
+              <div className="mb-1.5 flex items-baseline justify-between px-2">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8b95b2]">
+                  {group.title}
+                </h3>
+                <span className="text-[11px] tabular-nums text-[#8b95b2]">
+                  {applicable.length === 0 ? 'As needed' : `${done}/${applicable.length}`}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {rows.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    names={names}
+                    profiles={profiles}
+                    currentUserId={currentUserId}
+                    open={openId === task.id}
+                    onToggle={() => setOpenId(openId === task.id ? null : task.id)}
+                    onUpdate={(patch) => onUpdateTask(task.id, patch)}
+                    onAddComment={(body) => onAddComment(task.id, body)}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
 
       {visible.length === 0 && (
-        <p className="text-sm text-[var(--color-muted-foreground)] px-1">
-          {activeFilters ? 'No tasks match these filters.' : 'No launch tasks yet.'}
+        <p className="px-2 py-8 text-center text-sm text-[var(--color-muted-foreground)]">
+          {filtering ? 'Nothing matches. Clear a filter to see the rest of the board.' : 'No launch tasks yet.'}
         </p>
       )}
 
-      {earlier.length > 0 && !activeFilters && (
-        <details className="rounded-[var(--radius-lg)] border border-[var(--color-border)] px-3 py-2">
-          <summary className="cursor-pointer text-xs font-medium text-[var(--color-muted-foreground)]">
+      {earlier.length > 0 && !filtering && (
+        <details className="mt-4 rounded-2xl bg-[#f4f7fb] px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-[#5c6784]">
             Earlier tasks ({earlier.length})
           </summary>
           <ul className="mt-2 space-y-1">
@@ -223,10 +216,34 @@ export function LaunchBoard({
   )
 }
 
+function PhaseChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150',
+        selected ? 'bg-[#e7eeff] text-[#2451d6]' : 'text-[#5c6784] hover:bg-[#f4f7fb]'
+      )}
+    >
+      {label}
+    </button>
+  )
+}
+
 function TaskRow({
   task,
   names,
   profiles,
+  currentUserId,
   open,
   onToggle,
   onUpdate,
@@ -235,6 +252,7 @@ function TaskRow({
   task: LaunchTask
   names: Map<string, string>
   profiles: Profile[]
+  currentUserId: string | null
   open: boolean
   onToggle: () => void
   onUpdate: (
@@ -247,147 +265,199 @@ function TaskRow({
   ) => void
   onAddComment: (body: string) => void
 }) {
+  const reduce = useReducedMotion()
   const [draft, setDraft] = useState('')
   const [guidance, setGuidance] = useState(task.description)
+  const assignee = task.assigneeId ? names.get(task.assigneeId) ?? 'Teammate' : 'Unassigned'
 
   useEffect(() => {
     setGuidance(task.description)
   }, [task.description])
-  const assignee = task.assigneeId ? names.get(task.assigneeId) ?? 'Teammate' : 'Unassigned'
 
   return (
-    <div className="border-b border-[var(--color-border)] last:border-b-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="grid w-full grid-cols-1 gap-2 px-3 py-2.5 text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.03] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center sm:gap-3"
-      >
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium">{task.title}</span>
-          <span className="mt-1 inline-flex items-center gap-2 sm:hidden">
-            <PartyChip party={task.party} />
-            <span className="text-[11px] text-[var(--color-muted-foreground)]">{assignee}</span>
-          </span>
-        </span>
-        <span className="hidden sm:block">
-          <PartyChip party={task.party} />
-        </span>
-        <span className="hidden text-xs text-[var(--color-muted-foreground)] sm:block sm:w-28 sm:truncate">
-          {assignee}
-          <span className="mx-1 text-[var(--color-muted)]">·</span>
-          {formatDue(task.dueDate)}
-        </span>
-        <span className="flex items-center justify-between gap-2 sm:justify-end">
-          <span className="text-[11px] text-[var(--color-muted-foreground)] sm:hidden">
-            {formatDue(task.dueDate)}
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            {task.comments.length > 0 && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] tabular-nums text-[var(--color-muted-foreground)]">
-                <MessageSquare className="h-3 w-3" />
-                {task.comments.length}
-              </span>
-            )}
-            <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', STATUS_TONE[task.status])}>
+    <div
+      className={cn(
+        'rounded-2xl transition-[background-color,box-shadow] duration-200',
+        open ? 'bg-[#f7f9fd] shadow-[inset_0_0_0_1px_rgba(59,108,255,0.12)]' : 'hover:bg-[#f7f9fd]'
+      )}
+    >
+      <div className="flex items-start gap-2 px-2 py-2">
+        <button
+          type="button"
+          aria-label={`Mark ${task.title} ${LAUNCH_STATUS_LABELS[cycleStatus(task.status)].toLowerCase()}`}
+          onClick={() => onUpdate({ status: cycleStatus(task.status) })}
+          className={cn(
+            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-150 active:scale-90',
+            task.status === 'complete'
+              ? 'border-[#3b6cff] bg-[#3b6cff] text-white'
+              : task.status === 'in_progress'
+                ? 'border-[#3b6cff] bg-[#e7eeff]'
+                : 'border-[#c9d2e3] bg-white'
+          )}
+        >
+          {task.status === 'complete' && <Check className="h-3 w-3" strokeWidth={3} />}
+          {task.status === 'in_progress' && <span className="h-1.5 w-1.5 rounded-full bg-[#3b6cff]" />}
+        </button>
+
+        <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
+          <span className="flex items-start justify-between gap-3">
+            <span
+              className={cn(
+                'text-sm font-medium leading-5',
+                task.status === 'complete' && 'text-[#6d7896] line-through decoration-[#c9d2e3]'
+              )}
+            >
+              {task.title}
+            </span>
+            <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', STATUS_TONE[task.status])}>
               {LAUNCH_STATUS_LABELS[task.status]}
             </span>
           </span>
-        </span>
-      </button>
-
-      {open && (
-        <div className="space-y-4 border-t border-[var(--color-border)] bg-black/[0.015] px-3 py-3 dark:bg-white/[0.02]">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">Status</span>
-              <select
-                value={task.status}
-                onChange={(event) => onUpdate({ status: event.target.value as LaunchTaskStatus })}
-                className="h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card-solid)] px-2 text-sm"
-              >
-                {(Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => (
-                  <option key={status} value={status}>
-                    {LAUNCH_STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">Due</span>
-              <Input
-                type="date"
-                value={task.dueDate?.slice(0, 10) ?? ''}
-                onChange={(event) => onUpdate({ dueDate: event.target.value || null })}
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">Assignee</span>
-              <select
-                value={task.assigneeId ?? ''}
-                onChange={(event) => onUpdate({ assigneeId: event.target.value || null })}
-                className="h-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card-solid)] px-2 text-sm"
-              >
-                <option value="">Unassigned</option>
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="block space-y-1">
-            <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">Guidance</span>
-            <Textarea
-              value={guidance}
-              onChange={(event) => setGuidance(event.target.value)}
-              onBlur={() => {
-                if (guidance !== task.description) onUpdate({ description: guidance })
-              }}
-            />
-          </label>
-
-          <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">Comments</p>
-            {task.comments.length === 0 && (
-              <p className="text-xs text-[var(--color-muted-foreground)]">No comments yet.</p>
+          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#6d7896]">
+            <PartyChip party={task.party} />
+            <span>{assignee}</span>
+            <span aria-hidden>·</span>
+            <span>{formatDue(task.dueDate)}</span>
+            {task.comments.length > 0 && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <MessageSquare className="h-3 w-3" />
+                  {task.comments.length}
+                </span>
+              </>
             )}
-            <ul className="space-y-2">
-              {task.comments.map((comment) => (
-                <li key={comment.id} className="rounded-[var(--radius-md)] bg-[var(--color-card-solid)] px-3 py-2">
-                  <p className="text-[11px] text-[var(--color-muted-foreground)]">
-                    <span className="font-medium text-[var(--color-foreground)]">
-                      {names.get(comment.userId) ?? 'Teammate'}
-                    </span>
-                    <span className="mx-1">·</span>
-                    {formatWhen(comment.createdAt)}
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
-                </li>
-              ))}
-            </ul>
-            <form
-              className="flex gap-2"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (!draft.trim()) return
-                onAddComment(draft)
-                setDraft('')
-              }}
-            >
-              <Input
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="Add a comment"
-              />
-              <Button type="submit" size="sm" variant="secondary" disabled={!draft.trim()}>
-                Send
-              </Button>
-            </form>
-          </div>
-        </div>
-      )}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? 'Collapse task' : 'Expand task'}
+          onClick={onToggle}
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#8b95b2] hover:bg-white"
+        >
+          <ChevronDown className={cn('h-4 w-4 transition-transform duration-300 ease-[var(--ease-out)]', open && 'rotate-180')} />
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="details"
+            initial={reduce ? false : { height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={reduce ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
+            transition={{ duration: reduce ? 0.01 : 0.32, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-4 px-3 pb-4 pt-1 sm:pl-9">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="space-y-1">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Status</span>
+                  <select
+                    value={task.status}
+                    onChange={(event) => onUpdate({ status: event.target.value as LaunchTaskStatus })}
+                    className="h-10 w-full rounded-xl border border-[#e3e8f2] bg-white px-2 text-sm"
+                  >
+                    {(Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => (
+                      <option key={status} value={status}>
+                        {LAUNCH_STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Due</span>
+                  <Input
+                    type="date"
+                    value={task.dueDate?.slice(0, 10) ?? ''}
+                    onChange={(event) => onUpdate({ dueDate: event.target.value || null })}
+                    className="rounded-xl bg-white"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Assignee</span>
+                  <select
+                    value={task.assigneeId ?? ''}
+                    onChange={(event) => onUpdate({ assigneeId: event.target.value || null })}
+                    className="h-10 w-full rounded-xl border border-[#e3e8f2] bg-white px-2 text-sm"
+                  >
+                    <option value="">Unassigned</option>
+                    {profiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="block space-y-1">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Guidance</span>
+                <Textarea
+                  value={guidance}
+                  onChange={(event) => setGuidance(event.target.value)}
+                  onBlur={() => {
+                    if (guidance !== task.description) onUpdate({ description: guidance })
+                  }}
+                  className="rounded-xl bg-white"
+                />
+              </label>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Comments</p>
+                {task.comments.length === 0 && (
+                  <p className="text-xs text-[#6d7896]">No comments yet. Leave a note for the next person.</p>
+                )}
+                <ul className="space-y-2">
+                  {task.comments.map((comment) => {
+                    const mine = comment.userId === currentUserId
+                    return (
+                      <li key={comment.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+                        <div
+                          className={cn(
+                            'max-w-[36rem] rounded-2xl px-3 py-2',
+                            mine ? 'bg-[#e7eeff] text-[#1d2433]' : 'bg-white text-[#1d2433]'
+                          )}
+                        >
+                          <p className="text-[11px] text-[#6d7896]">
+                            <span className="font-medium text-[#1d2433]">
+                              {names.get(comment.userId) ?? 'Teammate'}
+                            </span>
+                            <span className="mx-1">·</span>
+                            {formatWhen(comment.createdAt)}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <form
+                  className="flex gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    if (!draft.trim()) return
+                    onAddComment(draft)
+                    setDraft('')
+                  }}
+                >
+                  <Input
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder="Add a comment"
+                    className="rounded-full bg-white"
+                  />
+                  <Button type="submit" size="sm" disabled={!draft.trim()} className="rounded-full">
+                    Send
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -397,9 +467,7 @@ function PartyChip({ party }: { party: LaunchParty }) {
     <span
       className={cn(
         'inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium',
-        party === 'client'
-          ? 'bg-black/5 text-[var(--color-foreground)] dark:bg-white/10'
-          : 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]'
+        party === 'client' ? 'bg-white text-[#3c4663]' : 'bg-[#e7eeff] text-[#2451d6]'
       )}
     >
       {LAUNCH_PARTY_LABELS[party]}

@@ -52,7 +52,7 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={containerRef} className="relative max-w-md mx-auto lg:mx-0">
+    <div ref={containerRef} className="relative w-full max-w-sm">
       <form onSubmit={handleSubmit}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-muted)]" />
@@ -64,7 +64,7 @@ export function GlobalSearch() {
               setOpen(true)
             }}
             onFocus={() => setOpen(true)}
-            className="pl-9 pr-16 bg-[var(--color-card-solid)]/80"
+            className="h-10 rounded-full border-transparent bg-white pl-9 pr-16 shadow-[0_10px_24px_-16px_rgba(47,68,130,0.45)]"
           />
           <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center rounded border border-[var(--color-border)] px-1.5 text-[10px] text-[var(--color-muted)]">
             ⌘K

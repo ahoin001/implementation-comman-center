@@ -13,13 +13,13 @@ import { GlobalSearch } from '@/components/search/GlobalSearch'
 export function AppLayout() {
   return (
     <LayoutGroup id="app">
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen gap-3 p-3 lg:gap-4 lg:p-4">
         <Sidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="sticky top-0 z-40 glass border-b border-[var(--color-border)] px-4 lg:px-8 py-3">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="mb-3 flex justify-end">
             <GlobalSearch />
           </header>
-          <main className="flex-1 px-4 lg:px-8 py-6 pb-24 lg:pb-8">
+          <main className="flex-1 pb-28 lg:pb-2">
             <Outlet />
           </main>
         </div>
