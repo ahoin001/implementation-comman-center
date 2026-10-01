@@ -34,7 +34,7 @@ export function SupabaseSync({ children }: { children: React.ReactNode }) {
           className={`fixed top-3 right-3 z-[100] rounded-[var(--radius-md)] px-3 py-2 text-xs shadow-lg ${
             syncError
               ? 'bg-[var(--color-danger)] text-white'
-              : 'glass text-[var(--color-muted-foreground)]'
+              : 'float-panel text-[var(--color-ink-soft)]'
           }`}
         >
           {syncError

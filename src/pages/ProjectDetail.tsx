@@ -14,6 +14,10 @@ import { WaitingOnPanel } from '@/components/project/WaitingOnPanel'
 import { NotesPanel } from '@/components/project/NotesPanel'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Panel } from '@/components/ui/Panel'
+import { SectionLabel } from '@/components/ui/SectionLabel'
+import { Stat } from '@/components/ui/Stat'
+import { Avatar } from '@/components/ui/Avatar'
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -23,6 +27,7 @@ export function ProjectDetailPage() {
   const currentUserId = useStore((s) => s.currentUserId)
   const updateLaunchTask = useStore((s) => s.updateLaunchTask)
   const addTaskComment = useStore((s) => s.addTaskComment)
+  const deleteTaskComment = useStore((s) => s.deleteTaskComment)
   const toggleMemberFeature = useStore((s) => s.toggleMemberFeature)
   const addMemberFeatureDefinition = useStore((s) => s.addMemberFeatureDefinition)
   const deleteMemberFeatureDefinition = useStore((s) => s.deleteMemberFeatureDefinition)
@@ -107,20 +112,20 @@ export function ProjectDetailPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(240px,0.8fr)]">
-        <section className="float-panel p-5">
+        <Panel pad="md">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8b95b2]">Overall progress</p>
+              <SectionLabel>Overall progress</SectionLabel>
               <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">{progress}%</p>
               <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
                 {completeCount} of {applicable.length} tasks complete
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8b95b2]">Deadline</p>
+              <SectionLabel>Deadline</SectionLabel>
               <p className="mt-2 text-sm font-semibold">{formatLaunchDate(project.launchDate)}</p>
               {daysRemaining !== null && (
-                <p className={daysRemaining < 0 ? 'text-sm text-[var(--color-danger)]' : 'text-sm text-[#178a45]'}>
+                <p className={daysRemaining < 0 ? 'text-sm text-[var(--color-danger)]' : 'text-sm text-[var(--color-success)]'}>
                   {daysRemaining < 0
                     ? `${Math.abs(daysRemaining)} days past`
                     : daysRemaining === 0
@@ -135,13 +140,13 @@ export function ProjectDetailPage() {
                 onChange={(event) =>
                   updateProject(project.id, { launchDate: event.target.value || undefined })
                 }
-                className="mt-2 h-8 rounded-full border border-[#e3e8f2] bg-white px-2 text-xs text-[var(--color-foreground)]"
+                className="mt-2 h-8 rounded-full border border-transparent bg-[var(--color-field)] px-2 text-xs text-[var(--color-ink)]"
               />
             </div>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e6eef8]">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-field)]">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-[#7d8cff] via-[#3ec6ff] to-[#2f6bff] transition-[width] duration-500 ease-[var(--ease-out)]"
+              className="progress-fill h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out)]"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -151,10 +156,10 @@ export function ProjectDetailPage() {
             <Stat value={notStarted} label="Not started" />
             <Stat value={commentCount} label="Comments" />
           </dl>
-        </section>
+        </Panel>
 
-        <section className="float-panel p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8b95b2]">Who&apos;s on it</p>
+        <Panel pad="md">
+          <SectionLabel>Who&apos;s on it</SectionLabel>
           {crew.length === 0 ? (
             <p className="mt-4 text-sm text-[var(--color-muted-foreground)]">
               Assign a task and teammates show up here.
@@ -163,9 +168,7 @@ export function ProjectDetailPage() {
             <ul className="mt-3 space-y-2">
               {crew.map((person) => (
                 <li key={person.id} className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#e7eeff] text-[11px] font-semibold text-[#2451d6]">
-                    {initials(person.name)}
-                  </span>
+                  <Avatar name={person.name} />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{person.name}</span>
                   <span className="text-xs tabular-nums text-[var(--color-muted-foreground)]">
                     {person.count} {person.count === 1 ? 'task' : 'tasks'}
@@ -174,7 +177,7 @@ export function ProjectDetailPage() {
               ))}
             </ul>
           )}
-        </section>
+        </Panel>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -185,6 +188,7 @@ export function ProjectDetailPage() {
             currentUserId={currentUserId}
             onUpdateTask={(taskId, patch) => updateLaunchTask(project.id, taskId, patch)}
             onAddComment={(taskId, body) => addTaskComment(project.id, taskId, body)}
+            onDeleteComment={(taskId, commentId) => deleteTaskComment(project.id, taskId, commentId)}
           />
 
           <MemberFeaturesPanel
@@ -232,6 +236,7 @@ export function ProjectDetailPage() {
 
           <NotesPanel
             notes={project.notes}
+            currentUserId={currentUserId}
             onAdd={(content, severity) => addNote(project.id, content, { severity })}
             onUpdate={(noteId, updates) => updateNote(project.id, noteId, updates)}
             onDelete={(noteId) => deleteNote(project.id, noteId)}
@@ -267,18 +272,3 @@ export function ProjectDetailPage() {
   )
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <div>
-      <dt className="text-[11px] text-[var(--color-muted-foreground)]">{label}</dt>
-      <dd className="text-xl font-semibold tabular-nums tracking-tight">{value}</dd>
-    </div>
-  )
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-}

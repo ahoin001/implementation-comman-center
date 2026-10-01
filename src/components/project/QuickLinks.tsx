@@ -38,9 +38,9 @@ export function QuickLinks({ links, size = 'lg' }: QuickLinksProps) {
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            'glass flex flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] p-4',
+            'flex flex-col items-center justify-center gap-2 rounded-2xl bg-[var(--color-field)] p-4',
             'transition-[transform,background-color] duration-150 ease-[var(--ease-out)] active:scale-[0.97]',
-            'hover:bg-[var(--color-card-solid)] group'
+            'hover:bg-[var(--color-wash)] group'
           )}
         >
           <Icon className={cn('h-5 w-5', color)} />

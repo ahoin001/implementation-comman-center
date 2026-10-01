@@ -42,9 +42,9 @@ export function HeroSection() {
             type="button"
             onClick={() => openProjects(filter)}
             className={cn(
-              'glass rounded-[var(--radius-lg)] p-4 text-left group',
+              'float-panel p-4 text-left group',
               'transition-[transform,background-color] duration-150 ease-[var(--ease-out)]',
-              'hover:bg-[var(--color-card-solid)] active:scale-[0.98]',
+              'hover:bg-[var(--color-field)] active:scale-[0.98]',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]'
             )}
           >

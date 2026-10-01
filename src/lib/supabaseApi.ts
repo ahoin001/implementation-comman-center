@@ -352,6 +352,7 @@ export async function insertNote(
     id: data.id,
     content: data.content,
     createdAt: data.created_at,
+    authorId: data.user_id,
     pinned: data.pinned,
     isMeetingSummary: data.is_meeting_summary,
     severity: (data.severity as NoteSeverity) || 'info',
@@ -372,8 +373,17 @@ export async function updateNote(
 }
 
 export async function deleteNote(noteId: string): Promise<void> {
-  const { error } = await icc().from('notes').delete().eq('id', noteId)
+  const { error } = await icc().from('notes').delete().eq('id', noteId).eq('user_id', getActorId())
   if (error) throw new Error(`delete note: ${error.message}`)
+}
+
+export async function deleteTaskComment(commentId: string): Promise<void> {
+  const { error } = await icc()
+    .from('task_comments')
+    .delete()
+    .eq('id', commentId)
+    .eq('user_id', getActorId())
+  if (error) throw new Error(`delete comment: ${error.message}`)
 }
 
 export async function insertMemberFeatureDefinition(label: string): Promise<MemberFeatureDefinition> {

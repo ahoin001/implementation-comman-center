@@ -7,6 +7,8 @@ import { ProgressRing } from '@/components/project/ProgressRing'
 import { calculateProgress, isLaunchFullyWrapped } from '@/lib/progress'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Panel } from '@/components/ui/Panel'
 import { useStore } from '@/store/useStore'
 
 export function ArchivePage() {
@@ -34,15 +36,15 @@ export function ArchivePage() {
       </div>
 
       {projects.length === 0 ? (
-        <div className="glass rounded-[var(--radius-lg)] p-12 text-center">
-          <p className="text-[var(--color-muted-foreground)]">No archived projects yet.</p>
-        </div>
+        <EmptyState>
+          <p className="text-[var(--color-ink-soft)]">No archived projects yet.</p>
+        </EmptyState>
       ) : (
         <div className="space-y-3">
           {projects.map((project) => (
-            <div
+            <Panel
               key={project.id}
-              className="glass flex items-center gap-4 rounded-[var(--radius-lg)] p-4"
+              className="flex items-center gap-4 p-4"
             >
               <Link
                 to={`/projects/${project.id}`}
@@ -79,7 +81,7 @@ export function ArchivePage() {
                 <ArchiveRestore className="h-4 w-4" />
                 Unarchive
               </Button>
-            </div>
+            </Panel>
           ))}
         </div>
       )}

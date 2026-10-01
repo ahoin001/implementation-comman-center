@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { X, Trash2 } from 'lucide-react'
 import type { CalendarEvent, CalendarEventType, Project } from '@/types'
 import { CALENDAR_EVENT_LABELS } from '@/types'
 import { buildEventTitle } from '@/lib/calendar'
 import { Button } from '@/components/ui/Button'
 import { DatePicker, TimePicker } from '@/components/ui/DatePicker'
+import { Textarea } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 
 const EVENT_TYPES: CalendarEventType[] = ['kickoff', 'adhoc', 'training']
@@ -87,24 +88,7 @@ export function EventFormModal({
   )
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 8 }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 glass rounded-[var(--radius-xl)] p-6 shadow-xl max-h-[90vh] overflow-y-auto"
-          >
+    <Modal open={open} onClose={onClose}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold tracking-tight">
                 {isEditing ? 'Edit Event' : 'Schedule Event'}
@@ -177,12 +161,12 @@ export function EventFormModal({
                 <label className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1 block">
                   Notes (optional)
                 </label>
-                <textarea
+                <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Meeting link, agenda, etc."
                   rows={2}
-                  className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card-solid)] px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                  className="resize-none"
                 />
               </div>
 
@@ -204,9 +188,6 @@ export function EventFormModal({
                 Cancel
               </Button>
             </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+    </Modal>
   )
 }

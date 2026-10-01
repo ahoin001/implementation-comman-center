@@ -253,6 +253,8 @@ export interface Note {
   id: string
   content: string
   createdAt: string
+  /** Author. Only this person can delete the note. */
+  authorId?: string
   pinned?: boolean
   isMeetingSummary?: boolean
   /** Glance priority — defaults to info */

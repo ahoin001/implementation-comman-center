@@ -5,13 +5,8 @@ import { signOut } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/store/useStore'
 import { cn } from '@/lib/utils'
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-}
+import { Avatar } from '@/components/ui/Avatar'
+import { Panel } from '@/components/ui/Panel'
 
 export function ProfileChip({ docked = false }: { docked?: boolean }) {
   const currentUserId = useStore((s) => s.currentUserId)
@@ -59,11 +54,11 @@ export function ProfileChip({ docked = false }: { docked?: boolean }) {
       }
     >
       {open && (
-        <div
+        <Panel
           id={menuId}
           role="menu"
           className={cn(
-            'float-panel absolute bottom-[calc(100%+0.5rem)] w-56 overflow-hidden p-0',
+            'absolute bottom-[calc(100%+0.5rem)] w-56 overflow-hidden p-0',
             docked ? 'left-0' : 'right-0'
           )}
         >
@@ -93,7 +88,7 @@ export function ProfileChip({ docked = false }: { docked?: boolean }) {
               Sign out
             </button>
           </div>
-        </div>
+        </Panel>
       )}
 
       <button
@@ -106,12 +101,10 @@ export function ProfileChip({ docked = false }: { docked?: boolean }) {
           'flex items-center gap-2.5 transition-[transform,background-color] duration-150 active:scale-[0.98]',
           docked
             ? 'w-full rounded-2xl px-2 py-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/5'
-            : 'glass rounded-full py-1 pl-1 pr-2.5 shadow-lg hover:bg-[var(--color-card-solid)]'
+            : 'float-panel rounded-full py-1 pl-1 pr-2.5 hover:bg-[var(--color-field)]'
         )}
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent)] text-[11px] font-semibold text-white">
-          {initials(name)}
-        </span>
+        <Avatar name={name} />
         <span className="max-w-[9rem] truncate text-sm font-medium">{name}</span>
         <ChevronUp
           className={cn(

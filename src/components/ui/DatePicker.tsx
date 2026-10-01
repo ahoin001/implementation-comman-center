@@ -40,8 +40,8 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           }
         }}
         className={cn(
-          'relative flex h-10 w-full cursor-pointer items-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card-solid)] transition-colors duration-150',
-          'hover:border-[var(--color-accent)]/40 focus-within:ring-2 focus-within:ring-[var(--color-accent)]',
+          'relative flex h-10 w-full cursor-pointer items-center rounded-xl border border-transparent bg-[var(--color-field)] transition-colors duration-150',
+          'hover:bg-[var(--color-wash)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
           className
         )}
       >
@@ -114,8 +114,8 @@ export const TimePicker = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<
           }
         }}
         className={cn(
-          'relative flex h-10 w-full cursor-pointer items-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card-solid)] transition-colors duration-150',
-          'hover:border-[var(--color-accent)]/40 focus-within:ring-2 focus-within:ring-[var(--color-accent)]',
+          'relative flex h-10 w-full cursor-pointer items-center rounded-xl border border-transparent bg-[var(--color-field)] transition-colors duration-150',
+          'hover:bg-[var(--color-wash)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
           className
         )}
       >

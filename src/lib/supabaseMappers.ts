@@ -284,6 +284,7 @@ export function mapNote(row: DbNote): Note {
     id: row.id,
     content: row.content,
     createdAt: row.created_at,
+    authorId: row.user_id,
     pinned: row.pinned,
     isMeetingSummary: row.is_meeting_summary,
     severity: normalizeNoteSeverity(row.severity),

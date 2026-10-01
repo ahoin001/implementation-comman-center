@@ -88,6 +88,7 @@ interface StoreState {
     }
   ) => void
   addTaskComment: (projectId: string, taskId: string, body: string) => void
+  deleteTaskComment: (projectId: string, taskId: string, commentId: string) => void
   toggleFavorite: (projectId: string) => void
   updateDeliverable: (projectId: string, key: DeliverableKey, patch: Partial<DeliverableItem>) => void
   updatePathConfig: (projectId: string, patch: Partial<PathConfig>) => void
@@ -286,6 +287,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       id: tempId,
       content,
       createdAt: new Date().toISOString(),
+      authorId: get().currentUserId ?? undefined,
       severity: options?.severity ?? ('info' as NoteSeverity),
       ...options,
     }
@@ -329,6 +331,9 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
 
   deleteNote: (projectId, noteId) => {
+    const userId = get().currentUserId
+    const note = get().getProject(projectId)?.notes.find((item) => item.id === noteId)
+    if (!userId || note?.authorId !== userId) return
     set((state) => ({
       projects: state.projects.map((p) =>
         p.id === projectId
@@ -487,6 +492,27 @@ export const useStore = create<StoreState>()((set, get) => ({
         }))
       })
       .catch(logSyncError)
+  },
+
+  deleteTaskComment: (projectId, taskId, commentId) => {
+    const userId = get().currentUserId
+    const task = get().getProject(projectId)?.launchTasks?.find((item) => item.id === taskId)
+    const comment = task?.comments.find((item) => item.id === commentId)
+    if (!userId || comment?.userId !== userId) return
+    set((state) => ({
+      projects: state.projects.map((project) => {
+        if (project.id !== projectId) return project
+        return {
+          ...project,
+          launchTasks: (project.launchTasks ?? []).map((item) =>
+            item.id === taskId
+              ? { ...item, comments: item.comments.filter((entry) => entry.id !== commentId) }
+              : item
+          ),
+        }
+      }),
+    }))
+    void api.deleteTaskComment(commentId).catch(logSyncError)
   },
 
   toggleFavorite: (projectId) => {

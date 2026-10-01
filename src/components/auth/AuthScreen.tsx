@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Command } from 'lucide-react'
+import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { signIn, signUp } from '@/lib/auth'
@@ -38,8 +39,8 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--color-background)]">
-      <div className="glass w-full max-w-sm rounded-[var(--radius-xl)] p-6">
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <Panel className="w-full max-w-sm p-6">
         <div className="flex items-center gap-2.5 mb-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-accent)]">
             <Command className="h-4 w-4 text-white" />
@@ -127,7 +128,7 @@ export function AuthScreen() {
             {busy ? 'Working…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
           </Button>
         </form>
-      </div>
+      </Panel>
     </div>
   )
 }

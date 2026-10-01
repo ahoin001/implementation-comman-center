@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
+import { Panel } from '@/components/ui/Panel'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects, searchProjects } from '@/hooks/useProjects'
 import { getPrimaryOpenTask } from '@/lib/progress'
@@ -64,7 +65,7 @@ export function GlobalSearch() {
               setOpen(true)
             }}
             onFocus={() => setOpen(true)}
-            className="h-10 rounded-full border-transparent bg-white pl-9 pr-16 shadow-[0_10px_24px_-16px_rgba(47,68,130,0.45)]"
+            className="h-10 rounded-full border-transparent bg-[var(--color-panel)] pl-9 pr-16 shadow-[var(--shadow-panel)]"
           />
           <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center rounded border border-[var(--color-border)] px-1.5 text-[10px] text-[var(--color-muted)]">
             ⌘K
@@ -73,7 +74,7 @@ export function GlobalSearch() {
       </form>
 
       {open && localQuery && results.length > 0 && (
-        <div className="absolute top-full mt-2 w-full glass rounded-[var(--radius-lg)] shadow-lg shadow-black/10 overflow-hidden z-50">
+        <Panel className="absolute top-full z-50 mt-2 w-full overflow-hidden">
           {results.map((p) => (
             <button
               key={p.id}
@@ -81,7 +82,7 @@ export function GlobalSearch() {
               onClick={() => handleSelect(p.id)}
               className={cn(
                 'flex w-full flex-col items-start px-4 py-3 text-left transition-colors duration-150',
-                'hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99]'
+                'hover:bg-[var(--color-field)] active:scale-[0.99]'
               )}
             >
               <span className="text-sm font-medium">{p.name}</span>
@@ -90,7 +91,7 @@ export function GlobalSearch() {
               </span>
             </button>
           ))}
-        </div>
+        </Panel>
       )}
     </div>
   )

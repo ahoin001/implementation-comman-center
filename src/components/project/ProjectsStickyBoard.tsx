@@ -5,6 +5,7 @@ import type { NoteSeverity, Project } from '@/types'
 import { NOTE_SEVERITIES, NOTE_SEVERITY_LABELS } from '@/types'
 import { collectStickyNotes, noteSeverity } from '@/lib/projectNotes'
 import { Button } from '@/components/ui/Button'
+import { Panel } from '@/components/ui/Panel'
 import { Textarea } from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
 
@@ -102,7 +103,7 @@ export function ProjectsStickyBoard({ projects, onAddSticky }: ProjectsStickyBoa
       </div>
 
       {composerOpen && (
-        <div className="glass rounded-[var(--radius-lg)] p-4 space-y-3 border border-[var(--color-border)]">
+        <Panel className="space-y-3 p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-[var(--color-foreground)]">New sticky</p>
             <button
@@ -161,7 +162,7 @@ export function ProjectsStickyBoard({ projects, onAddSticky }: ProjectsStickyBoa
           <p className="text-[10px] text-[var(--color-muted)]">
             Saved as a pinned project note — also visible on the project detail Notes panel
           </p>
-        </div>
+        </Panel>
       )}
 
       {stickies.length > 0 && (

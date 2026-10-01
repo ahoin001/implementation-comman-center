@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Check, ChevronDown, MessageSquare, Search } from 'lucide-react'
+import { Check, ChevronDown, MessageSquare, Search, Trash2 } from 'lucide-react'
 import type { LaunchTask, Profile, Project } from '@/types'
 import type { LaunchParty, LaunchTaskStatus } from '@/lib/launchTemplate'
 import {
@@ -13,6 +13,10 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
+import { Panel } from '@/components/ui/Panel'
+import { SectionLabel } from '@/components/ui/SectionLabel'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { StatusPill, type StatusTone } from '@/components/ui/StatusPill'
 
 type BoardView = 'all' | 'open' | 'mine' | 'client' | 'webscribble'
 
@@ -24,12 +28,12 @@ const VIEWS: { id: BoardView; label: string }[] = [
   { id: 'webscribble', label: 'Web Scribble' },
 ]
 
-const STATUS_TONE: Record<LaunchTaskStatus, string> = {
-  not_started: 'bg-[#eef1f6] text-[#5c6784]',
-  in_progress: 'bg-[#e5f8ee] text-[#178a45]',
-  complete: 'bg-[#e7eefe] text-[#2451d6]',
-  na: 'bg-[#eef1f6] text-[#8b95b2]',
-  as_needed: 'bg-[#fff4e5] text-[#b86b00]',
+const STATUS_TONE: Record<LaunchTaskStatus, StatusTone> = {
+  not_started: 'neutral',
+  in_progress: 'progress',
+  complete: 'complete',
+  na: 'muted',
+  as_needed: 'warning',
 }
 
 const EASE = [0.23, 1, 0.32, 1] as const
@@ -73,6 +77,7 @@ interface LaunchBoardProps {
     }
   ) => void
   onAddComment: (taskId: string, body: string) => void
+  onDeleteComment: (taskId: string, commentId: string) => void
 }
 
 export function LaunchBoard({
@@ -81,12 +86,14 @@ export function LaunchBoard({
   currentUserId,
   onUpdateTask,
   onAddComment,
+  onDeleteComment,
 }: LaunchBoardProps) {
   const tasks = project.launchTasks ?? []
   const [phaseKey, setPhaseKey] = useState<string | null>(null)
   const [view, setView] = useState<BoardView>('all')
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [openGroupKeys, setOpenGroupKeys] = useState<string[] | null>(null)
 
   const names = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.displayName])), [profiles])
 
@@ -107,39 +114,47 @@ export function LaunchBoard({
 
   const phaseTitle = (key: string) => LAUNCH_PHASES.find((phase) => phase.key === key)?.title
 
+  const shownGroups = LAUNCH_GROUPS.flatMap((group) => {
+    if (phaseKey && group.phaseKey !== phaseKey) return []
+    const rows = visible.filter((task) => task.groupKey === group.key).sort((a, b) => a.sort - b.sort)
+    if (rows.length === 0) return []
+    const applicable = rows.filter((task) => isLaunchApplicable(task.status))
+    const done = applicable.filter((task) => task.status === 'complete').length
+    return [{ group, rows, done, total: applicable.length }]
+  })
+
+  const isGroupOpen = (key: string, index: number) => {
+    if (!openGroupKeys) return index === 0
+    const anyVisible = shownGroups.some((item) => openGroupKeys.includes(item.group.key))
+    if (!anyVisible) return index === 0
+    return openGroupKeys.includes(key)
+  }
+
+  const toggleGroup = (key: string) => {
+    const currently = shownGroups
+      .filter((item, index) => isGroupOpen(item.group.key, index))
+      .map((item) => item.group.key)
+    setOpenGroupKeys(currently.includes(key) ? currently.filter((id) => id !== key) : [...currently, key])
+  }
+
   return (
     <section className="space-y-3">
-      <div className="float-panel space-y-3 p-3 sm:p-4">
+      <Panel pad="sm" className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-muted)]" />
             <Input
+              shape="pill"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search tasks"
               aria-label="Search tasks"
-              className="h-9 w-44 rounded-full bg-[#f4f7fb] pl-8 sm:w-52"
+              className="h-9 w-44 pl-8 sm:w-52"
             />
           </div>
-          <div className="inline-flex rounded-full bg-[#f4f7fb] p-1">
-            {VIEWS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setView(item.id)}
-                className={cn(
-                  'rounded-full px-3 py-1 text-xs font-medium transition-[background-color,color,box-shadow] duration-150',
-                  view === item.id
-                    ? 'bg-[#1d2433] text-white shadow-sm'
-                    : 'text-[#5c6784] hover:text-[#1d2433]'
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl value={view} onChange={setView} options={VIEWS} />
         </div>
         </div>
 
@@ -154,48 +169,35 @@ export function LaunchBoard({
           />
         ))}
       </div>
-      </div>
+      </Panel>
 
-      <div className="space-y-3">
-        {LAUNCH_GROUPS.map((group) => {
-          if (phaseKey && group.phaseKey !== phaseKey) return null
-          const rows = visible.filter((task) => task.groupKey === group.key).sort((a, b) => a.sort - b.sort)
-          if (rows.length === 0) return null
-          const applicable = rows.filter((task) => isLaunchApplicable(task.status))
-          const done = applicable.filter((task) => task.status === 'complete').length
-          return (
-            <section key={group.key} className="float-panel overflow-hidden">
-              <header className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-4 py-3 dark:border-white/10">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold tracking-tight text-[var(--color-foreground)]">
-                    {group.title}
-                  </h3>
-                  {phaseKey === null && (
-                    <p className="text-[11px] text-[var(--color-muted-foreground)]">{phaseTitle(group.phaseKey)}</p>
-                  )}
-                </div>
-                <span className="shrink-0 text-xs tabular-nums text-[var(--color-muted-foreground)]">
-                  {applicable.length === 0 ? 'As needed' : `${done} of ${applicable.length}`}
-                </span>
-              </header>
-              <div className="divide-y divide-black/[0.05] dark:divide-white/10">
-                {rows.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    names={names}
-                    profiles={profiles}
-                    currentUserId={currentUserId}
-                    open={openId === task.id}
-                    onToggle={() => setOpenId(openId === task.id ? null : task.id)}
-                    onUpdate={(patch) => onUpdateTask(task.id, patch)}
-                    onAddComment={(body) => onAddComment(task.id, body)}
-                  />
-                ))}
-              </div>
-            </section>
-          )
-        })}
+      <div className="space-y-2.5">
+        {shownGroups.map(({ group, rows, done, total }, index) => (
+          <GroupPanel
+            key={group.key}
+            title={group.title}
+            phase={phaseKey === null ? phaseTitle(group.phaseKey) : undefined}
+            done={done}
+            total={total}
+            open={isGroupOpen(group.key, index)}
+            onToggle={() => toggleGroup(group.key)}
+          >
+            {rows.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                names={names}
+                profiles={profiles}
+                currentUserId={currentUserId}
+                open={openId === task.id}
+                onToggle={() => setOpenId(openId === task.id ? null : task.id)}
+                onUpdate={(patch) => onUpdateTask(task.id, patch)}
+                onAddComment={(body) => onAddComment(task.id, body)}
+                onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
+              />
+            ))}
+          </GroupPanel>
+        ))}
       </div>
 
       {visible.length === 0 && (
@@ -205,23 +207,86 @@ export function LaunchBoard({
       )}
 
       {earlier.length > 0 && !filtering && (
-        <details className="mt-4 rounded-2xl bg-[#f4f7fb] px-3 py-2">
-          <summary className="cursor-pointer text-xs font-medium text-[#5c6784]">
+        <details className="mt-4 rounded-2xl bg-[var(--color-field)] px-3 py-2">
+          <summary className="cursor-pointer text-xs font-medium text-[var(--color-ink-soft)]">
             Earlier tasks ({earlier.length})
           </summary>
           <ul className="mt-2 space-y-1">
             {earlier.map((task) => (
               <li key={task.id} className="flex items-center justify-between gap-3 py-1 text-sm">
                 <span>{task.title}</span>
-                <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', STATUS_TONE[task.status])}>
-                  {LAUNCH_STATUS_LABELS[task.status]}
-                </span>
+                <StatusPill tone={STATUS_TONE[task.status]}>{LAUNCH_STATUS_LABELS[task.status]}</StatusPill>
               </li>
             ))}
           </ul>
         </details>
       )}
     </section>
+  )
+}
+
+function GroupPanel({
+  title,
+  phase,
+  done,
+  total,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  phase?: string
+  done: number
+  total: number
+  open: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  const reduce = useReducedMotion()
+  const progress = total === 0 ? null : `${done} of ${total}`
+
+  return (
+    <Panel className="overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-[var(--color-field)]"
+      >
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 shrink-0 text-[var(--color-ink-soft)] transition-transform duration-300 ease-[var(--ease-out)]',
+            open && 'rotate-180 text-[var(--color-wash-strong)]'
+          )}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="text-[15px] font-semibold tracking-tight text-[var(--color-foreground)]">{title}</span>
+            {phase && <SectionLabel className="normal-case tracking-normal">{phase}</SectionLabel>}
+          </span>
+        </span>
+        <span className="shrink-0 text-xs tabular-nums text-[var(--color-muted-foreground)]">
+          {progress ?? 'As needed'}
+        </span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="group"
+            initial={reduce ? false : { height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={reduce ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
+            transition={{ duration: reduce ? 0.01 : 0.28, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div className="divide-y divide-black/[0.05] border-t border-black/[0.06] dark:divide-white/10 dark:border-white/10">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Panel>
   )
 }
 
@@ -240,7 +305,9 @@ function PhaseChip({
       onClick={onClick}
       className={cn(
         'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150',
-        selected ? 'bg-[#e7eeff] text-[#2451d6]' : 'text-[#5c6784] hover:bg-[#f4f7fb]'
+        selected
+          ? 'bg-[var(--color-wash)] text-[var(--color-wash-strong)]'
+          : 'text-[var(--color-ink-soft)] hover:bg-[var(--color-field)]'
       )}
     >
       {label}
@@ -257,6 +324,7 @@ function TaskRow({
   onToggle,
   onUpdate,
   onAddComment,
+  onDeleteComment,
 }: {
   task: LaunchTask
   names: Map<string, string>
@@ -273,6 +341,7 @@ function TaskRow({
     }
   ) => void
   onAddComment: (body: string) => void
+  onDeleteComment: (commentId: string) => void
 }) {
   const reduce = useReducedMotion()
   const [draft, setDraft] = useState('')
@@ -287,7 +356,7 @@ function TaskRow({
     <div
       className={cn(
         'transition-colors duration-200',
-        open ? 'bg-[#f7f9fd] dark:bg-white/[0.04]' : 'hover:bg-[#f7f9fd] dark:hover:bg-white/[0.03]'
+        open ? 'bg-[var(--color-field)]' : 'hover:bg-[var(--color-field)]'
       )}
     >
       <div className="flex items-start gap-2.5 px-3 py-3 sm:px-4">
@@ -298,63 +367,61 @@ function TaskRow({
           className={cn(
             'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-150 active:scale-90',
             task.status === 'complete'
-              ? 'border-[#3b6cff] bg-[#3b6cff] text-white'
+              ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash-strong)] text-white'
               : task.status === 'in_progress'
-                ? 'border-[#3b6cff] bg-[#e7eeff]'
-                : 'border-[#c9d2e3] bg-white'
+                ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash)]'
+                : 'border-[var(--color-border)] bg-[var(--color-panel)]'
           )}
         >
           {task.status === 'complete' && <Check className="h-3 w-3" strokeWidth={3} />}
-          {task.status === 'in_progress' && <span className="h-1.5 w-1.5 rounded-full bg-[#3b6cff]" />}
+          {task.status === 'in_progress' && (
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-wash-strong)]" />
+          )}
         </button>
 
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={open}
-          className="group min-w-0 flex-1 cursor-pointer text-left"
+          className="min-w-0 flex-1 cursor-pointer text-left"
         >
           <span className="flex items-start justify-between gap-3">
             <span className="flex min-w-0 items-start gap-1.5">
               <ChevronDown
                 className={cn(
-                  'mt-0.5 h-4 w-4 shrink-0 text-[#5c6784] transition-transform duration-300 ease-[var(--ease-out)]',
-                  open && 'rotate-180 text-[#2451d6]'
+                  'mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink-soft)] transition-transform duration-300 ease-[var(--ease-out)]',
+                  open && 'rotate-180 text-[var(--color-wash-strong)]'
                 )}
               />
               <span
                 className={cn(
                   'text-sm font-medium leading-5',
-                  task.status === 'complete' && 'text-[#6d7896] line-through decoration-[#c9d2e3]'
+                  task.status === 'complete' && 'text-[var(--color-ink-soft)] line-through'
                 )}
               >
                 {task.title}
               </span>
             </span>
-            <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', STATUS_TONE[task.status])}>
-              {LAUNCH_STATUS_LABELS[task.status]}
-            </span>
+            <StatusPill tone={STATUS_TONE[task.status]}>{LAUNCH_STATUS_LABELS[task.status]}</StatusPill>
           </span>
           {!open && task.description && (
-            <span className="mt-1 block line-clamp-1 pl-5.5 text-xs text-[#6d7896]">{task.description}</span>
+            <span className="mt-0.5 block line-clamp-1 pl-5.5 text-[13px] leading-5 text-[var(--color-ink-soft)]">
+              {task.description}
+            </span>
           )}
-          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-5.5 text-[11px] text-[#6d7896]">
+          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-5.5 text-xs text-[var(--color-ink-soft)]">
             <PartyChip party={task.party} />
             <span>{assignee}</span>
-            <span aria-hidden>·</span>
+            <span aria-hidden className="text-[var(--color-ink-soft)]">
+              ·
+            </span>
             <span>{formatDue(task.dueDate)}</span>
             {task.comments.length > 0 && (
-              <>
-                <span aria-hidden>·</span>
-                <span className="inline-flex items-center gap-0.5">
-                  <MessageSquare className="h-3 w-3" />
-                  {task.comments.length}
-                </span>
-              </>
+              <span className="inline-flex items-center gap-0.5">
+                <MessageSquare className="h-3 w-3" />
+                {task.comments.length}
+              </span>
             )}
-            <span className="text-[#8b95b2] group-hover:text-[#2451d6]">
-              {open ? 'Hide details' : 'Details'}
-            </span>
           </span>
         </button>
       </div>
@@ -369,14 +436,14 @@ function TaskRow({
             transition={{ duration: reduce ? 0.01 : 0.32, ease: EASE }}
             className="overflow-hidden"
           >
-            <div className="space-y-4 px-3 pb-4 pt-1 sm:pl-9">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="space-y-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Status</span>
+            <div className="space-y-5 px-4 pb-5 pt-3 sm:pl-14">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="space-y-1.5">
+                  <SectionLabel>Status</SectionLabel>
                   <select
                     value={task.status}
                     onChange={(event) => onUpdate({ status: event.target.value as LaunchTaskStatus })}
-                    className="h-10 w-full rounded-xl border border-[#e3e8f2] bg-white px-2 text-sm"
+                    className="h-10 w-full rounded-xl border border-transparent bg-[var(--color-field)] px-2 text-sm text-[var(--color-ink)]"
                   >
                     {(Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => (
                       <option key={status} value={status}>
@@ -385,21 +452,21 @@ function TaskRow({
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Due</span>
+                <label className="space-y-1.5">
+                  <SectionLabel>Due</SectionLabel>
                   <Input
                     type="date"
                     value={task.dueDate?.slice(0, 10) ?? ''}
                     onChange={(event) => onUpdate({ dueDate: event.target.value || null })}
-                    className="rounded-xl bg-white"
+                    className="bg-[var(--color-panel)]"
                   />
                 </label>
-                <label className="space-y-1">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Assignee</span>
+                <label className="space-y-1.5">
+                  <SectionLabel>Assignee</SectionLabel>
                   <select
                     value={task.assigneeId ?? ''}
                     onChange={(event) => onUpdate({ assigneeId: event.target.value || null })}
-                    className="h-10 w-full rounded-xl border border-[#e3e8f2] bg-white px-2 text-sm"
+                    className="h-10 w-full rounded-xl border border-transparent bg-[var(--color-field)] px-2 text-sm text-[var(--color-ink)]"
                   >
                     <option value="">Unassigned</option>
                     {profiles.map((profile) => (
@@ -411,22 +478,22 @@ function TaskRow({
                 </label>
               </div>
 
-              <label className="block space-y-1">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Guidance</span>
+              <label className="block space-y-1.5">
+                <SectionLabel>Guidance</SectionLabel>
                 <Textarea
                   value={guidance}
                   onChange={(event) => setGuidance(event.target.value)}
                   onBlur={() => {
                     if (guidance !== task.description) onUpdate({ description: guidance })
                   }}
-                  className="rounded-xl bg-white"
+                  className="bg-[var(--color-panel)]"
                 />
               </label>
 
-              <div className="space-y-2">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-[#8b95b2]">Comments</p>
+              <div className="space-y-2.5">
+                <SectionLabel>Comments</SectionLabel>
                 {task.comments.length === 0 && (
-                  <p className="text-xs text-[#6d7896]">No comments yet. Leave a note for the next person.</p>
+                  <p className="text-xs text-[var(--color-ink-soft)]">No comments yet. Leave a note for the next person.</p>
                 )}
                 <ul className="space-y-2">
                   {task.comments.map((comment) => {
@@ -436,15 +503,29 @@ function TaskRow({
                         <div
                           className={cn(
                             'max-w-[36rem] rounded-2xl px-3 py-2',
-                            mine ? 'bg-[#e7eeff] text-[#1d2433]' : 'bg-white text-[#1d2433]'
+                            mine
+                              ? 'bg-[var(--color-wash)] text-[var(--color-ink)]'
+                              : 'bg-[var(--color-panel)] text-[var(--color-ink)]'
                           )}
                         >
-                          <p className="text-[11px] text-[#6d7896]">
-                            <span className="font-medium text-[#1d2433]">
+                          <p className="flex items-center gap-1 text-[11px] text-[var(--color-ink-soft)]">
+                            <span className="font-medium text-[var(--color-ink)]">
                               {names.get(comment.userId) ?? 'Teammate'}
                             </span>
-                            <span className="mx-1">·</span>
-                            {formatWhen(comment.createdAt)}
+                            <span aria-hidden>·</span>
+                            <span>{formatWhen(comment.createdAt)}</span>
+                            {mine && (
+                              <button
+                                type="button"
+                                title="Delete comment"
+                                onClick={() => {
+                                  if (window.confirm('Delete this comment?')) onDeleteComment(comment.id)
+                                }}
+                                className="ml-1 rounded-full p-0.5 text-[var(--color-ink-soft)] hover:text-[var(--color-danger)]"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
                           </p>
                           <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
                         </div>
@@ -465,7 +546,8 @@ function TaskRow({
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     placeholder="Add a comment"
-                    className="rounded-full bg-white"
+                    shape="pill"
+                    className="bg-[var(--color-panel)]"
                   />
                   <Button type="submit" size="sm" disabled={!draft.trim()} className="rounded-full">
                     Send
@@ -485,7 +567,9 @@ function PartyChip({ party }: { party: LaunchParty }) {
     <span
       className={cn(
         'inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium',
-        party === 'client' ? 'bg-white text-[#3c4663]' : 'bg-[#e7eeff] text-[#2451d6]'
+        party === 'client'
+          ? 'bg-[var(--color-panel)] text-[var(--color-ink)]'
+          : 'bg-[var(--color-wash)] text-[var(--color-wash-strong)]'
       )}
     >
       {LAUNCH_PARTY_LABELS[party]}

@@ -8,6 +8,8 @@ import { BulkAddProjectsModal } from '@/components/project/BulkAddProjectsModal'
 import { ProjectsStickyBoard } from '@/components/project/ProjectsStickyBoard'
 import { AttentionStrip } from '@/components/project/AttentionStrip'
 import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Panel } from '@/components/ui/Panel'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
 import { isLaunchedWithoutTraining } from '@/lib/progress'
@@ -45,7 +47,7 @@ function FilterChip({
         active
           ? 'bg-[var(--color-accent)] text-white'
           : size === 'md'
-            ? 'glass text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+            ? 'bg-[var(--color-field)] text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]'
             : 'border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:border-[var(--color-accent)]/30'
       )}
     >
@@ -304,11 +306,11 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
       </div>
 
       {selectMode && (
-        <div className="glass rounded-[var(--radius-md)] px-4 py-2.5 mb-4 text-sm text-[var(--color-muted-foreground)]">
+        <Panel className="mb-4 px-4 py-2.5 text-sm text-[var(--color-ink-soft)]">
           {selectedCount === 0
             ? 'Tap projects to select them for bulk delete.'
             : `${selectedCount} selected`}
-        </div>
+        </Panel>
       )}
 
       <div className="mb-6 space-y-3">
@@ -439,8 +441,8 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
           />
         )
       ) : (
-        <div className="glass rounded-[var(--radius-lg)] p-12 text-center">
-          <p className="text-[var(--color-muted-foreground)] mb-4">
+        <EmptyState>
+          <p className="mb-4 text-[var(--color-ink-soft)]">
             {favoritesOnly
               ? 'Star a project to keep it here.'
               : 'No projects match this filter.'}
@@ -456,7 +458,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
               Clear filter
             </Button>
           )}
-        </div>
+        </EmptyState>
       )}
 
       <BulkAddProjectsModal open={bulkAddOpen} onClose={() => setBulkAddOpen(false)} />

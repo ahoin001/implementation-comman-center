@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 
 interface NotesPanelProps {
   notes: Note[]
+  currentUserId?: string | null
   onAdd: (content: string, severity: NoteSeverity) => void
   onUpdate: (noteId: string, updates: { content?: string; severity?: NoteSeverity }) => void
   onDelete: (noteId: string) => void
@@ -72,7 +73,14 @@ function SeverityPicker({
   )
 }
 
-export function NotesPanel({ notes, onAdd, onUpdate, onDelete, onTogglePin }: NotesPanelProps) {
+export function NotesPanel({
+  notes,
+  currentUserId,
+  onAdd,
+  onUpdate,
+  onDelete,
+  onTogglePin,
+}: NotesPanelProps) {
   const [draft, setDraft] = useState('')
   const [draftSeverity, setDraftSeverity] = useState<NoteSeverity>('info')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -144,6 +152,7 @@ export function NotesPanel({ notes, onAdd, onUpdate, onDelete, onTogglePin }: No
         {sorted.map((note) => {
           const isEditing = editingId === note.id
           const severity = noteSeverity(note)
+          const mine = Boolean(currentUserId) && note.authorId === currentUserId
           return (
             <li
               key={note.id}
@@ -187,16 +196,18 @@ export function NotesPanel({ notes, onAdd, onUpdate, onDelete, onTogglePin }: No
                     <Pencil className="h-3 w-3" />
                   </button>
                 )}
-                <button
-                  type="button"
-                  title="Delete"
-                  onClick={() => {
-                    if (window.confirm('Delete this note?')) onDelete(note.id)
-                  }}
-                  className="p-1 rounded-sm text-[var(--color-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-danger)]"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                {mine && (
+                  <button
+                    type="button"
+                    title="Delete note"
+                    onClick={() => {
+                      if (window.confirm('Delete this note?')) onDelete(note.id)
+                    }}
+                    className="p-1 rounded-sm text-[var(--color-muted)] hover:text-[var(--color-danger)]"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
               </div>
 
               {isEditing ? (

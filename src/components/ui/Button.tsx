@@ -3,14 +3,15 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-medium transition-[transform,opacity,background-color] duration-150 ease-[var(--ease-out)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2',
+  'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-[transform,opacity,background-color,box-shadow] duration-150 ease-[var(--ease-out)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2',
   {
     variants: {
       variant: {
-        default: 'bg-[var(--color-accent)] text-[var(--color-accent-foreground)] hover:opacity-90',
-        secondary: 'glass text-[var(--color-foreground)] hover:bg-[var(--color-card-solid)]',
-        ghost: 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-black/5 dark:hover:bg-white/5',
-        outline: 'border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-black/5 dark:hover:bg-white/5',
+        default:
+          'bg-[var(--color-wash-strong)] text-white shadow-[0_8px_16px_-8px_color-mix(in_srgb,var(--color-wash-strong)_80%,transparent)] hover:opacity-90',
+        secondary: 'bg-[var(--color-field)] text-[var(--color-ink)] hover:bg-[var(--color-wash)]',
+        ghost: 'text-[var(--color-ink-soft)] hover:text-[var(--color-ink)] hover:bg-[var(--color-field)]',
+        outline: 'border border-[var(--color-border)] bg-[var(--color-panel)] text-[var(--color-ink)] hover:bg-[var(--color-field)]',
         danger: 'bg-[var(--color-danger)] text-white hover:opacity-90',
       },
       size: {

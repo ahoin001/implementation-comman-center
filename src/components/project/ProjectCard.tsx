@@ -88,7 +88,7 @@ export function ProjectCard({
       layoutId={enableShared ? `project-card-${id}` : undefined}
       transition={sharedTransition}
       className={cn(
-        'glass rounded-[var(--radius-lg)] p-5 relative',
+        'float-panel p-5 relative',
         'transition-[box-shadow,border-color] duration-200 ease-[var(--ease-out)]',
         'hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20',
         selectable && 'cursor-pointer',
