@@ -105,9 +105,12 @@ export function LaunchBoard({
   const earlier = tasks.filter((task) => task.legacy)
   const filtering = view !== 'all' || phaseKey !== null || query.trim().length > 0
 
+  const phaseTitle = (key: string) => LAUNCH_PHASES.find((phase) => phase.key === key)?.title
+
   return (
-    <section className="float-panel p-3 sm:p-4">
-      <div className="flex flex-col gap-3 px-1 pb-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="space-y-3">
+      <div className="float-panel space-y-3 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
@@ -138,9 +141,9 @@ export function LaunchBoard({
             ))}
           </div>
         </div>
-      </div>
+        </div>
 
-      <div className="mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
+      <div className="flex gap-1.5 overflow-x-auto px-1">
         <PhaseChip label="Every phase" selected={phaseKey === null} onClick={() => setPhaseKey(null)} />
         {LAUNCH_PHASES.map((phase) => (
           <PhaseChip
@@ -151,8 +154,9 @@ export function LaunchBoard({
           />
         ))}
       </div>
+      </div>
 
-      <div className="space-y-5">
+      <div className="space-y-3">
         {LAUNCH_GROUPS.map((group) => {
           if (phaseKey && group.phaseKey !== phaseKey) return null
           const rows = visible.filter((task) => task.groupKey === group.key).sort((a, b) => a.sort - b.sort)
@@ -160,16 +164,21 @@ export function LaunchBoard({
           const applicable = rows.filter((task) => isLaunchApplicable(task.status))
           const done = applicable.filter((task) => task.status === 'complete').length
           return (
-            <div key={group.key}>
-              <div className="mb-1.5 flex items-baseline justify-between px-2">
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8b95b2]">
-                  {group.title}
-                </h3>
-                <span className="text-[11px] tabular-nums text-[#8b95b2]">
-                  {applicable.length === 0 ? 'As needed' : `${done}/${applicable.length}`}
+            <section key={group.key} className="float-panel overflow-hidden">
+              <header className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-4 py-3 dark:border-white/10">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold tracking-tight text-[var(--color-foreground)]">
+                    {group.title}
+                  </h3>
+                  {phaseKey === null && (
+                    <p className="text-[11px] text-[var(--color-muted-foreground)]">{phaseTitle(group.phaseKey)}</p>
+                  )}
+                </div>
+                <span className="shrink-0 text-xs tabular-nums text-[var(--color-muted-foreground)]">
+                  {applicable.length === 0 ? 'As needed' : `${done} of ${applicable.length}`}
                 </span>
-              </div>
-              <div className="space-y-1.5">
+              </header>
+              <div className="divide-y divide-black/[0.05] dark:divide-white/10">
                 {rows.map((task) => (
                   <TaskRow
                     key={task.id}
@@ -184,7 +193,7 @@ export function LaunchBoard({
                   />
                 ))}
               </div>
-            </div>
+            </section>
           )
         })}
       </div>
@@ -277,11 +286,11 @@ function TaskRow({
   return (
     <div
       className={cn(
-        'rounded-2xl transition-[background-color,box-shadow] duration-200',
-        open ? 'bg-[#f7f9fd] shadow-[inset_0_0_0_1px_rgba(59,108,255,0.12)]' : 'hover:bg-[#f7f9fd]'
+        'transition-colors duration-200',
+        open ? 'bg-[#f7f9fd] dark:bg-white/[0.04]' : 'hover:bg-[#f7f9fd] dark:hover:bg-white/[0.03]'
       )}
     >
-      <div className="flex items-start gap-2 px-2 py-2">
+      <div className="flex items-start gap-2.5 px-3 py-3 sm:px-4">
         <button
           type="button"
           aria-label={`Mark ${task.title} ${LAUNCH_STATUS_LABELS[cycleStatus(task.status)].toLowerCase()}`}
@@ -299,21 +308,37 @@ function TaskRow({
           {task.status === 'in_progress' && <span className="h-1.5 w-1.5 rounded-full bg-[#3b6cff]" />}
         </button>
 
-        <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="group min-w-0 flex-1 cursor-pointer text-left"
+        >
           <span className="flex items-start justify-between gap-3">
-            <span
-              className={cn(
-                'text-sm font-medium leading-5',
-                task.status === 'complete' && 'text-[#6d7896] line-through decoration-[#c9d2e3]'
-              )}
-            >
-              {task.title}
+            <span className="flex min-w-0 items-start gap-1.5">
+              <ChevronDown
+                className={cn(
+                  'mt-0.5 h-4 w-4 shrink-0 text-[#5c6784] transition-transform duration-300 ease-[var(--ease-out)]',
+                  open && 'rotate-180 text-[#2451d6]'
+                )}
+              />
+              <span
+                className={cn(
+                  'text-sm font-medium leading-5',
+                  task.status === 'complete' && 'text-[#6d7896] line-through decoration-[#c9d2e3]'
+                )}
+              >
+                {task.title}
+              </span>
             </span>
             <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', STATUS_TONE[task.status])}>
               {LAUNCH_STATUS_LABELS[task.status]}
             </span>
           </span>
-          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#6d7896]">
+          {!open && task.description && (
+            <span className="mt-1 block line-clamp-1 pl-5.5 text-xs text-[#6d7896]">{task.description}</span>
+          )}
+          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-5.5 text-[11px] text-[#6d7896]">
             <PartyChip party={task.party} />
             <span>{assignee}</span>
             <span aria-hidden>·</span>
@@ -327,17 +352,10 @@ function TaskRow({
                 </span>
               </>
             )}
+            <span className="text-[#8b95b2] group-hover:text-[#2451d6]">
+              {open ? 'Hide details' : 'Details'}
+            </span>
           </span>
-        </button>
-
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-label={open ? 'Collapse task' : 'Expand task'}
-          onClick={onToggle}
-          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#8b95b2] hover:bg-white"
-        >
-          <ChevronDown className={cn('h-4 w-4 transition-transform duration-300 ease-[var(--ease-out)]', open && 'rotate-180')} />
         </button>
       </div>
 
