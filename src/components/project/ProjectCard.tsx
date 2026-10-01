@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { Check, Pin } from 'lucide-react'
+import { Check, Pin, Star } from 'lucide-react'
 import type { Project } from '@/types'
 import { NOTE_SEVERITY_LABELS, WAITING_ON_LABELS, isClientWaiting } from '@/types'
 import {
@@ -11,6 +11,8 @@ import {
   isLaunchFullyWrapped,
   isProjectLaunchComplete,
 } from '@/lib/progress'
+import { currentLaunchStage, launchBoardProgress } from '@/lib/launchTemplate'
+import { useStore } from '@/store/useStore'
 import { calculateHealth, getDaysRemaining, formatLaunchDate } from '@/lib/health'
 import { getTopStickyNote, noteSeverity } from '@/lib/projectNotes'
 import { ProgressRing } from './ProgressRing'
@@ -48,12 +50,18 @@ export function ProjectCard({
   selected = false,
   onToggleSelect,
 }: ProjectCardProps) {
-  const progress = calculateProgress(project)
+  const favoriteIds = useStore((s) => s.favoriteIds)
+  const toggleFavorite = useStore((s) => s.toggleFavorite)
+  const starred = favoriteIds.includes(project.id)
+  const board = project.launchTasks ?? []
+  const progress = board.length ? launchBoardProgress(board) : calculateProgress(project)
   const health = calculateHealth(project)
-  const launched = isProjectLaunchComplete(project)
-  const fullyWrapped = isLaunchFullyWrapped(project)
+  const launched = board.length
+    ? board.some((task) => task.key === 'launch_career_center' && task.status === 'complete')
+    : isProjectLaunchComplete(project)
+  const fullyWrapped = board.length ? progress === 100 : isLaunchFullyWrapped(project)
   const flexOpen = hasOpenFlexibleTasks(project)
-  const stageLabel = getCurrentStageLabel(project)
+  const stageLabel = board.length ? currentLaunchStage(board) : getCurrentStageLabel(project)
   const openTask = getPrimaryOpenTask(project)
   const daysRemaining = getDaysRemaining(project.launchDate)
   const sticky = selectable ? null : getTopStickyNote(project)
@@ -115,6 +123,26 @@ export function ProjectCard({
             layoutId={enableShared ? `project-title-${id}` : undefined}
           />
         </div>
+        {!selectable && (
+          <button
+            type="button"
+            aria-label={starred ? 'Remove from My Projects' : 'Add to My Projects'}
+            aria-pressed={starred}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              toggleFavorite(project.id)
+            }}
+            className={cn(
+              'mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-150',
+              starred
+                ? 'text-amber-500'
+                : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+            )}
+          >
+            <Star className={cn('h-4 w-4', starred && 'fill-current')} />
+          </button>
+        )}
         <ProgressRing
           progress={progress}
           size={52}

@@ -17,7 +17,10 @@ import type {
   DataAssetKey,
   ImageAssetsStatus,
   NoteSeverity,
+  LaunchTask,
   MemberFeatureDefinition,
+  Profile,
+  TaskComment,
 } from '@/types'
 import { DELIVERABLE_LABELS, PROJECT_TASK_LABELS } from '@/types'
 import { defaultIntegrations, defaultSettings } from './seedData'
@@ -29,6 +32,9 @@ import { createDefaultPathConfig, normalizePathConfig } from '@/lib/pathConfig'
 import { normalizeMemberFeatures } from '@/lib/memberFeatures'
 import { canCompleteLaunch } from '@/lib/progress'
 import { isSupabaseConfigured } from '@/lib/supabase'
+import { getActorId } from '@/lib/session'
+import { updateOwnProfile } from '@/lib/auth'
+import type { LaunchTaskStatus } from '@/lib/launchTemplate'
 import * as api from '@/lib/supabaseApi'
 
 interface StoreState {
@@ -37,6 +43,9 @@ interface StoreState {
   calendarEvents: CalendarEvent[]
   settings: AppSettings
   memberFeatureDefinitions: MemberFeatureDefinition[]
+  profiles: Profile[]
+  favoriteIds: string[]
+  currentUserId: string | null
   searchQuery: string
   activeFilter: ProjectFilter
   hydrated: boolean
@@ -68,6 +77,18 @@ interface StoreState {
   setNoteSeverity: (projectId: string, noteId: string, severity: NoteSeverity) => void
   addActivity: (activity: Omit<Activity, 'id' | 'createdAt'>) => void
   updateProjectTask: (projectId: string, taskKey: ProjectTaskKey, status: ProjectTaskStatus, blockedReason?: string) => void
+  updateLaunchTask: (
+    projectId: string,
+    taskId: string,
+    patch: {
+      status?: LaunchTaskStatus
+      dueDate?: string | null
+      assigneeId?: string | null
+      description?: string
+    }
+  ) => void
+  addTaskComment: (projectId: string, taskId: string, body: string) => void
+  toggleFavorite: (projectId: string) => void
   updateDeliverable: (projectId: string, key: DeliverableKey, patch: Partial<DeliverableItem>) => void
   updatePathConfig: (projectId: string, patch: Partial<PathConfig>) => void
   setSsoEnabled: (projectId: string, enabled: boolean) => void
@@ -99,12 +120,33 @@ function logSyncError(err: unknown) {
   console.error(err)
 }
 
+function applyLaunchPatch(
+  task: LaunchTask,
+  patch: {
+    status?: LaunchTaskStatus
+    dueDate?: string | null
+    assigneeId?: string | null
+    description?: string
+  }
+): LaunchTask {
+  return {
+    ...task,
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.description !== undefined ? { description: patch.description } : {}),
+    ...(patch.dueDate !== undefined ? { dueDate: patch.dueDate ?? undefined } : {}),
+    ...(patch.assigneeId !== undefined ? { assigneeId: patch.assigneeId ?? undefined } : {}),
+  }
+}
+
 export const useStore = create<StoreState>()((set, get) => ({
   projects: [],
   activities: [],
   calendarEvents: [],
   settings: { ...defaultSettings, integrations: { ...defaultIntegrations } },
   memberFeatureDefinitions: [],
+  profiles: [],
+  favoriteIds: [],
+  currentUserId: null,
   searchQuery: '',
   activeFilter: 'all',
   hydrated: false,
@@ -128,6 +170,9 @@ export const useStore = create<StoreState>()((set, get) => ({
         calendarEvents: data.calendarEvents,
         settings: data.settings,
         memberFeatureDefinitions: data.memberFeatureDefinitions,
+        profiles: data.profiles,
+        favoriteIds: data.favoriteIds,
+        currentUserId: getActorId(),
         hydrated: true,
         syncing: false,
         syncError: null,
@@ -149,6 +194,9 @@ export const useStore = create<StoreState>()((set, get) => ({
         calendarEvents: data.calendarEvents,
         settings: data.settings,
         memberFeatureDefinitions: data.memberFeatureDefinitions,
+        profiles: data.profiles,
+        favoriteIds: data.favoriteIds,
+        currentUserId: getActorId(),
         syncError: null,
       })
     } catch (err) {
@@ -169,6 +217,15 @@ export const useStore = create<StoreState>()((set, get) => ({
       },
     }
     set({ settings })
+    if (updates.userName !== undefined) {
+      const userId = get().currentUserId
+      set((state) => ({
+        profiles: state.profiles.map((profile) =>
+          profile.id === userId ? { ...profile, displayName: updates.userName ?? profile.displayName } : profile
+        ),
+      }))
+      void updateOwnProfile(updates.userName).catch(logSyncError)
+    }
     void api.upsertSettings(settings).catch(logSyncError)
   },
 
@@ -365,6 +422,83 @@ export const useStore = create<StoreState>()((set, get) => ({
       type: 'milestone',
       title: `${PROJECT_TASK_LABELS[taskKey]} → ${nextTask.status} — ${get().getProject(projectId)?.abbreviation || get().getProject(projectId)?.name}`,
       projectId,
+    })
+  },
+
+  updateLaunchTask: (projectId, taskId, patch) => {
+    set((state) => ({
+      projects: state.projects.map((project) => {
+        if (project.id !== projectId) return project
+        return {
+          ...project,
+          launchTasks: (project.launchTasks ?? []).map((task) =>
+            task.id === taskId ? applyLaunchPatch(task, patch) : task
+          ),
+          updatedAt: new Date().toISOString(),
+        }
+      }),
+    }))
+    void api.patchLaunchTask(taskId, patch).catch(logSyncError)
+  },
+
+  addTaskComment: (projectId, taskId, body) => {
+    const trimmed = body.trim()
+    if (!trimmed) return
+    const userId = get().currentUserId
+    if (!userId) return
+    const optimistic: TaskComment = {
+      id: generateId(),
+      taskId,
+      userId,
+      body: trimmed,
+      createdAt: new Date().toISOString(),
+    }
+    set((state) => ({
+      projects: state.projects.map((project) => {
+        if (project.id !== projectId) return project
+        return {
+          ...project,
+          launchTasks: (project.launchTasks ?? []).map((task) =>
+            task.id === taskId ? { ...task, comments: [...task.comments, optimistic] } : task
+          ),
+        }
+      }),
+    }))
+    void api
+      .insertTaskComment(taskId, trimmed)
+      .then((saved) => {
+        set((state) => ({
+          projects: state.projects.map((project) => {
+            if (project.id !== projectId) return project
+            return {
+              ...project,
+              launchTasks: (project.launchTasks ?? []).map((task) =>
+                task.id === taskId
+                  ? {
+                      ...task,
+                      comments: task.comments.map((comment) =>
+                        comment.id === optimistic.id ? saved : comment
+                      ),
+                    }
+                  : task
+              ),
+            }
+          }),
+        }))
+      })
+      .catch(logSyncError)
+  },
+
+  toggleFavorite: (projectId) => {
+    const favorite = !get().favoriteIds.includes(projectId)
+    set((state) => ({
+      favoriteIds: favorite
+        ? [...state.favoriteIds, projectId]
+        : state.favoriteIds.filter((id) => id !== projectId),
+    }))
+    void api.setFavorite(projectId, favorite).catch(async (err) => {
+      logSyncError(err)
+      await get().refresh()
     })
   },
 

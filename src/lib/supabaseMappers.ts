@@ -12,12 +12,16 @@ import type {
   ProjectDeliverables,
   PathConfig,
   ProjectLinks,
+  LaunchTask,
+  Profile,
   ProjectTaskKey,
   ProjectTaskStatus,
   ProjectTasks,
+  TaskComment,
   WaitingOn,
 } from '@/types'
-import { NOTE_SEVERITIES, PROJECT_TASK_KEYS } from '@/types'
+import { NOTE_SEVERITIES, PROJECT_TASK_KEYS, PROJECT_TASK_LABELS } from '@/types'
+import { MAPPED_LEGACY_KEYS, type LaunchParty, type LaunchTaskStatus } from '@/lib/launchTemplate'
 import { createDefaultTasks } from '@/lib/migrate'
 import { normalizeDeliverables } from '@/lib/deliverables'
 import { normalizePathConfig } from '@/lib/pathConfig'
@@ -57,13 +61,34 @@ export type DbTask = {
   id: string
   user_id: string
   implementation_id: string
-  task_key: ProjectTaskKey
-  status: ProjectTaskStatus
+  task_key: string
+  status: string
   blocked_reason: string | null
   substeps: Record<string, boolean> | null
   completed_at: string | null
+  phase_key: string | null
+  group_key: string | null
+  title: string | null
+  description: string | null
+  party: string | null
+  due_date: string | null
+  assignee_id: string | null
+  sort_order: number | null
   created_at: string
   updated_at: string
+}
+
+export type DbComment = {
+  id: string
+  task_id: string
+  user_id: string
+  body: string
+  created_at: string
+}
+
+export type DbProfile = {
+  id: string
+  display_name: string
 }
 
 export type DbNote = {
@@ -114,11 +139,18 @@ export type DbUserSettings = {
   updated_at: string
 }
 
+const LEGACY_TASK_STATUSES: ProjectTaskStatus[] = ['pending', 'done', 'not_needed', 'blocked']
+
+function isLegacyTaskStatus(status: string): status is ProjectTaskStatus {
+  return (LEGACY_TASK_STATUSES as string[]).includes(status)
+}
+
 export function tasksFromRows(rows: DbTask[]): ProjectTasks {
   const tasks = createDefaultTasks()
   for (const row of rows) {
-    if (!PROJECT_TASK_KEYS.includes(row.task_key)) continue
-    tasks[row.task_key] = {
+    if (!PROJECT_TASK_KEYS.includes(row.task_key as ProjectTaskKey)) continue
+    if (!isLegacyTaskStatus(row.status)) continue
+    tasks[row.task_key as ProjectTaskKey] = {
       status: row.status,
       blockedReason: row.blocked_reason ?? undefined,
       completedAt: row.completed_at ?? undefined,
@@ -127,10 +159,87 @@ export function tasksFromRows(rows: DbTask[]): ProjectTasks {
   return tasks
 }
 
+function mapBoardStatus(status: string): LaunchTaskStatus {
+  if (status === 'done' || status === 'complete') return 'complete'
+  if (status === 'not_needed' || status === 'na') return 'na'
+  if (status === 'blocked' || status === 'in_progress') return 'in_progress'
+  if (status === 'as_needed') return 'as_needed'
+  return 'not_started'
+}
+
+function isParty(value: string | null): value is LaunchParty {
+  return value === 'client' || value === 'webscribble'
+}
+
+export function mapComment(row: DbComment): TaskComment {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    userId: row.user_id,
+    body: row.body,
+    createdAt: row.created_at,
+  }
+}
+
+export function mapProfile(row: DbProfile): Profile {
+  return { id: row.id, displayName: row.display_name }
+}
+
+export function launchTasksFromRows(rows: DbTask[], comments: DbComment[] = []): LaunchTask[] {
+  const byTask = new Map<string, TaskComment[]>()
+  for (const row of comments) {
+    const list = byTask.get(row.task_id) ?? []
+    list.push(mapComment(row))
+    byTask.set(row.task_id, list)
+  }
+  for (const list of byTask.values()) {
+    list.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  }
+
+  const board: LaunchTask[] = []
+  for (const row of rows) {
+    if (row.phase_key && row.group_key && row.title && isParty(row.party)) {
+      board.push({
+        id: row.id,
+        key: row.task_key,
+        phaseKey: row.phase_key,
+        groupKey: row.group_key,
+        title: row.title,
+        description: row.description ?? '',
+        party: row.party,
+        status: mapBoardStatus(row.status),
+        dueDate: row.due_date ?? undefined,
+        assigneeId: row.assignee_id ?? undefined,
+        sort: row.sort_order ?? 0,
+        comments: byTask.get(row.id) ?? [],
+      })
+      continue
+    }
+    if (MAPPED_LEGACY_KEYS.has(row.task_key)) continue
+    if (!PROJECT_TASK_KEYS.includes(row.task_key as ProjectTaskKey)) continue
+    board.push({
+      id: row.id,
+      key: row.task_key,
+      phaseKey: 'earlier',
+      groupKey: 'earlier',
+      title: PROJECT_TASK_LABELS[row.task_key as ProjectTaskKey] ?? row.task_key,
+      description: row.blocked_reason ?? '',
+      party: 'webscribble',
+      status: mapBoardStatus(row.status),
+      sort: 10000,
+      legacy: true,
+      comments: [],
+    })
+  }
+
+  return board.sort((a, b) => a.sort - b.sort)
+}
+
 export function mapImplementation(
   row: DbImplementation,
   taskRows: DbTask[] = [],
-  noteRows: DbNote[] = []
+  noteRows: DbNote[] = [],
+  commentRows: DbComment[] = []
 ): Project {
   return {
     id: row.id,
@@ -153,6 +262,7 @@ export function mapImplementation(
     pathConfig: normalizePathConfig(row.path_config as PathConfig | null),
     memberFeatures: normalizeMemberFeatures(row.member_features),
     tasks: tasksFromRows(taskRows),
+    launchTasks: launchTasksFromRows(taskRows, commentRows),
     notes: noteRows
       .slice()
       .sort((a, b) => b.created_at.localeCompare(a.created_at))

@@ -142,15 +142,20 @@ function ProjectGrid({
   )
 }
 
-export function ProjectsPage() {
+export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolean }) {
   const activeFilter = useStore((s) => s.activeFilter)
   const setActiveFilter = useStore((s) => s.setActiveFilter)
   const deleteProjects = useStore((s) => s.deleteProjects)
   const addNote = useStore((s) => s.addNote)
+  const favoriteIds = useStore((s) => s.favoriteIds)
 
   const [inProgressFirst, setInProgressFirst] = useState(true)
   const [groupTrainingGaps, setGroupTrainingGaps] = useState(readGroupTrainingToggle)
-  const projects = useFilteredProjects({ inProgressFirst })
+  const listed = useFilteredProjects({ inProgressFirst })
+  const projects = useMemo(
+    () => (favoritesOnly ? listed.filter((project) => favoriteIds.includes(project.id)) : listed),
+    [listed, favoritesOnly, favoriteIds]
+  )
   const activeProjects = useActiveProjects()
 
   const [selectMode, setSelectMode] = useState(false)
@@ -232,7 +237,9 @@ export function ProjectsPage() {
     <div>
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight mb-1">Projects</h1>
+          <h1 className="text-2xl font-semibold tracking-tight mb-1">
+            {favoritesOnly ? 'My Projects' : 'Projects'}
+          </h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">
             {projects.length} implementation{projects.length !== 1 ? 's' : ''}
             {activeFilter !== 'all' && (
@@ -433,11 +440,22 @@ export function ProjectsPage() {
         )
       ) : (
         <div className="glass rounded-[var(--radius-lg)] p-12 text-center">
-          <p className="text-[var(--color-muted-foreground)] mb-4">No projects match this filter.</p>
-          <Button variant="secondary" onClick={() => setBulkAddOpen(true)}>
-            <ListPlus className="h-4 w-4" />
-            Bulk Add Projects
-          </Button>
+          <p className="text-[var(--color-muted-foreground)] mb-4">
+            {favoritesOnly
+              ? 'Star a project to keep it here.'
+              : 'No projects match this filter.'}
+          </p>
+          {!favoritesOnly && (
+            <Button variant="secondary" onClick={() => setBulkAddOpen(true)}>
+              <ListPlus className="h-4 w-4" />
+              Bulk Add Projects
+            </Button>
+          )}
+          {favoritesOnly && activeFilter !== 'all' && (
+            <Button variant="secondary" onClick={() => setActiveFilter('all')}>
+              Clear filter
+            </Button>
+          )}
         </div>
       )}
 

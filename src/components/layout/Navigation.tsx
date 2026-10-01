@@ -2,20 +2,30 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   FolderKanban,
+  Star,
   Calendar,
   Archive,
   Settings,
   Command,
+  LogOut,
 } from 'lucide-react'
+import { signOut } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/my-projects', label: 'My Projects', icon: Star },
   { to: '/calendar', label: 'Calendar', icon: Calendar },
   { to: '/archive', label: 'Archive', icon: Archive },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
+
+function isNavActive(to: string, pathname: string) {
+  if (to === '/') return pathname === '/'
+  if (to === '/projects') return pathname === '/projects' || pathname.startsWith('/projects/')
+  return pathname === to || pathname.startsWith(`${to}/`)
+}
 
 export function Sidebar() {
   const location = useLocation()
@@ -34,7 +44,7 @@ export function Sidebar() {
 
       <nav className="flex-1 px-3 space-y-0.5">
         {navItems.map(({ to, label, icon: Icon }) => {
-          const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
+          const isActive = isNavActive(to, location.pathname)
           return (
             <NavLink
               key={to}
@@ -52,6 +62,17 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      <div className="px-3 pb-4">
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium text-[var(--color-muted-foreground)] hover:bg-black/5 hover:text-[var(--color-foreground)] dark:hover:bg-white/5"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          Sign out
+        </button>
+      </div>
     </aside>
   )
 }
@@ -61,15 +82,15 @@ export function MobileNav() {
 
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 glass border-t border-[var(--color-border)] pb-[env(safe-area-inset-bottom)]">
-      <div className="flex items-center justify-around px-2 py-2">
+      <div className="flex items-center justify-between gap-1 overflow-x-auto px-2 py-2">
         {navItems.map(({ to, label, icon: Icon }) => {
-          const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
+          const isActive = isNavActive(to, location.pathname)
           return (
             <NavLink
               key={to}
               to={to}
               className={cn(
-                'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-[var(--radius-md)] transition-colors duration-150 active:scale-[0.95]',
+                'flex shrink-0 flex-col items-center gap-0.5 px-2 py-1.5 rounded-[var(--radius-md)] transition-colors duration-150 active:scale-[0.95]',
                 isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted-foreground)]'
               )}
             >

@@ -11,30 +11,38 @@ import type {
   ProjectDeliverables,
   PathConfig,
   ProjectLinks,
+  Profile,
   ProjectTaskKey,
   ProjectTaskStatus,
+  TaskComment,
   WaitingOn,
 } from '@/types'
+import type { LaunchTaskStatus } from '@/lib/launchTemplate'
 import { PROJECT_TASK_LABELS } from '@/types'
 import { generateId } from '@/lib/utils'
 import { buildEventTitle, suggestAbbreviation } from '@/lib/calendar'
 import { createDefaultTasks } from '@/lib/migrate'
 import { createDefaultDeliverables } from '@/lib/deliverables'
 import { createDefaultPathConfig } from '@/lib/pathConfig'
-import { icc, isSupabaseConfigured, SOLO_USER_ID, supabase } from '@/lib/supabase'
+import { icc, isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { getActorId } from '@/lib/session'
 import {
   type DbActivity,
   type DbCalendarEvent,
+  type DbComment,
   type DbImplementation,
   type DbMemberFeatureDefinition,
   type DbNote,
+  type DbProfile,
   type DbTask,
   type DbUserSettings,
   implementationToRow,
   mapActivity,
   mapCalendarEvent,
+  mapComment,
   mapImplementation,
   mapMemberFeatureDefinition,
+  mapProfile,
   mapSettings,
 } from '@/lib/supabaseMappers'
 
@@ -49,24 +57,30 @@ export async function fetchAllData(): Promise<{
   calendarEvents: CalendarEvent[]
   settings: AppSettings
   memberFeatureDefinitions: MemberFeatureDefinition[]
+  profiles: Profile[]
+  favoriteIds: string[]
 }> {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase is not configured')
   }
 
-  const [implRes, taskRes, noteRes, eventRes, activityRes, settingsRes, featureRes] =
+  const actorId = getActorId()
+  const [implRes, taskRes, noteRes, eventRes, activityRes, settingsRes, featureRes, profileRes, favoriteRes, commentRes] =
     await Promise.all([
       icc().from('implementations').select('*').order('updated_at', { ascending: false }),
       icc().from('implementation_tasks').select('*'),
       icc().from('notes').select('*').order('created_at', { ascending: false }),
       icc().from('calendar_events').select('*').order('event_date', { ascending: true }),
       icc().from('activities').select('*').order('created_at', { ascending: false }).limit(50),
-      icc().from('user_settings').select('*').eq('user_id', SOLO_USER_ID).maybeSingle(),
+      icc().from('user_settings').select('*').eq('user_id', actorId).maybeSingle(),
       icc()
         .from('member_feature_definitions')
         .select('*')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
+      icc().from('profiles').select('id, display_name').order('display_name', { ascending: true }),
+      icc().from('implementation_favorites').select('implementation_id'),
+      icc().from('task_comments').select('*').order('created_at', { ascending: true }),
     ])
 
   if (implRes.error) throw new Error(`implementations: ${implRes.error.message}`)
@@ -76,19 +90,34 @@ export async function fetchAllData(): Promise<{
   if (activityRes.error) throw new Error(`activities: ${activityRes.error.message}`)
   if (settingsRes.error) throw new Error(`settings: ${settingsRes.error.message}`)
   if (featureRes.error) throw new Error(`member features: ${featureRes.error.message}`)
+  if (profileRes.error) throw new Error(`profiles: ${profileRes.error.message}`)
+  if (favoriteRes.error) throw new Error(`favorites: ${favoriteRes.error.message}`)
+  if (commentRes.error) throw new Error(`comments: ${commentRes.error.message}`)
 
   const implementations = (implRes.data ?? []) as DbImplementation[]
   const tasks = (taskRes.data ?? []) as DbTask[]
   const notes = (noteRes.data ?? []) as DbNote[]
+  const comments = (commentRes.data ?? []) as DbComment[]
   const events = (eventRes.data ?? []) as DbCalendarEvent[]
   const activities = (activityRes.data ?? []) as DbActivity[]
   const featureDefs = (featureRes.data ?? []) as DbMemberFeatureDefinition[]
+
+  const taskImplementation = new Map(tasks.map((task) => [task.id, task.implementation_id]))
+  const commentsByImplementation = new Map<string, DbComment[]>()
+  for (const comment of comments) {
+    const implementationId = taskImplementation.get(comment.task_id)
+    if (!implementationId) continue
+    const list = commentsByImplementation.get(implementationId) ?? []
+    list.push(comment)
+    commentsByImplementation.set(implementationId, list)
+  }
 
   const projects = implementations.map((impl) =>
     mapImplementation(
       impl,
       tasks.filter((t) => t.implementation_id === impl.id),
-      notes.filter((n) => n.implementation_id === impl.id)
+      notes.filter((n) => n.implementation_id === impl.id),
+      commentsByImplementation.get(impl.id) ?? []
     )
   )
 
@@ -105,6 +134,10 @@ export async function fetchAllData(): Promise<{
     calendarEvents: events.map(mapCalendarEvent),
     settings,
     memberFeatureDefinitions: featureDefs.map(mapMemberFeatureDefinition),
+    profiles: ((profileRes.data ?? []) as DbProfile[]).map(mapProfile),
+    favoriteIds: ((favoriteRes.data ?? []) as { implementation_id: string }[]).map(
+      (row) => row.implementation_id
+    ),
   }
 }
 
@@ -136,7 +169,7 @@ export async function insertImplementation(input: {
     updatedAt: now,
   }
 
-  const { error } = await icc().from('implementations').insert(implementationToRow(project, SOLO_USER_ID))
+  const { error } = await icc().from('implementations').insert(implementationToRow(project, getActorId()))
   if (error) throw new Error(`create project: ${error.message}`)
 
   // Trigger seeds tasks; fetch them
@@ -147,7 +180,7 @@ export async function insertImplementation(input: {
 
   return mapImplementation(
     {
-      ...implementationToRow(project, SOLO_USER_ID),
+      ...implementationToRow(project, getActorId()),
       created_at: now,
       updated_at: now,
     } as DbImplementation,
@@ -228,7 +261,7 @@ export async function upsertTask(
   blockedReason?: string
 ): Promise<void> {
   const row: Record<string, unknown> = {
-    user_id: SOLO_USER_ID,
+    user_id: getActorId(),
     implementation_id: implementationId,
     task_key: taskKey,
     status,
@@ -243,6 +276,60 @@ export async function upsertTask(
   if (error) throw new Error(`update task: ${error.message}`)
 }
 
+export async function patchLaunchTask(
+  taskId: string,
+  patch: {
+    status?: LaunchTaskStatus
+    dueDate?: string | null
+    assigneeId?: string | null
+    description?: string
+  }
+): Promise<void> {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (patch.status !== undefined) {
+    row.status = patch.status
+    row.completed_at = patch.status === 'complete' ? new Date().toISOString() : null
+  }
+  if (patch.dueDate !== undefined) row.due_date = patch.dueDate
+  if (patch.assigneeId !== undefined) row.assignee_id = patch.assigneeId
+  if (patch.description !== undefined) row.description = patch.description
+  const { error } = await icc().from('implementation_tasks').update(row).eq('id', taskId)
+  if (error) throw new Error(`update launch task: ${error.message}`)
+}
+
+export async function insertTaskComment(taskId: string, body: string): Promise<TaskComment> {
+  const id = generateId()
+  const { data, error } = await icc()
+    .from('task_comments')
+    .insert({
+      id,
+      task_id: taskId,
+      user_id: getActorId(),
+      body,
+    })
+    .select('*')
+    .single()
+  assertOk(error, data, 'add comment')
+  return mapComment(data as DbComment)
+}
+
+export async function setFavorite(implementationId: string, favorite: boolean): Promise<void> {
+  if (favorite) {
+    const { error } = await icc().from('implementation_favorites').upsert({
+      user_id: getActorId(),
+      implementation_id: implementationId,
+    })
+    if (error) throw new Error(`save favorite: ${error.message}`)
+    return
+  }
+  const { error } = await icc()
+    .from('implementation_favorites')
+    .delete()
+    .eq('user_id', getActorId())
+    .eq('implementation_id', implementationId)
+  if (error) throw new Error(`remove favorite: ${error.message}`)
+}
+
 export async function insertNote(
   implementationId: string,
   content: string,
@@ -252,7 +339,7 @@ export async function insertNote(
   const severity = options?.severity ?? 'info'
   const row = {
     id,
-    user_id: SOLO_USER_ID,
+    user_id: getActorId(),
     implementation_id: implementationId,
     content,
     pinned: options?.pinned ?? false,
@@ -305,7 +392,7 @@ export async function insertMemberFeatureDefinition(label: string): Promise<Memb
     .from('member_feature_definitions')
     .insert({
       id,
-      user_id: SOLO_USER_ID,
+      user_id: getActorId(),
       label: trimmed,
       sort_order: nextOrder,
     })
@@ -330,7 +417,7 @@ export async function insertActivity(input: {
     .from('activities')
     .insert({
       id,
-      user_id: SOLO_USER_ID,
+      user_id: getActorId(),
       implementation_id: input.projectId ?? null,
       activity_type: input.type,
       title: input.title,
@@ -358,7 +445,7 @@ export async function insertCalendarEvent(input: {
     .from('calendar_events')
     .insert({
       id,
-      user_id: SOLO_USER_ID,
+      user_id: getActorId(),
       implementation_id: input.projectId,
       title,
       event_type: input.type,
@@ -402,7 +489,7 @@ export async function removeCalendarEvent(id: string): Promise<void> {
 
 export async function upsertSettings(settings: AppSettings): Promise<void> {
   const { error } = await icc().from('user_settings').upsert({
-    user_id: SOLO_USER_ID,
+    user_id: getActorId(),
     user_name: settings.userName,
     theme: settings.theme,
     accent_color: settings.accentColor,
@@ -431,6 +518,9 @@ export function subscribeRealtime(handlers: {
     .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'activities' }, handlers.onChange)
     .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'user_settings' }, handlers.onChange)
     .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'member_feature_definitions' }, handlers.onChange)
+    .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'task_comments' }, handlers.onChange)
+    .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'implementation_favorites' }, handlers.onChange)
+    .on('postgres_changes', { event: '*', schema: 'app_implementation_center_v1', table: 'profiles' }, handlers.onChange)
     .subscribe()
 
   return () => {

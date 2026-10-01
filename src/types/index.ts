@@ -1,3 +1,5 @@
+import type { LaunchParty, LaunchTaskStatus } from '@/lib/launchTemplate'
+
 export type MilestoneStatus = 'todo' | 'in_progress' | 'completed' | 'blocked'
 
 export type MilestoneKey = 'design' | 'import' | 'kickoff' | 'training' | 'launch'
@@ -290,6 +292,35 @@ export const CALENDAR_EVENT_LABELS: Record<CalendarEventType, string> = {
   training: 'SmartWay Training',
 }
 
+export interface Profile {
+  id: string
+  displayName: string
+}
+
+export interface TaskComment {
+  id: string
+  taskId: string
+  userId: string
+  body: string
+  createdAt: string
+}
+
+export interface LaunchTask {
+  id: string
+  key: string
+  phaseKey: string
+  groupKey: string
+  title: string
+  description: string
+  party: LaunchParty
+  status: LaunchTaskStatus
+  dueDate?: string
+  assigneeId?: string
+  sort: number
+  legacy?: boolean
+  comments: TaskComment[]
+}
+
 export interface Project {
   id: string
   name: string
@@ -312,6 +343,8 @@ export interface Project {
   archivedAt?: string
   createdAt: string
   updatedAt: string
+  /** Collaborative launch board. Unmapped old tasks are flagged legacy. */
+  launchTasks?: LaunchTask[]
 }
 
 /** Global catalog entry — one list shared by all projects */

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useStore } from '@/store/useStore'
+import { signOut } from '@/lib/auth'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -80,6 +81,9 @@ export function SettingsPage() {
             onChange={(e) => updateSettings({ userName: e.target.value })}
             placeholder="Your name"
           />
+          <Button variant="outline" size="sm" className="mt-3" onClick={() => void signOut()}>
+            Sign out
+          </Button>
         </Card>
 
         <Card>
