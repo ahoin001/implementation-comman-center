@@ -188,6 +188,54 @@ export async function insertImplementation(input: {
   )
 }
 
+export async function insertImplementationFromChecklist(input: {
+  name: string
+  abbreviation?: string
+  contactName?: string
+  contactEmail?: string
+  launchDate?: string
+  tasks: { taskKey: string; status: LaunchTaskStatus; note?: string; dueDate?: string }[]
+  leftoverNote?: string
+}): Promise<Project> {
+  const project = await insertImplementation(input)
+  const byKey = new Map((project.launchTasks ?? []).map((task) => [task.key, task]))
+
+  await Promise.all(
+    input.tasks.map(async (item) => {
+      const task = byKey.get(item.taskKey)
+      if (!task) return
+      await patchLaunchTask(task.id, {
+        status: item.status,
+        ...(item.dueDate ? { dueDate: item.dueDate } : {}),
+      })
+      if (item.note?.trim()) await insertTaskComment(task.id, item.note.trim())
+    })
+  )
+
+  if (input.leftoverNote?.trim()) {
+    await insertNote(project.id, input.leftoverNote.trim())
+  }
+
+  const [implRes, taskRes, noteRes, commentRes] = await Promise.all([
+    icc().from('implementations').select('*').eq('id', project.id).single(),
+    icc().from('implementation_tasks').select('*').eq('implementation_id', project.id),
+    icc().from('notes').select('*').eq('implementation_id', project.id),
+    icc().from('task_comments').select('*'),
+  ])
+  if (implRes.error || !implRes.data) throw new Error(`load project: ${implRes.error?.message ?? 'missing'}`)
+  if (taskRes.error) throw new Error(`load tasks: ${taskRes.error.message}`)
+
+  const taskIds = new Set(((taskRes.data ?? []) as DbTask[]).map((task) => task.id))
+  const comments = ((commentRes.data ?? []) as DbComment[]).filter((comment) => taskIds.has(comment.task_id))
+
+  return mapImplementation(
+    implRes.data as DbImplementation,
+    (taskRes.data ?? []) as DbTask[],
+    (noteRes.data ?? []) as DbNote[],
+    comments
+  )
+}
+
 export async function insertImplementations(
   items: { name: string; abbreviation?: string }[]
 ): Promise<Project[]> {

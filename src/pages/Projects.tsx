@@ -4,6 +4,7 @@ import type { Project, ProjectFilter } from '@/types'
 import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
 import { ProjectCard } from '@/components/project/ProjectCard'
 import { NewProjectButton } from '@/components/project/NewProjectButton'
+import { ImportChecklistButton } from '@/components/project/ImportChecklistModal'
 import { BulkAddProjectsModal } from '@/components/project/BulkAddProjectsModal'
 import { ProjectsStickyBoard } from '@/components/project/ProjectsStickyBoard'
 import { AttentionStrip } from '@/components/project/AttentionStrip'
@@ -266,6 +267,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
                 <ListPlus className="h-4 w-4" />
                 Bulk Add
               </Button>
+              {!favoritesOnly && <ImportChecklistButton />}
               <NewProjectButton />
             </>
           ) : (

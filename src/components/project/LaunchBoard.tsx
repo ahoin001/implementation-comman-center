@@ -17,6 +17,8 @@ import { Panel } from '@/components/ui/Panel'
 import { SectionLabel } from '@/components/ui/SectionLabel'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { StatusPill, type StatusTone } from '@/components/ui/StatusPill'
+import { Select } from '@/components/ui/Select'
+import { DatePicker } from '@/components/ui/DatePicker'
 
 type BoardView = 'all' | 'open' | 'mine' | 'client' | 'webscribble'
 
@@ -37,16 +39,6 @@ const STATUS_TONE: Record<LaunchTaskStatus, StatusTone> = {
 }
 
 const EASE = [0.23, 1, 0.32, 1] as const
-
-function formatDue(value?: string) {
-  if (!value) return 'No date'
-  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
-  if (!year || !month || !day) return value
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -124,17 +116,20 @@ export function LaunchBoard({
   })
 
   const isGroupOpen = (key: string, index: number) => {
-    if (!openGroupKeys) return index === 0
-    const anyVisible = shownGroups.some((item) => openGroupKeys.includes(item.group.key))
-    if (!anyVisible) return index === 0
+    if (openGroupKeys === null) return index === 0
     return openGroupKeys.includes(key)
   }
 
   const toggleGroup = (key: string) => {
-    const currently = shownGroups
-      .filter((item, index) => isGroupOpen(item.group.key, index))
-      .map((item) => item.group.key)
-    setOpenGroupKeys(currently.includes(key) ? currently.filter((id) => id !== key) : [...currently, key])
+    setOpenGroupKeys((current) => {
+      const base =
+        current === null
+          ? shownGroups[0]
+            ? [shownGroups[0].group.key]
+            : []
+          : current
+      return base.includes(key) ? base.filter((id) => id !== key) : [...base, key]
+    })
   }
 
   return (
@@ -315,6 +310,68 @@ function PhaseChip({
   )
 }
 
+function TaskFields({
+  task,
+  profiles,
+  onUpdate,
+  labeled = false,
+  className,
+}: {
+  task: LaunchTask
+  profiles: Profile[]
+  onUpdate: (patch: {
+    status?: LaunchTaskStatus
+    dueDate?: string | null
+    assigneeId?: string | null
+  }) => void
+  labeled?: boolean
+  className?: string
+}) {
+  const statusOptions = (Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => ({
+    value: status,
+    label: LAUNCH_STATUS_LABELS[status],
+  }))
+  const assigneeOptions = [
+    { value: '', label: 'Unassigned' },
+    ...profiles.map((profile) => ({ value: profile.id, label: profile.displayName })),
+  ]
+
+  return (
+    <div className={cn('grid gap-2 sm:grid-cols-3', className)}>
+      <label className="min-w-0 space-y-1.5">
+        {labeled && <SectionLabel>Status</SectionLabel>}
+        <Select
+          ariaLabel={`Status for ${task.title}`}
+          size={labeled ? 'md' : 'sm'}
+          value={task.status}
+          options={statusOptions}
+          onChange={(value) => onUpdate({ status: value as LaunchTaskStatus })}
+        />
+      </label>
+      <label className="min-w-0 space-y-1.5">
+        {labeled && <SectionLabel>Due</SectionLabel>}
+        <DatePicker
+          aria-label={`Due date for ${task.title}`}
+          value={task.dueDate?.slice(0, 10) ?? ''}
+          placeholder="No date"
+          onChange={(event) => onUpdate({ dueDate: event.target.value || null })}
+          className={labeled ? undefined : 'h-9'}
+        />
+      </label>
+      <label className="min-w-0 space-y-1.5">
+        {labeled && <SectionLabel>Assignee</SectionLabel>}
+        <Select
+          ariaLabel={`Assignee for ${task.title}`}
+          size={labeled ? 'md' : 'sm'}
+          value={task.assigneeId ?? ''}
+          options={assigneeOptions}
+          onChange={(value) => onUpdate({ assigneeId: value || null })}
+        />
+      </label>
+    </div>
+  )
+}
+
 function TaskRow({
   task,
   names,
@@ -346,8 +403,6 @@ function TaskRow({
   const reduce = useReducedMotion()
   const [draft, setDraft] = useState('')
   const [guidance, setGuidance] = useState(task.description)
-  const assignee = task.assigneeId ? names.get(task.assigneeId) ?? 'Teammate' : 'Unassigned'
-
   useEffect(() => {
     setGuidance(task.description)
   }, [task.description])
@@ -359,71 +414,71 @@ function TaskRow({
         open ? 'bg-[var(--color-field)]' : 'hover:bg-[var(--color-field)]'
       )}
     >
-      <div className="flex items-start gap-2.5 px-3 py-3 sm:px-4">
-        <button
-          type="button"
-          aria-label={`Mark ${task.title} ${LAUNCH_STATUS_LABELS[cycleStatus(task.status)].toLowerCase()}`}
-          onClick={() => onUpdate({ status: cycleStatus(task.status) })}
-          className={cn(
-            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-150 active:scale-90',
-            task.status === 'complete'
-              ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash-strong)] text-white'
-              : task.status === 'in_progress'
-                ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash)]'
-                : 'border-[var(--color-border)] bg-[var(--color-panel)]'
-          )}
-        >
-          {task.status === 'complete' && <Check className="h-3 w-3" strokeWidth={3} />}
-          {task.status === 'in_progress' && (
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-wash-strong)]" />
-          )}
-        </button>
+      <div className="px-3 py-3 sm:px-4">
+        <div className="flex items-start gap-2.5">
+          <button
+            type="button"
+            aria-label={`Mark ${task.title} ${LAUNCH_STATUS_LABELS[cycleStatus(task.status)].toLowerCase()}`}
+            onClick={() => onUpdate({ status: cycleStatus(task.status) })}
+            className={cn(
+              'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-150 active:scale-90',
+              task.status === 'complete'
+                ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash-strong)] text-white'
+                : task.status === 'in_progress'
+                  ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash)]'
+                  : 'border-[var(--color-border)] bg-[var(--color-panel)]'
+            )}
+          >
+            {task.status === 'complete' && <Check className="h-3 w-3" strokeWidth={3} />}
+            {task.status === 'in_progress' && (
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-wash-strong)]" />
+            )}
+          </button>
 
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          className="min-w-0 flex-1 cursor-pointer text-left"
-        >
-          <span className="flex items-start justify-between gap-3">
-            <span className="flex min-w-0 items-start gap-1.5">
-              <ChevronDown
-                className={cn(
-                  'mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink-soft)] transition-transform duration-300 ease-[var(--ease-out)]',
-                  open && 'rotate-180 text-[var(--color-wash-strong)]'
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            className="min-w-0 flex-1 cursor-pointer text-left"
+          >
+            <span className="flex items-start justify-between gap-3">
+              <span className="flex min-w-0 items-start gap-1.5">
+                <ChevronDown
+                  className={cn(
+                    'mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink-soft)] transition-transform duration-300 ease-[var(--ease-out)]',
+                    open && 'rotate-180 text-[var(--color-wash-strong)]'
+                  )}
+                />
+                <span
+                  className={cn(
+                    'text-sm font-medium leading-5',
+                    task.status === 'complete' && 'text-[var(--color-ink-soft)] line-through'
+                  )}
+                >
+                  {task.title}
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
+                <PartyChip party={task.party} />
+                {task.comments.length > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-xs text-[var(--color-ink-soft)]">
+                    <MessageSquare className="h-3 w-3" />
+                    {task.comments.length}
+                  </span>
                 )}
-              />
-              <span
-                className={cn(
-                  'text-sm font-medium leading-5',
-                  task.status === 'complete' && 'text-[var(--color-ink-soft)] line-through'
-                )}
-              >
-                {task.title}
               </span>
             </span>
-            <StatusPill tone={STATUS_TONE[task.status]}>{LAUNCH_STATUS_LABELS[task.status]}</StatusPill>
-          </span>
-          {!open && task.description && (
-            <span className="mt-0.5 block line-clamp-1 pl-5.5 text-[13px] leading-5 text-[var(--color-ink-soft)]">
-              {task.description}
-            </span>
-          )}
-          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-5.5 text-xs text-[var(--color-ink-soft)]">
-            <PartyChip party={task.party} />
-            <span>{assignee}</span>
-            <span aria-hidden className="text-[var(--color-ink-soft)]">
-              ·
-            </span>
-            <span>{formatDue(task.dueDate)}</span>
-            {task.comments.length > 0 && (
-              <span className="inline-flex items-center gap-0.5">
-                <MessageSquare className="h-3 w-3" />
-                {task.comments.length}
+            {!open && task.description && (
+              <span className="mt-0.5 block line-clamp-1 pl-5.5 text-[13px] leading-5 text-[var(--color-ink-soft)]">
+                {task.description}
               </span>
             )}
-          </span>
-        </button>
+          </button>
+        </div>
+
+        {!open && (
+          <TaskFields task={task} profiles={profiles} onUpdate={onUpdate} className="mt-2.5 pl-7 sm:pl-8" />
+        )}
       </div>
 
       <AnimatePresence initial={false}>
@@ -436,47 +491,8 @@ function TaskRow({
             transition={{ duration: reduce ? 0.01 : 0.32, ease: EASE }}
             className="overflow-hidden"
           >
-            <div className="space-y-5 px-4 pb-5 pt-3 sm:pl-14">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label className="space-y-1.5">
-                  <SectionLabel>Status</SectionLabel>
-                  <select
-                    value={task.status}
-                    onChange={(event) => onUpdate({ status: event.target.value as LaunchTaskStatus })}
-                    className="h-10 w-full rounded-xl border border-transparent bg-[var(--color-field)] px-2 text-sm text-[var(--color-ink)]"
-                  >
-                    {(Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => (
-                      <option key={status} value={status}>
-                        {LAUNCH_STATUS_LABELS[status]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="space-y-1.5">
-                  <SectionLabel>Due</SectionLabel>
-                  <Input
-                    type="date"
-                    value={task.dueDate?.slice(0, 10) ?? ''}
-                    onChange={(event) => onUpdate({ dueDate: event.target.value || null })}
-                    className="bg-[var(--color-panel)]"
-                  />
-                </label>
-                <label className="space-y-1.5">
-                  <SectionLabel>Assignee</SectionLabel>
-                  <select
-                    value={task.assigneeId ?? ''}
-                    onChange={(event) => onUpdate({ assigneeId: event.target.value || null })}
-                    className="h-10 w-full rounded-xl border border-transparent bg-[var(--color-field)] px-2 text-sm text-[var(--color-ink)]"
-                  >
-                    <option value="">Unassigned</option>
-                    {profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+            <div className="space-y-5 px-4 pb-5 pt-1 sm:pl-14">
+              <TaskFields task={task} profiles={profiles} onUpdate={onUpdate} labeled />
 
               <label className="block space-y-1.5">
                 <SectionLabel>Guidance</SectionLabel>

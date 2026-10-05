@@ -35,6 +35,7 @@ import { isSupabaseConfigured } from '@/lib/supabase'
 import { getActorId } from '@/lib/session'
 import { updateOwnProfile } from '@/lib/auth'
 import type { LaunchTaskStatus } from '@/lib/launchTemplate'
+import type { ImportedTask } from '@/lib/sheetImport'
 import * as api from '@/lib/supabaseApi'
 
 interface StoreState {
@@ -107,6 +108,13 @@ interface StoreState {
   updateProjectContact: (projectId: string, contact: Partial<Contact>) => void
   updateIntegrations: (integrations: Partial<IntegrationsConfig>) => void
   createProject: (data: { name: string; abbreviation?: string; contactName?: string; contactEmail?: string; launchDate?: string }) => string
+  createProjectFromChecklist: (data: {
+    name: string
+    abbreviation?: string
+    launchDate?: string
+    tasks: ImportedTask[]
+    leftoverNote?: string
+  }) => Promise<string>
   createProjects: (items: { name: string; abbreviation?: string }[]) => string[]
   deleteProjects: (ids: string[]) => void
   addCalendarEvent: (data: Omit<CalendarEvent, 'id' | 'title'> & { title?: string }) => string
@@ -750,6 +758,30 @@ export const useStore = create<StoreState>()((set, get) => ({
       })
 
     return id
+  },
+
+  createProjectFromChecklist: async (data) => {
+    const saved = await api.insertImplementationFromChecklist({
+      name: data.name,
+      abbreviation: data.abbreviation,
+      launchDate: data.launchDate,
+      tasks: data.tasks.map((task) => ({
+        taskKey: task.taskKey,
+        status: task.status,
+        note: task.note,
+        dueDate: task.dueDate,
+      })),
+      leftoverNote: data.leftoverNote,
+    })
+    set((state) => ({
+      projects: [saved, ...state.projects.filter((project) => project.id !== saved.id)],
+    }))
+    get().addActivity({
+      type: 'other',
+      title: `Imported checklist — ${saved.abbreviation || saved.name}`,
+      projectId: saved.id,
+    })
+    return saved.id
   },
 
   createProjects: (items) => {

@@ -40,8 +40,8 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           }
         }}
         className={cn(
-          'relative flex h-10 w-full cursor-pointer items-center rounded-xl border border-transparent bg-[var(--color-field)] transition-colors duration-150',
-          'hover:bg-[var(--color-wash)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
+          'relative flex h-10 w-full cursor-pointer items-center rounded-xl bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_10px_22px_-14px_rgba(47,68,130,0.55)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)] transition-[box-shadow,ring-color] duration-150',
+          'hover:ring-[color-mix(in_srgb,var(--color-wash-strong)_45%,transparent)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
           className
         )}
       >
@@ -59,7 +59,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         <span
           className={cn(
             'pointer-events-none flex-1 px-3 text-sm',
-            props.value ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'
+            props.value ? 'text-[var(--color-ink)]' : 'text-[var(--color-ink-soft)]'
           )}
         >
           {props.value
@@ -114,8 +114,8 @@ export const TimePicker = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<
           }
         }}
         className={cn(
-          'relative flex h-10 w-full cursor-pointer items-center rounded-xl border border-transparent bg-[var(--color-field)] transition-colors duration-150',
-          'hover:bg-[var(--color-wash)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
+          'relative flex h-10 w-full cursor-pointer items-center rounded-xl bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_10px_22px_-14px_rgba(47,68,130,0.55)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)] transition-[box-shadow,ring-color] duration-150',
+          'hover:ring-[color-mix(in_srgb,var(--color-wash-strong)_45%,transparent)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
           className
         )}
       >
@@ -133,7 +133,7 @@ export const TimePicker = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<
         <span
           className={cn(
             'pointer-events-none flex-1 px-3 text-sm tabular-nums',
-            props.value ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted)]'
+            props.value ? 'text-[var(--color-ink)]' : 'text-[var(--color-ink-soft)]'
           )}
         >
           {props.value || (props.placeholder ?? 'Select time')}

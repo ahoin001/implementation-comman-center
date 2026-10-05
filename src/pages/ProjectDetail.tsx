@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { currentLaunchStage, isLaunchApplicable, launchBoardProgress } from '@/lib/launchTemplate'
-import { calculateHealth, formatLaunchDate, getDaysRemaining } from '@/lib/health'
+import { calculateHealth, getDaysRemaining } from '@/lib/health'
 import { ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { LaunchBoard } from '@/components/project/LaunchBoard'
@@ -15,8 +15,6 @@ import { NotesPanel } from '@/components/project/NotesPanel'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
-import { SectionLabel } from '@/components/ui/SectionLabel'
-import { Stat } from '@/components/ui/Stat'
 import { Avatar } from '@/components/ui/Avatar'
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -111,77 +109,42 @@ export function ProjectDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(240px,0.8fr)]">
-        <Panel pad="md">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <SectionLabel>Overall progress</SectionLabel>
-              <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">{progress}%</p>
-              <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-                {completeCount} of {applicable.length} tasks complete
-              </p>
-            </div>
-            <div className="text-right">
-              <SectionLabel>Deadline</SectionLabel>
-              <p className="mt-2 text-sm font-semibold">{formatLaunchDate(project.launchDate)}</p>
-              {daysRemaining !== null && (
-                <p className={daysRemaining < 0 ? 'text-sm text-[var(--color-danger)]' : 'text-sm text-[var(--color-success)]'}>
-                  {daysRemaining < 0
-                    ? `${Math.abs(daysRemaining)} days past`
-                    : daysRemaining === 0
-                      ? 'Today'
-                      : `${daysRemaining} days left`}
-                </p>
-              )}
-              <input
-                type="date"
-                aria-label="Launch date"
-                value={project.launchDate?.slice(0, 10) ?? ''}
-                onChange={(event) =>
-                  updateProject(project.id, { launchDate: event.target.value || undefined })
-                }
-                className="mt-2 h-8 rounded-full border border-transparent bg-[var(--color-field)] px-2 text-xs text-[var(--color-ink)]"
-              />
-            </div>
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-field)]">
-            <div
-              className="progress-fill h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out)]"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <dl className="mt-4 grid grid-cols-4 gap-2">
-            <Stat value={completeCount} label="Done" />
-            <Stat value={inProgress} label="In progress" />
-            <Stat value={notStarted} label="Not started" />
-            <Stat value={commentCount} label="Comments" />
-          </dl>
-        </Panel>
-
-        <Panel pad="md">
-          <SectionLabel>Who&apos;s on it</SectionLabel>
-          {crew.length === 0 ? (
-            <p className="mt-4 text-sm text-[var(--color-muted-foreground)]">
-              Assign a task and teammates show up here.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {crew.map((person) => (
-                <li key={person.id} className="flex items-center gap-3">
-                  <Avatar name={person.name} />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{person.name}</span>
-                  <span className="text-xs tabular-nums text-[var(--color-muted-foreground)]">
-                    {person.count} {person.count === 1 ? 'task' : 'tasks'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </div>
-
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
+          <Panel pad="md" className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="shrink-0 sm:w-28">
+                <p className="text-4xl font-semibold tracking-tight tabular-nums text-[var(--color-ink)]">{progress}%</p>
+                <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
+                  {completeCount} of {applicable.length} complete
+                </p>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="h-2.5 overflow-hidden rounded-full bg-[var(--color-field)]">
+                  <div
+                    className="progress-fill h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out)]"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-[var(--color-ink-soft)]">
+                  {inProgress} in progress
+                  <span className="mx-1.5">·</span>
+                  {notStarted} not started
+                  <span className="mx-1.5">·</span>
+                  {commentCount} {commentCount === 1 ? 'comment' : 'comments'}
+                </p>
+              </div>
+            </div>
+            <ProjectHeroMeta
+              launchDate={project.launchDate}
+              daysRemaining={daysRemaining}
+              stagingUrl={project.links.stagingSite}
+              contact={project.contact}
+              onLaunchDateChange={(launchDate) => updateProject(project.id, { launchDate })}
+              onContactSave={(contact) => updateProjectContact(project.id, contact)}
+            />
+          </Panel>
+
           <LaunchBoard
             project={project}
             profiles={profiles}
@@ -203,14 +166,26 @@ export function ProjectDetailPage() {
         </div>
 
         <div className="space-y-4">
-          <ProjectHeroMeta
-            launchDate={project.launchDate}
-            daysRemaining={daysRemaining}
-            stagingUrl={project.links.stagingSite}
-            contact={project.contact}
-            onLaunchDateChange={(launchDate) => updateProject(project.id, { launchDate })}
-            onContactSave={(contact) => updateProjectContact(project.id, contact)}
-          />
+          <Panel pad="md">
+            <p className="text-sm font-semibold text-[var(--color-ink)]">Who&apos;s on it</p>
+            {crew.length === 0 ? (
+              <p className="mt-3 text-sm text-[var(--color-ink-soft)]">
+                Assign a task and teammates show up here.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {crew.map((person) => (
+                  <li key={person.id} className="flex items-center gap-2.5">
+                    <Avatar name={person.name} />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{person.name}</span>
+                    <span className="text-xs tabular-nums text-[var(--color-ink-soft)]">
+                      {person.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
           <Card>
             <CardHeader>
               <CardTitle>Waiting On</CardTitle>

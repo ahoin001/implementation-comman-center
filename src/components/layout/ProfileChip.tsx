@@ -100,12 +100,14 @@ export function ProfileChip({ docked = false }: { docked?: boolean }) {
         className={cn(
           'flex items-center gap-2.5 transition-[transform,background-color] duration-150 active:scale-[0.98]',
           docked
-            ? 'w-full rounded-2xl px-2 py-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/5'
+            ? 'w-full rounded-xl px-2 py-1.5 text-left hover:bg-[var(--color-field)]'
             : 'float-panel rounded-full py-1 pl-1 pr-2.5 hover:bg-[var(--color-field)]'
         )}
       >
         <Avatar name={name} />
-        <span className="max-w-[9rem] truncate text-sm font-medium">{name}</span>
+        <span className={cn('truncate text-sm font-medium', docked ? 'max-w-[7.5rem] text-[13px]' : 'max-w-[9rem]')}>
+          {name}
+        </span>
         <ChevronUp
           className={cn(
             'h-3.5 w-3.5 shrink-0 text-[var(--color-muted-foreground)] transition-transform duration-150',

@@ -106,7 +106,7 @@ export function ContactGlance({ contact, onSave, className, variant = 'card' }: 
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
             className={cn(
-              'absolute z-30 mt-2 w-[min(100vw-2rem,320px)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-card-solid)] p-4 shadow-lg shadow-black/10',
+              'float-panel absolute z-30 mt-2 w-[min(100vw-2rem,320px)] p-4',
               variant === 'meta' ? 'left-0 sm:left-auto sm:right-0' : 'right-0 left-0 sm:left-auto'
             )}
           >
