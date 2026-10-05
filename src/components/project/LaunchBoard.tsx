@@ -19,8 +19,25 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { StatusPill, type StatusTone } from '@/components/ui/StatusPill'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
+import { LaunchPlanSheet } from '@/components/project/LaunchPlanSheet'
 
 type BoardView = 'all' | 'open' | 'mine' | 'client' | 'webscribble'
+type BoardLayout = 'checklist' | 'plan'
+
+const LAYOUT_KEY = 'icc-task-layout'
+
+const LAYOUTS: { id: BoardLayout; label: string }[] = [
+  { id: 'checklist', label: 'Checklist' },
+  { id: 'plan', label: 'Plan' },
+]
+
+function readLayout(): BoardLayout {
+  try {
+    return localStorage.getItem(LAYOUT_KEY) === 'plan' ? 'plan' : 'checklist'
+  } catch {
+    return 'checklist'
+  }
+}
 
 const VIEWS: { id: BoardView; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -82,6 +99,7 @@ export function LaunchBoard({
 }: LaunchBoardProps) {
   const tasks = project.launchTasks ?? []
   const [phaseKey, setPhaseKey] = useState<string | null>(null)
+  const [layout, setLayout] = useState<BoardLayout>(readLayout)
   const [view, setView] = useState<BoardView>('all')
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
@@ -136,7 +154,21 @@ export function LaunchBoard({
     <section className="space-y-3">
       <Panel pad="sm" className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
+          <SegmentedControl
+            value={layout}
+            onChange={(next) => {
+              setLayout(next)
+              try {
+                localStorage.setItem(LAYOUT_KEY, next)
+              } catch {
+                // Preference stays for this visit if storage is blocked.
+              }
+            }}
+            options={LAYOUTS}
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-muted)]" />
@@ -166,34 +198,46 @@ export function LaunchBoard({
       </div>
       </Panel>
 
-      <div className="space-y-2.5">
-        {shownGroups.map(({ group, rows, done, total }, index) => (
-          <GroupPanel
-            key={group.key}
-            title={group.title}
-            phase={phaseKey === null ? phaseTitle(group.phaseKey) : undefined}
-            done={done}
-            total={total}
-            open={isGroupOpen(group.key, index)}
-            onToggle={() => toggleGroup(group.key)}
-          >
-            {rows.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                names={names}
-                profiles={profiles}
-                currentUserId={currentUserId}
-                open={openId === task.id}
-                onToggle={() => setOpenId(openId === task.id ? null : task.id)}
-                onUpdate={(patch) => onUpdateTask(task.id, patch)}
-                onAddComment={(body) => onAddComment(task.id, body)}
-                onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
-              />
-            ))}
-          </GroupPanel>
-        ))}
-      </div>
+      {layout === 'plan' && shownGroups.length > 0 ? (
+        <LaunchPlanSheet
+          groups={shownGroups}
+          profiles={profiles}
+          names={names}
+          currentUserId={currentUserId}
+          onUpdateTask={onUpdateTask}
+          onAddComment={onAddComment}
+          onDeleteComment={onDeleteComment}
+        />
+      ) : layout === 'checklist' ? (
+        <div className="space-y-2.5">
+          {shownGroups.map(({ group, rows, done, total }, index) => (
+            <GroupPanel
+              key={group.key}
+              title={group.title}
+              phase={phaseKey === null ? phaseTitle(group.phaseKey) : undefined}
+              done={done}
+              total={total}
+              open={isGroupOpen(group.key, index)}
+              onToggle={() => toggleGroup(group.key)}
+            >
+              {rows.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  names={names}
+                  profiles={profiles}
+                  currentUserId={currentUserId}
+                  open={openId === task.id}
+                  onToggle={() => setOpenId(openId === task.id ? null : task.id)}
+                  onUpdate={(patch) => onUpdateTask(task.id, patch)}
+                  onAddComment={(body) => onAddComment(task.id, body)}
+                  onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
+                />
+              ))}
+            </GroupPanel>
+          ))}
+        </div>
+      ) : null}
 
       {visible.length === 0 && (
         <p className="px-2 py-8 text-center text-sm text-[var(--color-muted-foreground)]">

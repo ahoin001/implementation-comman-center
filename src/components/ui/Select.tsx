@@ -11,6 +11,7 @@ export function Select({
   options,
   ariaLabel,
   className,
+  triggerClassName,
   size = 'md',
 }: {
   value: string
@@ -18,6 +19,7 @@ export function Select({
   options: SelectOption[]
   ariaLabel: string
   className?: string
+  triggerClassName?: string
   size?: 'sm' | 'md'
 }) {
   const [open, setOpen] = useState(false)
@@ -79,15 +81,13 @@ export function Select({
         onClick={() => setOpen((current) => !current)}
         className={cn(
           'flex w-full items-center justify-between gap-2 rounded-xl bg-[var(--color-panel)] text-left font-medium text-[var(--color-ink)] shadow-[0_10px_22px_-14px_rgba(47,68,130,0.55)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)] transition-[box-shadow,ring-color] duration-150 hover:ring-[color-mix(in_srgb,var(--color-wash-strong)_45%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-wash-strong)]',
-          size === 'sm' ? 'h-9 px-2.5 text-[13px]' : 'h-10 px-3 text-sm'
+          size === 'sm' ? 'h-9 px-2.5 text-[13px]' : 'h-10 px-3 text-sm',
+          triggerClassName
         )}
       >
         <span className="truncate">{selected?.label ?? 'Select'}</span>
         <ChevronDown
-          className={cn(
-            'h-4 w-4 shrink-0 text-[var(--color-ink-soft)] transition-transform duration-200',
-            open && 'rotate-180 text-[var(--color-wash-strong)]'
-          )}
+          className={cn('h-4 w-4 shrink-0 opacity-70 transition-transform duration-200', open && 'rotate-180')}
         />
       </button>
       {open &&
