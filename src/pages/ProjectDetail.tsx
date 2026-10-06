@@ -89,9 +89,8 @@ export function ProjectDetailPage() {
         <GlobalSearch className="max-w-xs" />
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-4">
-          <Panel pad="md">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <Panel pad="md" className="order-1 xl:col-start-1 xl:row-start-1">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <ProjectTitle
@@ -154,8 +153,7 @@ export function ProjectDetailPage() {
             </div>
           </Panel>
 
-          <ClientDeliverablesPanel projectId={project.id} />
-
+          <div className="order-3 space-y-4 xl:col-start-1 xl:row-start-2">
           <LaunchBoard
             project={project}
             profiles={profiles}
@@ -174,9 +172,11 @@ export function ProjectDetailPage() {
             onAddDefinition={addMemberFeatureDefinition}
             onDeleteDefinition={deleteMemberFeatureDefinition}
           />
-        </div>
+          </div>
 
-        <div className="space-y-4">
+        <div className="contents xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:flex xl:flex-col xl:gap-4 xl:self-start">
+          <ClientDeliverablesPanel projectId={project.id} className="order-2 xl:order-none" />
+        <div className="order-4 space-y-4 xl:order-none">
           <Panel pad="md">
             <p className="text-sm font-semibold text-[var(--color-ink)]">Who&apos;s on it</p>
             {crew.length === 0 ? (
@@ -252,6 +252,7 @@ export function ProjectDetailPage() {
               Archive Project
             </Button>
           )}
+          </div>
         </div>
       </div>
     </div>

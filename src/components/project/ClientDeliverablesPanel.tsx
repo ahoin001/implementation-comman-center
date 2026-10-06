@@ -3,6 +3,7 @@ import { Check, Download, ExternalLink, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Panel } from '@/components/ui/Panel'
+import { cn } from '@/lib/utils'
 import { INTAKE_CARDS, INTAKE_GROUPS, clientIntakePhase, type IntakeSlotState } from '@/lib/clientIntake'
 import { supabase, ICC_SCHEMA } from '@/lib/supabase'
 import { hasResumeData as resumeDataOn, resolveSecureUploadUrl, cleanSecureUploadUrl, defaultSecureUploadUrl } from '@/lib/pathConfig'
@@ -22,15 +23,21 @@ import {
 } from '@/lib/clientIntakeApi'
 
 const PHASE_LABEL = {
-  changes: 'Changes requested',
-  needed: 'Waiting on the rest',
-  review: 'In review',
+  changes: 'Send back',
+  needed: 'Waiting',
+  review: 'Review',
   accepted: 'Accepted',
-  skipped: 'Not needed',
+  skipped: 'Skipped',
   hidden: '',
 } as const
 
-export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
+export function ClientDeliverablesPanel({
+  projectId,
+  className,
+}: {
+  projectId: string
+  className?: string
+}) {
   const project = useStore((state) => state.projects.find((item) => item.id === projectId))
   const updateLaunchTask = useStore((state) => state.updateLaunchTask)
   const [rows, setRows] = useState<ClientSubmission[]>([])
@@ -219,7 +226,7 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
       ])
       setChangeFor(null)
       setChangeNote('')
-      setNotice('Asked them to send it again')
+      setNotice('Sent back')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send that request')
     } finally {
@@ -227,26 +234,33 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
     }
   }
 
+  const summary =
+    receivedCards.length === 0
+      ? 'Nothing in yet. Send the link when you need logos, files, or logins.'
+      : inReview > 0
+        ? `${inReview} to review. Accept what looks right, or send it back.`
+        : 'Caught up. Accepted items mark the matching task complete.'
+
   return (
-    <Panel pad="md" className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <Panel pad="sm" className={cn('space-y-4', className)}>
+      <div className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-[var(--color-ink)]">From the client</h2>
-          <p className="mt-1 text-sm leading-6 text-[var(--color-ink-soft)]">
-            {inReview > 0
-              ? `${inReview} ready for you to accept or send back.`
-              : 'Accept an item when it looks right. That marks the task complete.'}
-          </p>
+          <p className="mt-1 text-sm leading-5 text-[var(--color-ink-soft)]">{summary}</p>
         </div>
-        <div className="flex gap-2">
-          <Button type="button" size="sm" onClick={() => void copyLink()} disabled={busy}>
-            <Link2 className="h-4 w-4" />
-            {notice ?? 'Copy link'}
-          </Button>
-          <Button type="button" variant="secondary" size="sm" onClick={() => void newLink()} disabled={busy}>
-            New link
-          </Button>
-        </div>
+        <Button type="button" size="sm" className="w-full" onClick={() => void copyLink()} disabled={busy}>
+          <Link2 className="h-4 w-4" />
+          Copy client link
+        </Button>
+        {notice && <p className="text-xs font-medium text-[var(--color-ink)]">{notice}</p>}
+        <button
+          type="button"
+          className="text-xs font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-ink)] disabled:opacity-50"
+          onClick={() => void newLink()}
+          disabled={busy}
+        >
+          Replace link
+        </button>
       </div>
 
       <SecureUploadEditor
@@ -260,46 +274,58 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
       {receivedCards.length === 0 ? (
         <p className="text-sm text-[var(--color-ink-soft)]">Nothing has come in yet.</p>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {INTAKE_GROUPS.map((group) => {
             const items = receivedCards.filter((item) => item.card.group === group)
             if (items.length === 0) return null
             return (
-              <section key={group} className="space-y-3">
-                <h3 className="text-sm font-semibold text-[var(--color-ink)]">{group}</h3>
+              <section key={group} className="space-y-2">
+                <h3 className="text-xs font-medium text-[var(--color-ink-soft)]">{group}</h3>
                 {items.map(({ card, rows: cardRows, phase, note, taskId }) => (
-                  <div key={card.taskKey} className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-[var(--color-ink)]">{card.title}</p>
-                      <span className="text-xs font-medium text-[var(--color-ink-soft)]">{PHASE_LABEL[phase]}</span>
+                  <div key={card.taskKey} className="space-y-2 border-t border-[var(--color-border)] pt-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="min-w-0 text-sm font-medium text-[var(--color-ink)]">{card.title}</p>
+                      {PHASE_LABEL[phase] && (
+                        <span
+                          className={cn(
+                            'shrink-0 text-xs font-medium',
+                            phase === 'review' ? 'text-[var(--color-wash-strong)]' : 'text-[var(--color-ink-soft)]'
+                          )}
+                        >
+                          {PHASE_LABEL[phase]}
+                        </span>
+                      )}
                     </div>
                     {note && phase === 'changes' && (
                       <p className="text-sm leading-6 text-[var(--color-ink)]">{note}</p>
                     )}
                     {card.kind === 'image' && (
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="flex gap-2 overflow-x-auto pb-1">
                         {card.slots.map((slot) => {
                           const row = cardRows.find((item) => item.slotKey === slot.key)
                           if (!row) return null
                           return (
-                            <figure key={slot.key} className="space-y-2">
+                            <figure key={slot.key} className="w-28 shrink-0 space-y-1">
                               {previews[row.id] ? (
                                 <img
                                   src={previews[row.id]}
                                   alt={slot.label}
-                                  className="w-full rounded-xl bg-[var(--color-field)] object-cover"
-                                  style={{ aspectRatio: row.width && row.height ? `${row.width} / ${row.height}` : '16 / 5' }}
+                                  className="h-16 w-full rounded-lg bg-[var(--color-field)] object-cover"
                                 />
                               ) : (
-                                <div className="flex h-16 items-center rounded-xl bg-[var(--color-field)] px-3 text-xs text-[var(--color-ink-soft)]">
+                                <div className="flex h-16 items-center rounded-lg bg-[var(--color-field)] px-2 text-[11px] text-[var(--color-ink-soft)]">
                                   {row.fileName}
                                 </div>
                               )}
-                              <figcaption className="flex items-center justify-between gap-2 text-xs text-[var(--color-ink-soft)]">
+                              <figcaption className="flex items-center justify-between gap-1 text-[11px] text-[var(--color-ink-soft)]">
                                 <span className="truncate">{slot.label}</span>
-                                <button type="button" className="inline-flex items-center gap-1 font-medium text-[var(--color-ink)]" onClick={() => void download(row)}>
+                                <button
+                                  type="button"
+                                  className="shrink-0 text-[var(--color-ink)]"
+                                  aria-label={`Download ${slot.label}`}
+                                  onClick={() => void download(row)}
+                                >
                                   <Download className="h-3.5 w-3.5" />
-                                  Download
                                 </button>
                               </figcaption>
                             </figure>
@@ -313,18 +339,19 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
                           const row = cardRows.find((item) => item.slotKey === slot.key)
                           if (!row) return null
                           return (
-                            <li key={slot.key} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-field)] px-3 py-2">
+                            <li key={slot.key} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--color-field)] px-2.5 py-2">
                               <span className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-ink)]">
-                                <Check className="h-4 w-4 shrink-0 text-[var(--color-success)]" />
-                                <span className="truncate">
-                                  {slot.label}
-                                  <span className="text-[var(--color-ink-soft)]"> · Marked as uploaded</span>
-                                </span>
+                                <Check className="h-3.5 w-3.5 shrink-0 text-[var(--color-success)]" />
+                                <span className="truncate">{slot.label}</span>
                               </span>
                               {row.storagePath ? (
-                                <button type="button" className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-[var(--color-ink)]" onClick={() => void download(row)}>
-                                  <Download className="h-4 w-4" />
-                                  Download
+                                <button
+                                  type="button"
+                                  className="shrink-0 text-[var(--color-ink)]"
+                                  aria-label={`Download ${slot.label}`}
+                                  onClick={() => void download(row)}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
                                 </button>
                               ) : null}
                             </li>
@@ -335,16 +362,17 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
                     {card.kind === 'file' && (
                       <ul className="space-y-1.5">
                         {cardRows.map((row) => (
-                          <li key={row.id} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-field)] px-3 py-2">
+                          <li key={row.id} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--color-field)] px-2.5 py-2">
                             <span className="min-w-0 truncate text-sm text-[var(--color-ink)]">
                               {card.slots.find((slot) => slot.key === row.slotKey)?.label ?? row.fileName ?? 'File'}
-                              {card.slots.some((slot) => slot.key === row.slotKey) && row.fileName ? (
-                                <span className="text-[var(--color-ink-soft)]"> · {row.fileName}</span>
-                              ) : null}
                             </span>
-                            <button type="button" className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-[var(--color-ink)]" onClick={() => void download(row)}>
-                              <Download className="h-4 w-4" />
-                              Download
+                            <button
+                              type="button"
+                              className="shrink-0 text-[var(--color-ink)]"
+                              aria-label={`Download ${row.fileName || 'file'}`}
+                              onClick={() => void download(row)}
+                            >
+                              <Download className="h-3.5 w-3.5" />
                             </button>
                           </li>
                         ))}
@@ -382,15 +410,10 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
                         </p>
                       ))}
                     {phase !== 'accepted' && phase !== 'skipped' && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {phase === 'review' && (
-                          <Button type="button" size="sm" disabled={busy} onClick={() => void accept(card.taskKey, taskId)}>
-                            Accept
-                          </Button>
-                        )}
+                      <div className="space-y-2">
                         {changeFor === card.taskKey ? (
                           <form
-                            className="flex w-full flex-col gap-2"
+                            className="space-y-2"
                             onSubmit={(event) => {
                               event.preventDefault()
                               void sendChange(card.taskKey, taskId)
@@ -399,12 +422,12 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
                             <Textarea
                               value={changeNote}
                               onChange={(event) => setChangeNote(event.target.value)}
-                              placeholder="What should they send again?"
-                              className="min-h-20"
+                              placeholder="What needs to change?"
+                              className="min-h-16 text-sm"
                             />
                             <div className="flex gap-2">
-                              <Button type="submit" size="sm" variant="secondary" disabled={busy || !changeNote.trim()}>
-                                Send request
+                              <Button type="submit" size="sm" className="flex-1" disabled={busy || !changeNote.trim()}>
+                                Send
                               </Button>
                               <Button type="button" size="sm" variant="ghost" onClick={() => setChangeFor(null)}>
                                 Cancel
@@ -412,18 +435,26 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
                             </div>
                           </form>
                         ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() => {
-                              setChangeFor(card.taskKey)
-                              setChangeNote(note ?? '')
-                            }}
-                          >
-                            Ask for a new submission
-                          </Button>
+                          <div className="flex gap-2">
+                            {phase === 'review' && (
+                              <Button type="button" size="sm" className="flex-1" disabled={busy} onClick={() => void accept(card.taskKey, taskId)}>
+                                Accept
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="flex-1"
+                              disabled={busy}
+                              onClick={() => {
+                                setChangeFor(card.taskKey)
+                                setChangeNote(note ?? '')
+                              }}
+                            >
+                              Send back
+                            </Button>
+                          </div>
                         )}
                       </div>
                     )}
@@ -475,9 +506,9 @@ function SecureUploadEditor({
 
   return (
     <div className="rounded-xl bg-[var(--color-field)] px-3 py-3">
-      <p className="text-sm font-medium text-[var(--color-ink)]">ACH and W-9 file manager</p>
-      <p className="mt-1 text-sm leading-6 text-[var(--color-ink-soft)]">
-        These two documents are uploaded on the company file manager. Images and other files still come in here.
+      <p className="text-sm font-medium text-[var(--color-ink)]">ACH and W-9</p>
+      <p className="mt-1 text-xs leading-5 text-[var(--color-ink-soft)]">
+        Those two go to the file manager. Everything else comes in above.
       </p>
       {editing ? (
         <form
@@ -512,37 +543,42 @@ function SecureUploadEditor({
           </div>
         </form>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="mt-2 space-y-2">
           {current ? (
             <a
               href={current}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex max-w-full items-start gap-1.5 text-sm font-medium text-[var(--color-ink)] underline decoration-[color-mix(in_srgb,var(--color-ink)_30%,transparent)] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2"
+              className="inline-flex max-w-full items-start gap-1.5 text-sm font-medium text-[var(--color-wash-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2"
             >
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-              <span className="break-all">{current}</span>
+              <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span className="break-all">{current.replace(/^https?:\/\//, '')}</span>
             </a>
           ) : (
             <p className="text-sm text-[var(--color-ink-soft)]">Add an abbreviation, or set the address.</p>
           )}
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              setDraft(current)
-              setLocalError(null)
-              setEditing(true)
-            }}
-          >
-            Change address
-          </Button>
-          {custom && (
-            <Button type="button" size="sm" variant="ghost" onClick={() => save('')}>
-              Use abbreviation default
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <button
+              type="button"
+              className="text-xs font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]"
+              onClick={() => {
+                setDraft(current)
+                setLocalError(null)
+                setEditing(true)
+              }}
+            >
+              Change address
+            </button>
+            {custom && (
+              <button
+                type="button"
+                className="text-xs font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]"
+                onClick={() => save('')}
+              >
+                Use default
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
