@@ -15,13 +15,13 @@ import { Select } from '@/components/ui/Select'
 
 const STATUS_TRIGGER: Record<LaunchTaskStatus, string> = {
   not_started:
-    'bg-[color-mix(in_srgb,var(--color-warning)_18%,var(--color-panel))] text-[var(--color-ink)]',
-  in_progress:
-    'bg-[color-mix(in_srgb,var(--color-success)_18%,var(--color-panel))] text-[var(--color-ink)]',
-  complete: 'bg-[var(--color-wash-strong)] text-white',
-  na: 'bg-[var(--color-field)] text-[var(--color-ink)]',
+    'bg-[color-mix(in_srgb,var(--color-warning)_12%,var(--color-panel))] text-[color-mix(in_srgb,#8a5a12_55%,var(--color-ink))]',
+  in_progress: 'bg-[var(--color-wash)] text-[var(--color-wash-strong)]',
+  complete:
+    'bg-[color-mix(in_srgb,var(--color-success)_18%,var(--color-panel))] text-[color-mix(in_srgb,#176b32_70%,var(--color-ink))]',
+  na: 'bg-[var(--color-field)] text-[var(--color-ink-soft)]',
   as_needed:
-    'bg-[color-mix(in_srgb,var(--color-wash-strong)_14%,var(--color-panel))] text-[var(--color-wash-strong)]',
+    'bg-[color-mix(in_srgb,#7a5af8_12%,var(--color-panel))] text-[color-mix(in_srgb,#5b3cc4_62%,var(--color-ink))]',
 }
 
 const statusOptions = (Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => ({
@@ -77,7 +77,7 @@ export function LaunchPlanSheet({
         <thead>
           <tr className="border-b border-[color-mix(in_srgb,var(--color-ink)_8%,transparent)] text-xs font-medium text-[var(--color-ink-soft)]">
             <th className="px-4 py-3 font-medium">Task</th>
-            <th className="w-[9.5rem] px-3 py-3 font-medium">Lead</th>
+            <th className="w-[13rem] px-3 py-3 font-medium">Lead</th>
             <th className="w-[9.5rem] px-3 py-3 font-medium">Due</th>
             <th className="w-[9.5rem] px-3 py-3 font-medium">Status</th>
             <th className="w-[16rem] px-4 py-3 font-medium">Comments</th>
@@ -128,11 +128,11 @@ function PhaseBlock({
   return (
     <>
       <tr>
-        <td colSpan={5} className="bg-[var(--color-wash-strong)] px-4 py-2 text-sm font-semibold text-white">
+        <td colSpan={5} className="bg-[var(--color-plan-phase)] px-4 py-2 text-sm font-semibold text-[var(--color-plan-phase-ink)]">
           <span className="flex items-center justify-between gap-3">
             <span>{title}</span>
             {total > 0 && (
-              <span className="text-xs font-medium text-white/80">
+              <span className="text-xs font-medium text-[color-mix(in_srgb,var(--color-plan-phase-ink)_78%,transparent)]">
                 {done} of {total}
               </span>
             )}
@@ -175,10 +175,10 @@ function GroupBlock({
   return (
     <>
       <tr>
-        <td colSpan={5} className="bg-[var(--color-ink)] px-4 py-1.5 text-[13px] font-semibold text-[var(--color-panel)]">
+        <td colSpan={5} className="bg-[var(--color-plan-group)] px-4 py-1.5 text-[13px] font-semibold text-[var(--color-plan-group-ink)]">
           <span className="flex items-center justify-between gap-3">
             <span>{item.group.title}</span>
-            <span className="text-xs font-medium text-[color-mix(in_srgb,var(--color-panel)_72%,transparent)]">
+            <span className="text-xs font-medium text-[var(--color-plan-group-meta)]">
               {item.total === 0 ? 'As needed' : `${item.done} of ${item.total}`}
             </span>
           </span>
@@ -237,18 +237,19 @@ function PlanRow({
         )}
       </td>
       <td className="px-3 py-3">
-        <div className="space-y-1.5">
+        <div className="flex w-full flex-col gap-1">
           <LeadChip party={task.party} />
           <Select
             ariaLabel={`Assignee for ${task.title}`}
             size="sm"
+            className="w-full"
             value={task.assigneeId ?? ''}
             options={assigneeOptions}
             onChange={(value) => onUpdate({ assigneeId: value || null })}
           />
         </div>
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 pb-3 pt-9">
         <DatePicker
           aria-label={`Due date for ${task.title}`}
           value={task.dueDate?.slice(0, 10) ?? ''}
@@ -257,7 +258,7 @@ function PlanRow({
           className="h-9"
         />
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 pb-3 pt-9">
         <Select
           ariaLabel={`Status for ${task.title}`}
           size="sm"
@@ -281,12 +282,13 @@ function PlanRow({
 }
 
 function LeadChip({ party }: { party: LaunchParty }) {
+  const client = party === 'client'
   return (
     <span
       className={cn(
-        'inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium',
-        party === 'client'
-          ? 'bg-[var(--color-field)] text-[var(--color-ink)]'
+        'flex h-5 w-full items-center rounded-md px-2.5 text-[11px] font-medium',
+        client
+          ? 'bg-[color-mix(in_srgb,var(--color-warning)_14%,var(--color-panel))] text-[color-mix(in_srgb,#8a5a12_62%,var(--color-ink))]'
           : 'bg-[var(--color-wash)] text-[var(--color-wash-strong)]'
       )}
     >

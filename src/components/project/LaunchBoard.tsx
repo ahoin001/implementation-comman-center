@@ -9,6 +9,7 @@ import {
   LAUNCH_PHASES,
   LAUNCH_STATUS_LABELS,
   isLaunchApplicable,
+  taskMatchesOwner,
 } from '@/lib/launchTemplate'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
@@ -21,7 +22,8 @@ import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { LaunchPlanSheet } from '@/components/project/LaunchPlanSheet'
 
-type BoardView = 'all' | 'open' | 'mine' | 'client' | 'webscribble'
+type TaskScope = 'all' | 'open' | 'mine'
+type TaskOwner = 'any' | 'client' | 'webscribble'
 type BoardLayout = 'checklist' | 'plan'
 
 const LAYOUT_KEY = 'icc-task-layout'
@@ -39,10 +41,14 @@ function readLayout(): BoardLayout {
   }
 }
 
-const VIEWS: { id: BoardView; label: string }[] = [
+const SCOPES: { id: TaskScope; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'open', label: 'Open' },
   { id: 'mine', label: 'Mine' },
+]
+
+const OWNERS: { id: TaskOwner; label: string }[] = [
+  { id: 'any', label: 'Any lead' },
   { id: 'client', label: 'Client' },
   { id: 'webscribble', label: 'Web Scribble' },
 ]
@@ -100,7 +106,8 @@ export function LaunchBoard({
   const tasks = project.launchTasks ?? []
   const [phaseKey, setPhaseKey] = useState<string | null>(null)
   const [layout, setLayout] = useState<BoardLayout>(readLayout)
-  const [view, setView] = useState<BoardView>('all')
+  const [scope, setScope] = useState<TaskScope>('all')
+  const [owner, setOwner] = useState<TaskOwner>('any')
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [openGroupKeys, setOpenGroupKeys] = useState<string[] | null>(null)
@@ -111,16 +118,15 @@ export function LaunchBoard({
     if (task.legacy) return false
     if (phaseKey && task.phaseKey !== phaseKey) return false
     if (query && !task.title.toLowerCase().includes(query.trim().toLowerCase())) return false
-    if (view === 'open' && task.status !== 'not_started' && task.status !== 'in_progress') return false
-    if (view === 'mine' && task.assigneeId !== currentUserId) return false
-    if (view === 'client' && task.party !== 'client') return false
-    if (view === 'webscribble' && task.party !== 'webscribble') return false
+    if (scope === 'open' && task.status !== 'not_started' && task.status !== 'in_progress') return false
+    if (scope === 'mine' && task.assigneeId !== currentUserId) return false
+    if (owner !== 'any' && !taskMatchesOwner(task, owner)) return false
     return true
   }
 
   const visible = tasks.filter(matches)
   const earlier = tasks.filter((task) => task.legacy)
-  const filtering = view !== 'all' || phaseKey !== null || query.trim().length > 0
+  const filtering = scope !== 'all' || owner !== 'any' || phaseKey !== null || query.trim().length > 0
 
   const phaseTitle = (key: string) => LAUNCH_PHASES.find((phase) => phase.key === key)?.title
 
@@ -181,7 +187,11 @@ export function LaunchBoard({
               className="h-9 w-44 pl-8 sm:w-52"
             />
           </div>
-          <SegmentedControl value={view} onChange={setView} options={VIEWS} />
+          <div className="flex flex-wrap items-center gap-2">
+            <SegmentedControl value={scope} onChange={setScope} options={SCOPES} label="Task status" />
+            <span className="hidden h-4 w-px bg-[color-mix(in_srgb,var(--color-ink)_12%,transparent)] sm:block" aria-hidden />
+            <SegmentedControl value={owner} onChange={setOwner} options={OWNERS} label="Who does the task" />
+          </div>
         </div>
         </div>
 

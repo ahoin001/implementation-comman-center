@@ -127,6 +127,25 @@ export function isLaunchApplicable(status: LaunchTaskStatus): boolean {
   return status !== 'na' && status !== 'as_needed'
 }
 
+const CLIENT_SENDS = /\bclients?\b(?:\s+\w+){0,2}\s+sends?\b/i
+const WEB_SCRIBBLE_DOES =
+  /\b(?:web scribble|ws)\s+(?:does|do|will|imports?|configures?|proposes?|runs?|coordinates?|creates?|conducts?|provides?|sets?\s+up|reviews?|launches?|handles?|completes?|walks?\s+through)\b/i
+
+/** Client filter: “Client sends…”. Web Scribble filter: Web Scribble is the one doing the work. */
+export function taskMatchesOwner(
+  task: { title: string; description?: string; party: LaunchParty; comments?: { body: string }[] },
+  owner: LaunchParty
+): boolean {
+  const text = [task.title, task.description ?? '', ...(task.comments ?? []).map((comment) => comment.body)].join('\n')
+  const clientSends = CLIENT_SENDS.test(text)
+  const webScribbleDoes = WEB_SCRIBBLE_DOES.test(text)
+  if (clientSends || webScribbleDoes) {
+    if (owner === 'client') return clientSends
+    return webScribbleDoes
+  }
+  return task.party === owner
+}
+
 export function launchBoardProgress(tasks: { status: LaunchTaskStatus; legacy?: boolean }[]): number {
   const applicable = tasks.filter((task) => !task.legacy && isLaunchApplicable(task.status))
   if (applicable.length === 0) return 0

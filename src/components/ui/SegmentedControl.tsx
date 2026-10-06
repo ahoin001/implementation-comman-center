@@ -5,14 +5,20 @@ export function SegmentedControl<T extends string>({
   onChange,
   options,
   className,
+  label,
 }: {
   value: T
   onChange: (value: T) => void
   options: { id: T; label: string }[]
   className?: string
+  label?: string
 }) {
   return (
-    <div className={cn('inline-flex rounded-full bg-[var(--color-field)] p-1', className)}>
+    <div
+      role="group"
+      aria-label={label}
+      className={cn('inline-flex rounded-full bg-[var(--color-field)] p-1', className)}
+    >
       {options.map((option) => {
         const selected = option.id === value
         return (
