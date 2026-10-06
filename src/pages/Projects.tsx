@@ -42,14 +42,11 @@ function FilterChip({
       type="button"
       onClick={() => onSelect(filter)}
       className={cn(
-        'shrink-0 font-medium transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97]',
-        size === 'md' && 'rounded-full px-4 py-1.5 text-sm',
-        size === 'sm' && 'rounded-md px-2.5 py-1 text-xs',
+        'shrink-0 cursor-pointer rounded-full font-medium transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97]',
+        size === 'md' ? 'px-3.5 py-1.5 text-sm' : 'px-3 py-1 text-xs',
         active
-          ? 'bg-[var(--color-accent)] text-white'
-          : size === 'md'
-            ? 'bg-[var(--color-field)] text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]'
-            : 'border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:border-[var(--color-accent)]/30'
+          ? 'bg-[var(--color-wash-strong)] text-white'
+          : 'bg-[var(--color-field)] text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]'
       )}
     >
       {FILTER_LABELS[filter]}
@@ -68,40 +65,28 @@ function ViewToggle({
   label: string
   activeTone?: 'accent' | 'warning'
 }) {
-  const on =
-    activeTone === 'warning'
-      ? {
-          border: 'border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
-          track: 'bg-[var(--color-warning)]',
-        }
-      : {
-          border: 'border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent)]',
-          track: 'bg-[var(--color-accent)]',
-        }
-
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={cn(
-        'shrink-0 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]',
-        checked
-          ? on.border
-          : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-      )}
+      className="inline-flex shrink-0 cursor-pointer items-center gap-2.5 rounded-full py-1 text-sm text-[var(--color-ink)]"
     >
       <span
         className={cn(
-          'relative h-4 w-7 rounded-full transition-colors duration-150',
-          checked ? on.track : 'bg-[var(--color-border)]'
+          'relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-[var(--ease-out)]',
+          checked
+            ? activeTone === 'warning'
+              ? 'bg-[var(--color-warning)]'
+              : 'bg-[var(--color-wash-strong)]'
+            : 'bg-[var(--color-field)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)]'
         )}
       >
         <span
           className={cn(
-            'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-150',
-            checked ? 'translate-x-3.5' : 'translate-x-0.5'
+            'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(29,36,51,0.28)] transition-transform duration-200 ease-[var(--ease-out)]',
+            checked && 'translate-x-4'
           )}
         />
       </span>
@@ -328,11 +313,11 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <ViewToggle
               checked={inProgressFirst}
               onChange={setInProgressFirst}
-              label="In Progress First"
+              label="In progress first"
             />
             <ViewToggle
               checked={groupTrainingGaps}
@@ -343,14 +328,8 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
-            Launch path
-          </span>
-          <div className="h-px flex-1 bg-[var(--color-border)]" />
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-medium text-[var(--color-ink-soft)]">Launch path</span>
           {TASK_FILTERS.map((filter) => (
             <FilterChip
               key={filter}
@@ -364,7 +343,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             <button
               type="button"
               onClick={() => setActiveFilter('all')}
-              className="shrink-0 rounded-md px-2 py-1 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
+              className="shrink-0 cursor-pointer rounded-full px-3 py-1 text-xs text-[var(--color-ink-soft)] transition-colors hover:text-[var(--color-ink)]"
             >
               Clear
             </button>

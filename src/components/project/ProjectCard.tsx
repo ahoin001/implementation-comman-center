@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { Check, Pin, Star } from 'lucide-react'
 import type { Project } from '@/types'
@@ -53,6 +54,8 @@ export function ProjectCard({
   const favoriteIds = useStore((s) => s.favoriteIds)
   const toggleFavorite = useStore((s) => s.toggleFavorite)
   const starred = favoriteIds.includes(project.id)
+  const reduceMotion = useReducedMotion()
+  const [starPop, setStarPop] = useState(0)
   const board = project.launchTasks ?? []
   const progress = board.length ? launchBoardProgress(board) : calculateProgress(project)
   const health = calculateHealth(project)
@@ -132,15 +135,24 @@ export function ProjectCard({
               event.preventDefault()
               event.stopPropagation()
               toggleFavorite(project.id)
+              setStarPop((count) => count + 1)
             }}
             className={cn(
-              'mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-150',
+              'mt-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-150',
               starred
-                ? 'text-amber-500'
-                : 'text-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+                ? 'text-amber-500 hover:bg-amber-500/10'
+                : 'text-[var(--color-ink-soft)] hover:bg-[var(--color-field)] hover:text-[var(--color-ink)]'
             )}
           >
-            <Star className={cn('h-4 w-4', starred && 'fill-current')} />
+            <motion.span
+              key={starPop}
+              className="inline-flex"
+              initial={reduceMotion || starPop === 0 ? false : { scale: 0.35, rotate: -18 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 560, damping: 14, mass: 0.55 }}
+            >
+              <Star className={cn('h-4 w-4', starred && 'fill-current')} />
+            </motion.span>
           </button>
         )}
         <ProgressRing
