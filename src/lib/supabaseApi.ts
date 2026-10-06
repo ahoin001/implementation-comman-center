@@ -336,7 +336,7 @@ export async function patchLaunchTask(
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (patch.status !== undefined) {
     row.status = patch.status
-    row.completed_at = patch.status === 'complete' ? new Date().toISOString() : null
+    row.completed_at = patch.status === 'complete' || patch.status === 'na' ? new Date().toISOString() : null
   }
   if (patch.dueDate !== undefined) row.due_date = patch.dueDate
   if (patch.assigneeId !== undefined) row.assignee_id = patch.assigneeId

@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import { currentLaunchStage, isLaunchApplicable, launchBoardProgress } from '@/lib/launchTemplate'
+import { currentLaunchStage, isLaunchDone, isLaunchTracked, launchBoardProgress } from '@/lib/launchTemplate'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
 import { ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
@@ -55,8 +55,8 @@ export function ProjectDetailPage() {
 
   const board = project.launchTasks ?? []
   const live = board.filter((task) => !task.legacy)
-  const applicable = live.filter((task) => isLaunchApplicable(task.status))
-  const completeCount = applicable.filter((task) => task.status === 'complete').length
+  const tracked = live.filter((task) => isLaunchTracked(task.status))
+  const completeCount = tracked.filter((task) => isLaunchDone(task.status)).length
   const progress = live.length ? launchBoardProgress(live) : 0
   const stageLabel = live.length ? currentLaunchStage(live) : 'Launch board'
   const daysRemaining = getDaysRemaining(project.launchDate)
@@ -78,52 +78,51 @@ export function ProjectDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2 px-1">
-        <div className="flex items-center justify-between gap-3">
-          <Link
-            to={project.archived ? '/archive' : '/projects'}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {project.archived ? 'Archive' : 'Projects'}
-          </Link>
-          <GlobalSearch className="max-w-xs" />
-        </div>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <ProjectTitle
-            name={project.name}
-            abbreviation={project.abbreviation}
-            onAbbreviationChange={(abbreviation) => updateProject(project.id, { abbreviation })}
-            size="lg"
-          />
-          <p className="text-sm text-[var(--color-muted-foreground)]">
-            {stageLabel}
-            <span className="mx-1.5">·</span>
-            {applicable.length} tasks
-            <span className="mx-1.5">·</span>
-            {profiles.length} {profiles.length === 1 ? 'teammate' : 'teammates'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {project.archived && (
-            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[var(--color-muted-foreground)]">
-              Archived
-            </span>
-          )}
-          <HealthBadge health={calculateHealth(project)} />
-        </div>
-        </div>
+      <div className="flex items-center justify-between gap-3 px-1">
+        <Link
+          to={project.archived ? '/archive' : '/projects'}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {project.archived ? 'Archive' : 'Projects'}
+        </Link>
+        <GlobalSearch className="max-w-xs" />
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          <Panel pad="md" className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Panel pad="md">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <ProjectTitle
+                  name={project.name}
+                  abbreviation={project.abbreviation}
+                  onAbbreviationChange={(abbreviation) => updateProject(project.id, { abbreviation })}
+                  size="lg"
+                />
+                <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
+                  {stageLabel}
+                  <span className="mx-1.5">·</span>
+                  {tracked.length} tasks
+                  <span className="mx-1.5">·</span>
+                  {profiles.length} {profiles.length === 1 ? 'teammate' : 'teammates'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {project.archived && (
+                  <span className="rounded-full bg-[var(--color-field)] px-2.5 py-1 text-xs font-medium text-[var(--color-ink-soft)]">
+                    Archived
+                  </span>
+                )}
+                <HealthBadge health={calculateHealth(project)} />
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="shrink-0 sm:w-28">
                 <p className="text-4xl font-semibold tracking-tight tabular-nums text-[var(--color-ink)]">{progress}%</p>
                 <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
-                  {completeCount} of {applicable.length} complete
+                  {completeCount} of {tracked.length} complete
                 </p>
               </div>
               <div className="min-w-0 flex-1">
@@ -142,14 +141,17 @@ export function ProjectDetailPage() {
                 </p>
               </div>
             </div>
-            <ProjectHeroMeta
-              launchDate={project.launchDate}
-              daysRemaining={daysRemaining}
-              stagingUrl={project.links.stagingSite}
-              contact={project.contact}
-              onLaunchDateChange={(launchDate) => updateProject(project.id, { launchDate })}
-              onContactSave={(contact) => updateProjectContact(project.id, contact)}
-            />
+
+            <div className="mt-5 border-t border-[var(--color-border)] pt-5">
+              <ProjectHeroMeta
+                launchDate={project.launchDate}
+                daysRemaining={daysRemaining}
+                stagingUrl={project.links.stagingSite}
+                contact={project.contact}
+                onLaunchDateChange={(launchDate) => updateProject(project.id, { launchDate })}
+                onContactSave={(contact) => updateProjectContact(project.id, contact)}
+              />
+            </div>
           </Panel>
 
           <ClientDeliverablesPanel projectId={project.id} />

@@ -60,8 +60,8 @@ export function ProjectHeroMeta({
           : `${daysRemaining} days left`
 
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      <div className="rounded-2xl bg-[var(--color-field)] p-3">
+    <div className="grid gap-5 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-[var(--color-border)]">
+      <div className="sm:pr-5">
         <p className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-ink-soft)]">
           <Calendar className="h-3.5 w-3.5" />
           Launch date
@@ -96,7 +96,7 @@ export function ProjectHeroMeta({
         </button>
       </div>
 
-      <div className="rounded-2xl bg-[var(--color-field)] p-3">
+      <div className="sm:px-5">
         <p className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-ink-soft)]">
           <Globe className="h-3.5 w-3.5" />
           Staging
@@ -121,7 +121,7 @@ export function ProjectHeroMeta({
         )}
       </div>
 
-      <div className="rounded-2xl bg-[var(--color-field)] p-3">
+      <div className="sm:pl-5">
         <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--color-ink-soft)]">
           <User className="h-3.5 w-3.5" />
           Main contact

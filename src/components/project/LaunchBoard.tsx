@@ -8,7 +8,8 @@ import {
   LAUNCH_PARTY_LABELS,
   LAUNCH_PHASES,
   LAUNCH_STATUS_LABELS,
-  isLaunchApplicable,
+  isLaunchDone,
+  isLaunchTracked,
   taskMatchesOwner,
   taskTeamRole,
 } from '@/lib/launchTemplate'
@@ -22,6 +23,7 @@ import { StatusPill, type StatusTone } from '@/components/ui/StatusPill'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { LaunchPlanSheet } from '@/components/project/LaunchPlanSheet'
+import { taskMarkClass, taskStatusTriggerClass, taskTitleClass } from '@/components/project/taskGlance'
 
 type TaskScope = 'all' | 'open' | 'mine'
 type TaskOwner = 'any' | 'client' | 'webscribble'
@@ -145,9 +147,9 @@ export function LaunchBoard({
     if (phaseKey && group.phaseKey !== phaseKey) return []
     const rows = visible.filter((task) => task.groupKey === group.key).sort((a, b) => a.sort - b.sort)
     if (rows.length === 0) return []
-    const applicable = rows.filter((task) => isLaunchApplicable(task.status))
-    const done = applicable.filter((task) => task.status === 'complete').length
-    return [{ group, rows, done, total: applicable.length }]
+    const tracked = rows.filter((task) => isLaunchTracked(task.status))
+    const done = tracked.filter((task) => isLaunchDone(task.status)).length
+    return [{ group, rows, done, total: tracked.length }]
   })
 
   const isGroupOpen = (key: string, index: number) => {
@@ -502,6 +504,7 @@ function TaskFields({
           size={labeled ? 'md' : 'sm'}
           value={task.status}
           options={statusOptions}
+          triggerClassName={taskStatusTriggerClass(task.status)}
           onChange={(value) => onUpdate({ status: value as LaunchTaskStatus })}
         />
       </label>
@@ -581,7 +584,7 @@ const ImportDataRow = memo(function ImportDataRow({
         <div className="mt-3 space-y-3 pl-5.5">
           {steps.map(({ label, task }) => (
             <div key={task.id} className="space-y-1.5">
-              <p className="text-xs font-medium text-[var(--color-ink)]">{label}</p>
+              <p className={cn('text-xs leading-5', taskTitleClass(task.status))}>{label}</p>
               <TaskFields
                 task={task}
                 profiles={profiles}
@@ -732,14 +735,10 @@ const TaskRow = memo(function TaskRow({
             onClick={() => patchTask({ status: cycleStatus(task.status) })}
             className={cn(
               'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-150 active:scale-90',
-              task.status === 'complete'
-                ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash-strong)] text-white'
-                : task.status === 'in_progress'
-                  ? 'border-[var(--color-wash-strong)] bg-[var(--color-wash)]'
-                  : 'border-[var(--color-border)] bg-[var(--color-panel)]'
+              taskMarkClass(task.status)
             )}
           >
-            {task.status === 'complete' && <Check className="h-3 w-3" strokeWidth={3} />}
+            {isLaunchDone(task.status) && <Check className="h-3 w-3" strokeWidth={3} />}
             {task.status === 'in_progress' && (
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-wash-strong)]" />
             )}
@@ -759,12 +758,7 @@ const TaskRow = memo(function TaskRow({
                     open && 'rotate-180 text-[var(--color-wash-strong)]'
                   )}
                 />
-                <span
-                  className={cn(
-                    'text-sm font-medium leading-5',
-                    task.status === 'complete' && 'text-[var(--color-ink-soft)] line-through'
-                  )}
-                >
+                <span className={cn('text-sm leading-5', taskTitleClass(task.status))}>
                   {task.title}
                 </span>
               </span>

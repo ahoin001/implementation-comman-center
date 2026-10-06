@@ -12,17 +12,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { Select } from '@/components/ui/Select'
-
-const STATUS_TRIGGER: Record<LaunchTaskStatus, string> = {
-  not_started:
-    'bg-[color-mix(in_srgb,var(--color-warning)_12%,var(--color-panel))] text-[color-mix(in_srgb,#8a5a12_55%,var(--color-ink))]',
-  in_progress: 'bg-[var(--color-wash)] text-[var(--color-wash-strong)]',
-  complete:
-    'bg-[color-mix(in_srgb,var(--color-success)_18%,var(--color-panel))] text-[color-mix(in_srgb,#176b32_70%,var(--color-ink))]',
-  na: 'bg-[var(--color-field)] text-[var(--color-ink-soft)]',
-  as_needed:
-    'bg-[color-mix(in_srgb,#7a5af8_12%,var(--color-panel))] text-[color-mix(in_srgb,#5b3cc4_62%,var(--color-ink))]',
-}
+import { taskStatusTriggerClass, taskTitleClass } from '@/components/project/taskGlance'
 
 const statusOptions = (Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => ({
   value: status,
@@ -224,12 +214,7 @@ function PlanRow({
   return (
     <tr className="border-b border-[color-mix(in_srgb,var(--color-ink)_6%,transparent)] align-top last:border-b-0 hover:bg-[var(--color-field)]">
       <td className="px-4 py-3">
-        <p
-          className={cn(
-            'text-sm font-medium leading-5 text-[var(--color-ink)]',
-            task.status === 'complete' && 'text-[var(--color-ink-soft)]'
-          )}
-        >
+        <p className={cn('text-sm leading-5', taskTitleClass(task.status))}>
           {task.title}
         </p>
         {task.description && (
@@ -264,7 +249,7 @@ function PlanRow({
           size="sm"
           value={task.status}
           options={statusOptions}
-          triggerClassName={STATUS_TRIGGER[task.status]}
+          triggerClassName={taskStatusTriggerClass(task.status)}
           onChange={(value) => onUpdate({ status: value as LaunchTaskStatus })}
         />
       </td>

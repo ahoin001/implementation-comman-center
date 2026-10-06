@@ -151,6 +151,15 @@ export function isLaunchApplicable(status: LaunchTaskStatus): boolean {
   return status !== 'na' && status !== 'as_needed'
 }
 
+/** N/A is finished work. As needed stays off the board. */
+export function isLaunchDone(status: LaunchTaskStatus): boolean {
+  return status === 'complete' || status === 'na'
+}
+
+export function isLaunchTracked(status: LaunchTaskStatus): boolean {
+  return status !== 'as_needed'
+}
+
 const CLIENT_SENDS = /\bclients?\b(?:\s+\w+){0,2}\s+sends?\b/i
 const WEB_SCRIBBLE_DOES =
   /\b(?:web scribble|ws)\s+(?:does|do|will|imports?|configures?|proposes?|runs?|coordinates?|creates?|conducts?|provides?|sets?\s+up|reviews?|launches?|handles?|completes?|walks?\s+through)\b/i
@@ -171,10 +180,10 @@ export function taskMatchesOwner(
 }
 
 export function launchBoardProgress(tasks: { status: LaunchTaskStatus; legacy?: boolean }[]): number {
-  const applicable = tasks.filter((task) => !task.legacy && isLaunchApplicable(task.status))
-  if (applicable.length === 0) return 0
-  const done = applicable.filter((task) => task.status === 'complete').length
-  return Math.round((done / applicable.length) * 100)
+  const tracked = tasks.filter((task) => !task.legacy && isLaunchTracked(task.status))
+  if (tracked.length === 0) return 0
+  const done = tracked.filter((task) => isLaunchDone(task.status)).length
+  return Math.round((done / tracked.length) * 100)
 }
 
 export function currentLaunchStage(
@@ -182,9 +191,9 @@ export function currentLaunchStage(
 ): string {
   for (const phase of LAUNCH_PHASES) {
     const applicable = tasks.filter(
-      (task) => task.phaseKey === phase.key && !task.legacy && isLaunchApplicable(task.status)
+      (task) => task.phaseKey === phase.key && !task.legacy && isLaunchTracked(task.status)
     )
-    if (applicable.some((task) => task.status !== 'complete')) return phase.title
+    if (applicable.some((task) => !isLaunchDone(task.status))) return phase.title
   }
   return 'Complete'
 }
