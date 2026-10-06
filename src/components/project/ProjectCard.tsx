@@ -51,9 +51,8 @@ export function ProjectCard({
   selected = false,
   onToggleSelect,
 }: ProjectCardProps) {
-  const favoriteIds = useStore((s) => s.favoriteIds)
+  const starred = useStore((s) => s.favoriteIds.includes(project.id))
   const toggleFavorite = useStore((s) => s.toggleFavorite)
-  const starred = favoriteIds.includes(project.id)
   const reduceMotion = useReducedMotion()
   const [starPop, setStarPop] = useState(0)
   const board = project.launchTasks ?? []
@@ -114,17 +113,8 @@ export function ProjectCard({
 
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3 min-w-0">
-          <ProjectAvatar
-            name={project.name}
-            abbreviation={project.abbreviation}
-            layoutId={enableShared ? `project-avatar-${id}` : undefined}
-          />
-          <ProjectTitle
-            name={project.name}
-            abbreviation={project.abbreviation}
-            subtitle={stageLabel}
-            layoutId={enableShared ? `project-title-${id}` : undefined}
-          />
+          <ProjectAvatar name={project.name} abbreviation={project.abbreviation} />
+          <ProjectTitle name={project.name} abbreviation={project.abbreviation} subtitle={stageLabel} />
         </div>
         {!selectable && (
           <button
@@ -155,23 +145,11 @@ export function ProjectCard({
             </motion.span>
           </button>
         )}
-        <ProgressRing
-          progress={progress}
-          size={52}
-          strokeWidth={3}
-          launched={fullyWrapped}
-          layoutId={enableShared ? `project-progress-${id}` : undefined}
-        />
+        <ProgressRing progress={progress} size={52} strokeWidth={3} launched={fullyWrapped} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        {enableShared ? (
-          <motion.div layoutId={`project-health-${id}`} transition={sharedTransition}>
-            <HealthBadge health={health} />
-          </motion.div>
-        ) : (
-          <HealthBadge health={health} />
-        )}
+        <HealthBadge health={health} />
         <FlexibleFollowUpBadges project={project} />
         <RequiredDocsBadge project={project} />
         <MissingCredentialsBadge project={project} />

@@ -1,7 +1,21 @@
 import { differenceInDays, parseISO, isPast, isToday, isTomorrow, format } from 'date-fns'
 import type { Project, ProjectHealth } from '@/types'
 import { isClientWaiting } from '@/types'
+import { launchBoardProgress } from './launchTemplate'
 import { calculateProgress, isProjectLaunchComplete, getTaskCounts } from './progress'
+
+function implementationProgress(project: Project): { progress: number; complete: boolean; useBoard: boolean } {
+  const board = (project.launchTasks ?? []).filter((task) => !task.legacy)
+  if (board.length > 0) {
+    const progress = launchBoardProgress(board)
+    return { progress, complete: progress === 100, useBoard: true }
+  }
+  return {
+    progress: calculateProgress(project),
+    complete: isProjectLaunchComplete(project),
+    useBoard: false,
+  }
+}
 
 export function getDaysRemaining(launchDate?: string): number | null {
   if (!launchDate) return null
@@ -24,15 +38,15 @@ export function formatRelativeDate(dateStr: string): string {
 }
 
 export function calculateHealth(project: Project): ProjectHealth {
-  if (project.archived || isProjectLaunchComplete(project)) {
+  const { progress, complete, useBoard } = implementationProgress(project)
+  if (project.archived || complete) {
     return 'complete'
   }
 
   const daysRemaining = getDaysRemaining(project.launchDate)
-  const progress = calculateProgress(project)
   const { blocked } = getTaskCounts(project)
 
-  if (blocked > 0 || (daysRemaining !== null && daysRemaining < 0 && progress < 100)) {
+  if ((!useBoard && blocked > 0) || (daysRemaining !== null && daysRemaining < 0 && progress < 100)) {
     return 'at_risk'
   }
 
@@ -55,5 +69,5 @@ export function calculateHealth(project: Project): ProjectHealth {
 
 export function isLaunchOverdue(project: Project): boolean {
   if (!project.launchDate) return false
-  return isPast(parseISO(project.launchDate)) && !isProjectLaunchComplete(project)
+  return isPast(parseISO(project.launchDate)) && !implementationProgress(project).complete
 }

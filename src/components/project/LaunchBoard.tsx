@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, MessageSquare, Search, Trash2 } from 'lucide-react'
 import type { LaunchTask, Profile, Project } from '@/types'
 import type { LaunchParty, LaunchTaskStatus } from '@/lib/launchTemplate'
@@ -69,8 +69,6 @@ const STATUS_TONE: Record<LaunchTaskStatus, StatusTone> = {
   as_needed: 'warning',
 }
 
-const EASE = [0.23, 1, 0.32, 1] as const
-
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
     month: 'short',
@@ -122,6 +120,9 @@ export function LaunchBoard({
   const [openGroupKeys, setOpenGroupKeys] = useState<string[] | null>(null)
 
   const names = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.displayName])), [profiles])
+  const toggleOpen = useCallback((id: string) => {
+    setOpenId((current) => (current === id ? null : id))
+  }, [])
 
   const matches = (task: LaunchTask) => {
     if (task.legacy) return false
@@ -256,7 +257,7 @@ export function LaunchBoard({
                     profiles={profiles}
                     currentUserId={currentUserId}
                     open={openId === 'import-data'}
-                    onToggle={() => setOpenId(openId === 'import-data' ? null : 'import-data')}
+                    onToggle={toggleOpen}
                     onUpdate={onUpdateTask}
                     onAddComment={onAddComment}
                     onDeleteComment={onDeleteComment}
@@ -269,10 +270,10 @@ export function LaunchBoard({
                     profiles={profiles}
                     currentUserId={currentUserId}
                     open={openId === item.task.id}
-                    onToggle={() => setOpenId(openId === item.task.id ? null : item.task.id)}
-                    onUpdate={(patch) => onUpdateTask(item.task.id, patch)}
-                    onAddComment={(body) => onAddComment(item.task.id, body)}
-                    onDeleteComment={(commentId) => onDeleteComment(item.task.id, commentId)}
+                    onToggle={toggleOpen}
+                    onUpdate={onUpdateTask}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
                   />
                 )
               )}
@@ -338,6 +339,55 @@ function checklistItems(rows: LaunchTask[]): Array<
   return items
 }
 
+function Expand({
+  open,
+  reduce,
+  children,
+}: {
+  open: boolean
+  reduce: boolean
+  children: ReactNode
+}) {
+  const [shown, setShown] = useState(open)
+  const [expanded, setExpanded] = useState(open)
+
+  useEffect(() => {
+    if (open) {
+      setShown(true)
+      if (reduce) {
+        setExpanded(true)
+        return
+      }
+      const frame = requestAnimationFrame(() => setExpanded(true))
+      return () => cancelAnimationFrame(frame)
+    }
+    if (reduce) {
+      setExpanded(false)
+      setShown(false)
+      return
+    }
+    setExpanded(false)
+  }, [open, reduce])
+
+  if (!shown) return null
+
+  return (
+    <div
+      className={cn(
+        'grid',
+        !reduce && 'transition-[grid-template-rows,opacity] duration-300 ease-[var(--ease-out)]',
+        expanded ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0'
+      )}
+      onTransitionEnd={(event) => {
+        if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows') return
+        if (!open) setShown(false)
+      }}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  )
+}
+
 function GroupPanel({
   title,
   phase,
@@ -383,22 +433,11 @@ function GroupPanel({
         </span>
       </button>
 
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="group"
-            initial={reduce ? false : { height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={reduce ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
-            transition={{ duration: reduce ? 0.01 : 0.28, ease: EASE }}
-            className="overflow-hidden"
-          >
-            <div className="divide-y divide-black/[0.05] border-t border-black/[0.06] dark:divide-white/10 dark:border-white/10">
-              {children}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Expand open={open} reduce={Boolean(reduce)}>
+        <div className="divide-y divide-black/[0.05] border-t border-black/[0.06] dark:divide-white/10 dark:border-white/10">
+          {children}
+        </div>
+      </Expand>
     </Panel>
   )
 }
@@ -490,7 +529,7 @@ function TaskFields({
   )
 }
 
-function ImportDataRow({
+const ImportDataRow = memo(function ImportDataRow({
   initial,
   final: finalTask,
   names,
@@ -508,7 +547,7 @@ function ImportDataRow({
   profiles: Profile[]
   currentUserId: string | null
   open: boolean
-  onToggle: () => void
+  onToggle: (id: string) => void
   onUpdate: LaunchBoardProps['onUpdateTask']
   onAddComment: LaunchBoardProps['onAddComment']
   onDeleteComment: LaunchBoardProps['onDeleteComment']
@@ -522,7 +561,7 @@ function ImportDataRow({
   return (
     <div className={cn('transition-colors duration-200', open ? 'bg-[var(--color-field)]' : 'hover:bg-[var(--color-field)]')}>
       <div className="px-3 py-3 sm:px-4">
-        <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-1.5 text-left">
+        <button type="button" onClick={() => onToggle('import-data')} aria-expanded={open} className="flex w-full items-start gap-1.5 text-left">
           <ChevronDown
             className={cn(
               'mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink-soft)] transition-transform duration-300 ease-[var(--ease-out)]',
@@ -552,35 +591,24 @@ function ImportDataRow({
           ))}
         </div>
       </div>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="import-details"
-            initial={reduce ? false : { height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={reduce ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
-            transition={{ duration: reduce ? 0.01 : 0.32, ease: EASE }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-5 px-4 pb-5 sm:pl-14">
-              {steps.map(({ label, task }) => (
-                <ImportStepNotes
-                  key={task.id}
-                  label={label}
-                  task={task}
-                  names={names}
-                  currentUserId={currentUserId}
-                  onAddComment={(body) => onAddComment(task.id, body)}
-                  onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
-                />
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Expand open={open} reduce={Boolean(reduce)}>
+        <div className="space-y-5 px-4 pb-5 sm:pl-14">
+          {steps.map(({ label, task }) => (
+            <ImportStepNotes
+              key={task.id}
+              label={label}
+              task={task}
+              names={names}
+              currentUserId={currentUserId}
+              onAddComment={(body) => onAddComment(task.id, body)}
+              onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
+            />
+          ))}
+        </div>
+      </Expand>
     </div>
   )
-}
+})
 
 function ImportStepNotes({
   label,
@@ -653,7 +681,7 @@ function ImportStepNotes({
   )
 }
 
-function TaskRow({
+const TaskRow = memo(function TaskRow({
   task,
   names,
   profiles,
@@ -669,19 +697,20 @@ function TaskRow({
   profiles: Profile[]
   currentUserId: string | null
   open: boolean
-  onToggle: () => void
-  onUpdate: (
+  onToggle: (id: string) => void
+  onUpdate: LaunchBoardProps['onUpdateTask']
+  onAddComment: LaunchBoardProps['onAddComment']
+  onDeleteComment: LaunchBoardProps['onDeleteComment']
+}) {
+  const reduce = useReducedMotion()
+  const patchTask = (
     patch: {
       status?: LaunchTaskStatus
       dueDate?: string | null
       assigneeId?: string | null
       description?: string
     }
-  ) => void
-  onAddComment: (body: string) => void
-  onDeleteComment: (commentId: string) => void
-}) {
-  const reduce = useReducedMotion()
+  ) => onUpdate(task.id, patch)
   const [draft, setDraft] = useState('')
   const [guidance, setGuidance] = useState(task.description)
   useEffect(() => {
@@ -700,7 +729,7 @@ function TaskRow({
           <button
             type="button"
             aria-label={`Mark ${task.title} ${LAUNCH_STATUS_LABELS[cycleStatus(task.status)].toLowerCase()}`}
-            onClick={() => onUpdate({ status: cycleStatus(task.status) })}
+            onClick={() => patchTask({ status: cycleStatus(task.status) })}
             className={cn(
               'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,transform] duration-150 active:scale-90',
               task.status === 'complete'
@@ -718,7 +747,7 @@ function TaskRow({
 
           <button
             type="button"
-            onClick={onToggle}
+            onClick={() => onToggle(task.id)}
             aria-expanded={open}
             className="min-w-0 flex-1 cursor-pointer text-left"
           >
@@ -758,22 +787,13 @@ function TaskRow({
         </div>
 
         {!open && (
-          <TaskFields task={task} profiles={profiles} onUpdate={onUpdate} className="mt-2.5 pl-7 sm:pl-8" />
+          <TaskFields task={task} profiles={profiles} onUpdate={patchTask} className="mt-2.5 pl-7 sm:pl-8" />
         )}
       </div>
 
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="details"
-            initial={reduce ? false : { height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={reduce ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
-            transition={{ duration: reduce ? 0.01 : 0.32, ease: EASE }}
-            className="overflow-hidden"
-          >
+      <Expand open={open} reduce={Boolean(reduce)}>
             <div className="space-y-5 px-4 pb-5 pt-1 sm:pl-14">
-              <TaskFields task={task} profiles={profiles} onUpdate={onUpdate} labeled />
+              <TaskFields task={task} profiles={profiles} onUpdate={patchTask} labeled />
 
               <label className="block space-y-1.5">
                 <SectionLabel>Guidance</SectionLabel>
@@ -781,7 +801,7 @@ function TaskRow({
                   value={guidance}
                   onChange={(event) => setGuidance(event.target.value)}
                   onBlur={() => {
-                    if (guidance !== task.description) onUpdate({ description: guidance })
+                    if (guidance !== task.description) patchTask({ description: guidance })
                   }}
                   className="bg-[var(--color-panel)]"
                 />
@@ -816,7 +836,7 @@ function TaskRow({
                                 type="button"
                                 title="Delete comment"
                                 onClick={() => {
-                                  if (window.confirm('Delete this comment?')) onDeleteComment(comment.id)
+                                  if (window.confirm('Delete this comment?')) onDeleteComment(task.id, comment.id)
                                 }}
                                 className="ml-1 rounded-full p-0.5 text-[var(--color-ink-soft)] hover:text-[var(--color-danger)]"
                               >
@@ -835,7 +855,7 @@ function TaskRow({
                   onSubmit={(event) => {
                     event.preventDefault()
                     if (!draft.trim()) return
-                    onAddComment(draft)
+                    onAddComment(task.id, draft)
                     setDraft('')
                   }}
                 >
@@ -852,12 +872,10 @@ function TaskRow({
                 </form>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </Expand>
     </div>
   )
-}
+})
 
 function PartyChip({ party }: { party: LaunchParty }) {
   return (
