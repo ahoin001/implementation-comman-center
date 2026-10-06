@@ -15,7 +15,7 @@ export interface IntakeCardDef {
   group: IntakeGroup
   title: string
   detail: string
-  kind: 'image' | 'file' | 'credentials' | 'text'
+  kind: 'image' | 'file' | 'credentials' | 'text' | 'external'
   slots: IntakeSlotDef[]
   /** Extra files use slot keys file-<uuid>. The card is done once one file is in. */
   multiFile?: boolean
@@ -93,8 +93,8 @@ export const INTAKE_CARDS: IntakeCardDef[] = [
     taskKey: 'provide_ach_w9',
     group: 'Files',
     title: 'ACH and W-9',
-    detail: 'A completed ACH form and a W-9.',
-    kind: 'file',
+    detail: 'Upload both documents in the file manager. Mark each one here after it is there. These files are not stored in this checklist.',
+    kind: 'external',
     slots: [
       { key: 'ach', label: 'ACH form' },
       { key: 'w9', label: 'W-9' },

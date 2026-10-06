@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Check, Upload } from 'lucide-react'
+import { Check, ExternalLink, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Input'
@@ -18,12 +18,15 @@ import {
   type IntakeSlotState,
 } from '@/lib/clientIntake'
 import {
+  clearSecureUpload,
+  confirmSecureUpload,
   resolveIntake,
   saveIntakeCredentials,
   saveIntakeText,
   uploadIntakeFile,
   type IntakeView,
 } from '@/lib/clientIntakeApi'
+import { resolveSecureUploadUrl } from '@/lib/pathConfig'
 
 export function ClientIntakePage() {
   const { token = '' } = useParams()
@@ -127,6 +130,7 @@ export function ClientIntakePage() {
                   card={card}
                   phase={phase}
                   note={note}
+                  uploadUrl={resolveSecureUploadUrl(view.abbreviation, view.secureUploadUrl)}
                   received={slotsFor(card, view.slots)}
                   savedKey={savedKey}
                   onSaved={async (key) => {
@@ -148,6 +152,7 @@ function IntakeCard({
   card,
   phase,
   note,
+  uploadUrl,
   received,
   savedKey,
   onSaved,
@@ -156,6 +161,7 @@ function IntakeCard({
   card: IntakeCardDef
   phase: ClientIntakePhase
   note?: string
+  uploadUrl?: string
   received: IntakeSlotState[]
   savedKey: string | null
   onSaved: (key: string) => Promise<void>
@@ -237,6 +243,20 @@ function IntakeCard({
           />
         ))}
 
+      {card.kind === 'external' && (
+        <ExternalMarks
+          token={token}
+          card={card}
+          uploadUrl={uploadUrl}
+          received={received}
+          locked={locked}
+          changes={phase === 'changes'}
+          savedKey={savedKey}
+          onError={setError}
+          onSaved={onSaved}
+        />
+      )}
+
       {card.kind === 'file' && !card.multiFile &&
         card.slots.map((slot) => (
           <FileSlot
@@ -279,6 +299,126 @@ function IntakeCard({
 
       {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
     </Panel>
+  )
+}
+
+function ExternalMarks({
+  token,
+  card,
+  uploadUrl,
+  received,
+  locked,
+  changes,
+  savedKey,
+  onError,
+  onSaved,
+}: {
+  token: string
+  card: IntakeCardDef
+  uploadUrl?: string
+  received: IntakeSlotState[]
+  locked: boolean
+  changes: boolean
+  savedKey: string | null
+  onError: (message: string | null) => void
+  onSaved: (key: string) => Promise<void>
+}) {
+  return (
+    <div className="space-y-3">
+      {uploadUrl ? (
+        <a
+          href={uploadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--color-wash-strong)] px-4 text-sm font-medium text-white shadow-[0_8px_16px_-8px_color-mix(in_srgb,var(--color-wash-strong)_80%,transparent)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open file manager
+        </a>
+      ) : (
+        <p className="text-sm leading-6 text-[var(--color-ink-soft)]">
+          The file manager link is not ready yet. Ask your Web Scribble contact.
+        </p>
+      )}
+      <ul className="space-y-2">
+        {card.slots.map((slot) => (
+          <ExternalMark
+            key={slot.key}
+            token={token}
+            card={card}
+            slot={slot}
+            uploadUrl={uploadUrl}
+            marked={Boolean(namedSlot(received, card.taskKey, slot.key))}
+            locked={locked}
+            changes={changes}
+            saved={savedKey === `${card.taskKey}:${slot.key}`}
+            onError={onError}
+            onSaved={onSaved}
+          />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ExternalMark({
+  token,
+  card,
+  slot,
+  uploadUrl,
+  marked,
+  locked,
+  changes,
+  saved,
+  onError,
+  onSaved,
+}: {
+  token: string
+  card: IntakeCardDef
+  slot: IntakeSlotDef
+  uploadUrl?: string
+  marked: boolean
+  locked: boolean
+  changes: boolean
+  saved: boolean
+  onError: (message: string | null) => void
+  onSaved: (key: string) => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+
+  const run = (action: 'confirm' | 'clear') => {
+    setBusy(true)
+    onError(null)
+    const request = action === 'confirm'
+      ? confirmSecureUpload(token, card.taskKey, slot.key)
+      : clearSecureUpload(token, card.taskKey, slot.key)
+    void request
+      .then(() => onSaved(`${card.taskKey}:${slot.key}`))
+      .catch((err: unknown) => onError(err instanceof Error ? err.message : 'Could not update that mark'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-field)] px-3 py-2.5">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 text-sm font-medium text-[var(--color-ink)]">
+          {marked && <Check className="h-4 w-4 shrink-0 text-[var(--color-success)]" />}
+          {slot.label}
+        </p>
+        <p className="text-xs text-[var(--color-ink-soft)]">
+          {saved ? 'Saved' : marked ? 'Marked as uploaded' : 'After it is in the file manager'}
+        </p>
+      </div>
+      {marked && locked ? null : marked && !changes ? (
+        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => run('clear')}>
+          {busy ? 'Saving…' : 'Undo'}
+        </Button>
+      ) : (
+        <Button type="button" size="sm" disabled={busy || !uploadUrl} onClick={() => run('confirm')}>
+          {busy ? 'Saving…' : marked ? "I've uploaded the new file" : "I've uploaded this"}
+        </Button>
+      )}
+    </li>
   )
 }
 

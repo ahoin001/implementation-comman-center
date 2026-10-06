@@ -10,7 +10,7 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-type SlotKind = 'image' | 'file' | 'credentials' | 'text'
+type SlotKind = 'image' | 'file' | 'credentials' | 'text' | 'confirm'
 
 const NAMED: Record<string, Record<string, { kind: SlotKind; width?: number; height?: number }>> = {
   header_images: {
@@ -26,8 +26,8 @@ const NAMED: Record<string, Record<string, { kind: SlotKind; width?: number; hei
     account: { kind: 'credentials' },
   },
   provide_ach_w9: {
-    ach: { kind: 'file' },
-    w9: { kind: 'file' },
+    ach: { kind: 'confirm' },
+    w9: { kind: 'confirm' },
   },
   job_categories: { body: { kind: 'text' } },
   site_copy: { body: { kind: 'text' } },
@@ -54,8 +54,23 @@ function requiredKeys(taskKey: string): string[] | 'any' {
   return Object.keys(NAMED[taskKey] ?? {})
 }
 
+function secureUploadUrl(abbreviation: string, override: unknown) {
+  const custom = typeof override === 'string' ? override.trim() : ''
+  if (custom) {
+    try {
+      if (new URL(custom).protocol === 'https:') return custom
+    } catch {
+      /* fall through to the abbreviation default */
+    }
+  }
+  const host = abbreviation.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+  if (!host) return ''
+  return `https://${host}.webscribble.com/smartway/file-manager`
+}
+
 function safeName(name: string) {
-  const base = name.split(/[/\\]/).pop() ?? 'file'
+  const slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf(String.fromCharCode(92)))
+  const base = (slash >= 0 ? name.slice(slash + 1) : name) || 'file'
   const cleaned = base.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 80)
   return cleaned || 'file'
 }
@@ -190,7 +205,7 @@ Deno.serve(async (req) => {
       fileName: row.file_name ?? undefined,
       width: row.width ?? undefined,
       height: row.height ?? undefined,
-      text: row.kind === 'text' ? String(row.body?.text ?? '') : undefined,
+      text: row.kind === 'text' && row.task_key !== 'provide_ach_w9' ? String(row.body?.text ?? '') : undefined,
     }))
     return json({
       projectName: project.name,
@@ -199,6 +214,7 @@ Deno.serve(async (req) => {
       tasks,
       slots,
       reviews: (reviewRows ?? []).map((row) => ({ taskKey: row.task_key, note: row.note })),
+      secureUploadUrl: secureUploadUrl(String(project.abbreviation ?? ''), pathConfig.secureUploadUrl),
     })
   }
 
@@ -209,11 +225,29 @@ Deno.serve(async (req) => {
   const block = blocked(taskKey)
   if (block) return json({ error: block }, 400)
 
+  if (payload.action === 'clear') {
+    if (rule.kind !== 'confirm') return json({ error: 'That item stays on this page' }, 400)
+    const { error } = await db
+      .from('client_submissions')
+      .delete()
+      .eq('implementation_id', implementationId)
+      .eq('task_key', taskKey)
+      .eq('slot_key', slotKey)
+    if (error) return json({ error: error.message }, 500)
+    const syncError = await syncProgress(db, implementationId, taskKey, project)
+    if (syncError) return json({ error: syncError }, 500)
+    return json({ ok: true })
+  }
+
   if (payload.action === 'save') {
-    if (rule.kind !== 'text' && rule.kind !== 'credentials') return json({ error: 'This item is a file' }, 400)
+    if (rule.kind !== 'text' && rule.kind !== 'credentials' && rule.kind !== 'confirm') {
+      return json({ error: 'This item is a file' }, 400)
+    }
     const raw = (payload.body ?? {}) as Record<string, unknown>
     let body: Record<string, string>
-    if (rule.kind === 'text') {
+    if (rule.kind === 'confirm') {
+      body = { text: 'uploaded' }
+    } else if (rule.kind === 'text') {
       const text = String(raw.text ?? '').trim()
       if (!text) return json({ error: 'Write something before saving' }, 400)
       if (text.length > 8000) return json({ error: 'That note is too long' }, 400)
@@ -231,7 +265,7 @@ Deno.serve(async (req) => {
         implementation_id: implementationId,
         task_key: taskKey,
         slot_key: slotKey,
-        kind: rule.kind === 'text' ? 'text' : 'credentials',
+        kind: rule.kind === 'credentials' ? 'credentials' : 'text',
         body,
         updated_at: now,
       },
@@ -245,6 +279,7 @@ Deno.serve(async (req) => {
   }
 
   if (payload.action === 'prepare') {
+    if (rule.kind === 'confirm') return json({ error: 'Upload that document in the file manager, then mark it here.' }, 400)
     if (rule.kind !== 'image' && rule.kind !== 'file') return json({ error: 'This item is not a file' }, 400)
     const byteSize = Number(payload.byteSize ?? 0)
     if (!byteSize || byteSize > MAX_BYTES) return json({ error: 'Files need to be 8 MB or smaller' }, 400)
@@ -266,6 +301,7 @@ Deno.serve(async (req) => {
   }
 
   if (payload.action === 'commit') {
+    if (rule.kind === 'confirm') return json({ error: 'Upload that document in the file manager, then mark it here.' }, 400)
     if (rule.kind !== 'image' && rule.kind !== 'file') return json({ error: 'This item is not a file' }, 400)
     const path = String(payload.path ?? '')
     const prefix = `${implementationId}/${taskKey}/${slotKey}/`
@@ -357,6 +393,18 @@ async function syncProgress(
       .eq('task_key', taskKey)
       .neq('status', 'na')
       .neq('status', 'complete')
+    if (taskError) return taskError.message
+  } else if (taskKey === 'provide_ach_w9') {
+    const { error: taskError } = await db
+      .from('implementation_tasks')
+      .update({
+        status: 'not_started',
+        completed_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('implementation_id', implementationId)
+      .eq('task_key', taskKey)
+      .eq('status', 'in_progress')
     if (taskError) return taskError.message
   }
 

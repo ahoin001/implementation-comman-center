@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Download, Link2 } from 'lucide-react'
+import { Check, Download, ExternalLink, Link2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Textarea } from '@/components/ui/Input'
+import { Input, Textarea } from '@/components/ui/Input'
 import { Panel } from '@/components/ui/Panel'
 import { INTAKE_CARDS, INTAKE_GROUPS, clientIntakePhase, type IntakeSlotState } from '@/lib/clientIntake'
 import { supabase, ICC_SCHEMA } from '@/lib/supabase'
-import { hasResumeData as resumeDataOn } from '@/lib/pathConfig'
+import { hasResumeData as resumeDataOn, resolveSecureUploadUrl, cleanSecureUploadUrl, defaultSecureUploadUrl } from '@/lib/pathConfig'
 import { useStore } from '@/store/useStore'
 import {
   clearIntakeReview,
@@ -249,6 +249,12 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
         </div>
       </div>
 
+      <SecureUploadEditor
+        projectId={projectId}
+        abbreviation={project?.abbreviation ?? ''}
+        savedUrl={project?.pathConfig.secureUploadUrl}
+      />
+
       {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
 
       {receivedCards.length === 0 ? (
@@ -300,6 +306,31 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
                           )
                         })}
                       </div>
+                    )}
+                    {card.kind === 'external' && (
+                      <ul className="space-y-1.5">
+                        {card.slots.map((slot) => {
+                          const row = cardRows.find((item) => item.slotKey === slot.key)
+                          if (!row) return null
+                          return (
+                            <li key={slot.key} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-field)] px-3 py-2">
+                              <span className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-ink)]">
+                                <Check className="h-4 w-4 shrink-0 text-[var(--color-success)]" />
+                                <span className="truncate">
+                                  {slot.label}
+                                  <span className="text-[var(--color-ink-soft)]"> · Marked as uploaded</span>
+                                </span>
+                              </span>
+                              {row.storagePath ? (
+                                <button type="button" className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-[var(--color-ink)]" onClick={() => void download(row)}>
+                                  <Download className="h-4 w-4" />
+                                  Download
+                                </button>
+                              ) : null}
+                            </li>
+                          )
+                        })}
+                      </ul>
                     )}
                     {card.kind === 'file' && (
                       <ul className="space-y-1.5">
@@ -404,5 +435,116 @@ export function ClientDeliverablesPanel({ projectId }: { projectId: string }) {
         </div>
       )}
     </Panel>
+  )
+}
+
+function SecureUploadEditor({
+  projectId,
+  abbreviation,
+  savedUrl,
+}: {
+  projectId: string
+  abbreviation: string
+  savedUrl?: string
+}) {
+  const updatePathConfig = useStore((state) => state.updatePathConfig)
+  const fallback = defaultSecureUploadUrl(abbreviation)
+  const current = resolveSecureUploadUrl(abbreviation, savedUrl)
+  const custom = Boolean(cleanSecureUploadUrl(savedUrl))
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(current)
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  const save = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === fallback) {
+      updatePathConfig(projectId, { secureUploadUrl: undefined })
+      setEditing(false)
+      setLocalError(null)
+      return
+    }
+    const cleaned = cleanSecureUploadUrl(trimmed)
+    if (!cleaned) {
+      setLocalError('Use a full https address.')
+      return
+    }
+    updatePathConfig(projectId, { secureUploadUrl: cleaned === fallback ? undefined : cleaned })
+    setEditing(false)
+    setLocalError(null)
+  }
+
+  return (
+    <div className="rounded-xl bg-[var(--color-field)] px-3 py-3">
+      <p className="text-sm font-medium text-[var(--color-ink)]">ACH and W-9 file manager</p>
+      <p className="mt-1 text-sm leading-6 text-[var(--color-ink-soft)]">
+        These two documents are uploaded on the company file manager. Images and other files still come in here.
+      </p>
+      {editing ? (
+        <form
+          className="mt-3 space-y-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            save(draft)
+          }}
+        >
+          <Input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder={fallback || 'https://association.webscribble.com/smartway/file-manager'}
+            aria-label="File manager address"
+            className="text-sm"
+          />
+          {localError && <p className="text-sm text-[var(--color-danger)]">{localError}</p>}
+          <div className="flex gap-2">
+            <Button type="submit" size="sm">Save address</Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setDraft(current)
+                setLocalError(null)
+                setEditing(false)
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          {current ? (
+            <a
+              href={current}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex max-w-full items-start gap-1.5 text-sm font-medium text-[var(--color-ink)] underline decoration-[color-mix(in_srgb,var(--color-ink)_30%,transparent)] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2"
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              <span className="break-all">{current}</span>
+            </a>
+          ) : (
+            <p className="text-sm text-[var(--color-ink-soft)]">Add an abbreviation, or set the address.</p>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setDraft(current)
+              setLocalError(null)
+              setEditing(true)
+            }}
+          >
+            Change address
+          </Button>
+          {custom && (
+            <Button type="button" size="sm" variant="ghost" onClick={() => save('')}>
+              Use abbreviation default
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

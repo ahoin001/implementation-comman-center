@@ -6,6 +6,34 @@ import type {
 } from '@/types'
 import { DATA_ASSET_KEYS, DATA_IMPORT_INVENTORY_KEYS } from '@/types'
 
+/** Host label from a project abbreviation. AAFS becomes aafs. */
+export function abbreviationHost(abbreviation: string) {
+  return abbreviation.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
+}
+
+export function defaultSecureUploadUrl(abbreviation: string) {
+  const host = abbreviationHost(abbreviation)
+  if (!host) return ''
+  return `https://${host}.webscribble.com/smartway/file-manager`
+}
+
+/** A stored override, or null when it is blank or not an https address. */
+export function cleanSecureUploadUrl(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) return null
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol !== 'https:') return null
+    return trimmed
+  } catch {
+    return null
+  }
+}
+
+export function resolveSecureUploadUrl(abbreviation: string, override?: string | null) {
+  return cleanSecureUploadUrl(override) || defaultSecureUploadUrl(abbreviation)
+}
+
 export function createDefaultPathConfig(overrides: Partial<PathConfig> = {}): PathConfig {
   const hasResumeData =
     overrides.hasResumeData !== undefined
@@ -20,6 +48,7 @@ export function createDefaultPathConfig(overrides: Partial<PathConfig> = {}): Pa
     {} as Record<DataAssetKey, boolean>
   )
   dataAssets.resumes = hasResumeData
+  const secureUploadUrl = cleanSecureUploadUrl(overrides.secureUploadUrl)
 
   return {
     ssoEnabled: overrides.ssoEnabled ?? true,
@@ -27,6 +56,7 @@ export function createDefaultPathConfig(overrides: Partial<PathConfig> = {}): Pa
     hasResumeData,
     weHandleSales: overrides.weHandleSales ?? false,
     dataAssets: { ...dataAssets, resumes: hasResumeData },
+    ...(secureUploadUrl ? { secureUploadUrl } : {}),
   }
 }
 
@@ -47,6 +77,7 @@ export function normalizePathConfig(raw?: Partial<PathConfig> | null): PathConfi
     imageAssets,
     hasResumeData,
     weHandleSales: Boolean(raw?.weHandleSales),
+    secureUploadUrl: raw?.secureUploadUrl,
     dataAssets: raw?.dataAssets,
   })
 }

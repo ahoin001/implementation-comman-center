@@ -108,6 +108,11 @@ export interface PathConfig {
    * We configure Sales for this association (vs. they handle Sales themselves).
    */
   weHandleSales: boolean
+  /**
+   * Override for the company file manager. Empty means
+   * https://{abbreviation}.webscribble.com/smartway/file-manager
+   */
+  secureUploadUrl?: string
   /** Inventory of data types the association has (none required) */
   dataAssets: Record<DataAssetKey, boolean>
 }

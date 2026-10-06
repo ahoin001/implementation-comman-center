@@ -15,6 +15,7 @@ export interface IntakeView {
   tasks: Record<string, string>
   slots: IntakeSlotState[]
   reviews: IntakeReview[]
+  secureUploadUrl?: string
 }
 
 export interface ClientSubmission {
@@ -62,6 +63,14 @@ async function postIntake(body: Record<string, unknown>) {
 export async function resolveIntake(token: string): Promise<IntakeView> {
   const payload = await postIntake({ action: 'resolve', token })
   return payload as unknown as IntakeView
+}
+
+export async function confirmSecureUpload(token: string, taskKey: string, slotKey: string) {
+  await postIntake({ action: 'save', token, taskKey, slotKey })
+}
+
+export async function clearSecureUpload(token: string, taskKey: string, slotKey: string) {
+  await postIntake({ action: 'clear', token, taskKey, slotKey })
 }
 
 export async function saveIntakeText(token: string, taskKey: string, slotKey: string, text: string) {
