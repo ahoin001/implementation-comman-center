@@ -10,6 +10,7 @@ import {
   LAUNCH_STATUS_LABELS,
   isLaunchApplicable,
   taskMatchesOwner,
+  taskTeamRole,
 } from '@/lib/launchTemplate'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
@@ -24,6 +25,7 @@ import { LaunchPlanSheet } from '@/components/project/LaunchPlanSheet'
 
 type TaskScope = 'all' | 'open' | 'mine'
 type TaskOwner = 'any' | 'client' | 'webscribble'
+type TaskRole = 'any' | 'implementation' | 'csm'
 type BoardLayout = 'checklist' | 'plan'
 
 const LAYOUT_KEY = 'icc-task-layout'
@@ -48,9 +50,15 @@ const SCOPES: { id: TaskScope; label: string }[] = [
 ]
 
 const OWNERS: { id: TaskOwner; label: string }[] = [
-  { id: 'any', label: 'Any lead' },
+  { id: 'any', label: 'Anyone' },
   { id: 'client', label: 'Client' },
   { id: 'webscribble', label: 'Web Scribble' },
+]
+
+const ROLES: { id: TaskRole; label: string }[] = [
+  { id: 'any', label: 'Anyone' },
+  { id: 'implementation', label: 'Implementation' },
+  { id: 'csm', label: 'CSM' },
 ]
 
 const STATUS_TONE: Record<LaunchTaskStatus, StatusTone> = {
@@ -108,6 +116,7 @@ export function LaunchBoard({
   const [layout, setLayout] = useState<BoardLayout>(readLayout)
   const [scope, setScope] = useState<TaskScope>('all')
   const [owner, setOwner] = useState<TaskOwner>('any')
+  const [role, setRole] = useState<TaskRole>('any')
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [openGroupKeys, setOpenGroupKeys] = useState<string[] | null>(null)
@@ -121,12 +130,13 @@ export function LaunchBoard({
     if (scope === 'open' && task.status !== 'not_started' && task.status !== 'in_progress') return false
     if (scope === 'mine' && task.assigneeId !== currentUserId) return false
     if (owner !== 'any' && !taskMatchesOwner(task, owner)) return false
+    if (role !== 'any' && taskTeamRole(task) !== role) return false
     return true
   }
 
   const visible = tasks.filter(matches)
   const earlier = tasks.filter((task) => task.legacy)
-  const filtering = scope !== 'all' || owner !== 'any' || phaseKey !== null || query.trim().length > 0
+  const filtering = scope !== 'all' || owner !== 'any' || role !== 'any' || phaseKey !== null || query.trim().length > 0
 
   const phaseTitle = (key: string) => LAUNCH_PHASES.find((phase) => phase.key === key)?.title
 
@@ -159,24 +169,24 @@ export function LaunchBoard({
   return (
     <section className="space-y-3">
       <Panel pad="sm" className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
-          <SegmentedControl
-            value={layout}
-            onChange={(next) => {
-              setLayout(next)
-              try {
-                localStorage.setItem(LAYOUT_KEY, next)
-              } catch {
-                // Preference stays for this visit if storage is blocked.
-              }
-            }}
-            options={LAYOUTS}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-base font-semibold tracking-tight">Tasks</h2>
+            <SegmentedControl
+              value={layout}
+              onChange={(next) => {
+                setLayout(next)
+                try {
+                  localStorage.setItem(LAYOUT_KEY, next)
+                } catch {
+                  // Preference stays for this visit if storage is blocked.
+                }
+              }}
+              options={LAYOUTS}
+              label="Task layout"
+            />
+          </div>
+          <div className="relative min-w-[12rem] flex-1 sm:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-muted)]" />
             <Input
               shape="pill"
@@ -184,15 +194,21 @@ export function LaunchBoard({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search tasks"
               aria-label="Search tasks"
-              className="h-9 w-44 pl-8 sm:w-52"
+              className="h-9 w-full pl-8"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SegmentedControl value={scope} onChange={setScope} options={SCOPES} label="Task status" />
-            <span className="hidden h-4 w-px bg-[color-mix(in_srgb,var(--color-ink)_12%,transparent)] sm:block" aria-hidden />
-            <SegmentedControl value={owner} onChange={setOwner} options={OWNERS} label="Who does the task" />
-          </div>
         </div>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <FilterCluster label="Show">
+            <SegmentedControl value={scope} onChange={setScope} options={SCOPES} label="Which tasks" />
+          </FilterCluster>
+          <FilterCluster label="Lead">
+            <SegmentedControl value={owner} onChange={setOwner} options={OWNERS} label="Who owns the task" />
+          </FilterCluster>
+          <FilterCluster label="Team">
+            <SegmentedControl value={role} onChange={setRole} options={ROLES} label="Web Scribble role" />
+          </FilterCluster>
         </div>
 
       <div className="flex gap-1.5 overflow-x-auto px-1">
@@ -230,20 +246,36 @@ export function LaunchBoard({
               open={isGroupOpen(group.key, index)}
               onToggle={() => toggleGroup(group.key)}
             >
-              {rows.map((task) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  names={names}
-                  profiles={profiles}
-                  currentUserId={currentUserId}
-                  open={openId === task.id}
-                  onToggle={() => setOpenId(openId === task.id ? null : task.id)}
-                  onUpdate={(patch) => onUpdateTask(task.id, patch)}
-                  onAddComment={(body) => onAddComment(task.id, body)}
-                  onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
-                />
-              ))}
+              {checklistItems(rows).map((item) =>
+                item.type === 'imports' ? (
+                  <ImportDataRow
+                    key="import-data"
+                    initial={item.initial}
+                    final={item.final}
+                    names={names}
+                    profiles={profiles}
+                    currentUserId={currentUserId}
+                    open={openId === 'import-data'}
+                    onToggle={() => setOpenId(openId === 'import-data' ? null : 'import-data')}
+                    onUpdate={onUpdateTask}
+                    onAddComment={onAddComment}
+                    onDeleteComment={onDeleteComment}
+                  />
+                ) : (
+                  <TaskRow
+                    key={item.task.id}
+                    task={item.task}
+                    names={names}
+                    profiles={profiles}
+                    currentUserId={currentUserId}
+                    open={openId === item.task.id}
+                    onToggle={() => setOpenId(openId === item.task.id ? null : item.task.id)}
+                    onUpdate={(patch) => onUpdateTask(item.task.id, patch)}
+                    onAddComment={(body) => onAddComment(item.task.id, body)}
+                    onDeleteComment={(commentId) => onDeleteComment(item.task.id, commentId)}
+                  />
+                )
+              )}
             </GroupPanel>
           ))}
         </div>
@@ -272,6 +304,38 @@ export function LaunchBoard({
       )}
     </section>
   )
+}
+
+function FilterCluster({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-[var(--color-ink-soft)]">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+function checklistItems(rows: LaunchTask[]): Array<
+  { type: 'task'; task: LaunchTask } | { type: 'imports'; initial: LaunchTask; final: LaunchTask }
+> {
+  const initial = rows.find((task) => task.key === 'import_initial_data')
+  const finalTask = rows.find((task) => task.key === 'import_final_data')
+  if (!initial || !finalTask) return rows.map((task) => ({ type: 'task' as const, task }))
+  const items: Array<
+    { type: 'task'; task: LaunchTask } | { type: 'imports'; initial: LaunchTask; final: LaunchTask }
+  > = []
+  let placed = false
+  for (const task of rows) {
+    if (task.key === 'import_initial_data' || task.key === 'import_final_data') {
+      if (!placed) {
+        items.push({ type: 'imports', initial, final: finalTask })
+        placed = true
+      }
+      continue
+    }
+    items.push({ type: 'task', task })
+  }
+  return items
 }
 
 function GroupPanel({
@@ -422,6 +486,169 @@ function TaskFields({
           onChange={(value) => onUpdate({ assigneeId: value || null })}
         />
       </label>
+    </div>
+  )
+}
+
+function ImportDataRow({
+  initial,
+  final: finalTask,
+  names,
+  profiles,
+  currentUserId,
+  open,
+  onToggle,
+  onUpdate,
+  onAddComment,
+  onDeleteComment,
+}: {
+  initial: LaunchTask
+  final: LaunchTask
+  names: Map<string, string>
+  profiles: Profile[]
+  currentUserId: string | null
+  open: boolean
+  onToggle: () => void
+  onUpdate: LaunchBoardProps['onUpdateTask']
+  onAddComment: LaunchBoardProps['onAddComment']
+  onDeleteComment: LaunchBoardProps['onDeleteComment']
+}) {
+  const reduce = useReducedMotion()
+  const steps = [
+    { label: 'Initial import', task: initial },
+    { label: 'Final import', task: finalTask },
+  ]
+
+  return (
+    <div className={cn('transition-colors duration-200', open ? 'bg-[var(--color-field)]' : 'hover:bg-[var(--color-field)]')}>
+      <div className="px-3 py-3 sm:px-4">
+        <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-1.5 text-left">
+          <ChevronDown
+            className={cn(
+              'mt-0.5 h-4 w-4 shrink-0 text-[var(--color-ink-soft)] transition-transform duration-300 ease-[var(--ease-out)]',
+              open && 'rotate-180 text-[var(--color-wash-strong)]'
+            )}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="flex items-start justify-between gap-3">
+              <span className="text-sm font-medium leading-5">Import data</span>
+              <PartyChip party="webscribble" />
+            </span>
+            <span className="mt-0.5 block text-[13px] leading-5 text-[var(--color-ink-soft)]">
+              Initial import and final import
+            </span>
+          </span>
+        </button>
+        <div className="mt-3 space-y-3 pl-5.5">
+          {steps.map(({ label, task }) => (
+            <div key={task.id} className="space-y-1.5">
+              <p className="text-xs font-medium text-[var(--color-ink)]">{label}</p>
+              <TaskFields
+                task={task}
+                profiles={profiles}
+                onUpdate={(patch) => onUpdate(task.id, patch)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="import-details"
+            initial={reduce ? false : { height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={reduce ? { height: 0, opacity: 1 } : { height: 0, opacity: 0 }}
+            transition={{ duration: reduce ? 0.01 : 0.32, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-5 px-4 pb-5 sm:pl-14">
+              {steps.map(({ label, task }) => (
+                <ImportStepNotes
+                  key={task.id}
+                  label={label}
+                  task={task}
+                  names={names}
+                  currentUserId={currentUserId}
+                  onAddComment={(body) => onAddComment(task.id, body)}
+                  onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function ImportStepNotes({
+  label,
+  task,
+  names,
+  currentUserId,
+  onAddComment,
+  onDeleteComment,
+}: {
+  label: string
+  task: LaunchTask
+  names: Map<string, string>
+  currentUserId: string | null
+  onAddComment: (body: string) => void
+  onDeleteComment: (commentId: string) => void
+}) {
+  const [draft, setDraft] = useState('')
+  return (
+    <div className="space-y-2">
+      <SectionLabel>{label}</SectionLabel>
+      {task.description && <p className="text-sm text-[var(--color-ink-soft)]">{task.description}</p>}
+      {task.comments.length === 0 ? (
+        <p className="text-xs text-[var(--color-ink-soft)]">No comments yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {task.comments.map((comment) => (
+            <li key={comment.id} className="rounded-2xl bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)]">
+              <p className="text-[11px] text-[var(--color-ink-soft)]">
+                <span className="font-medium text-[var(--color-ink)]">{names.get(comment.userId) ?? 'Teammate'}</span>
+                <span> · {formatWhen(comment.createdAt)}</span>
+                {comment.userId === currentUserId && (
+                  <button
+                    type="button"
+                    title="Delete comment"
+                    onClick={() => {
+                      if (window.confirm('Delete this comment?')) onDeleteComment(comment.id)
+                    }}
+                    className="ml-1 text-[var(--color-ink-soft)] hover:text-[var(--color-danger)]"
+                  >
+                    <Trash2 className="inline h-3 w-3" />
+                  </button>
+                )}
+              </p>
+              <p className="mt-1 whitespace-pre-wrap">{comment.body}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!draft.trim()) return
+          onAddComment(draft)
+          setDraft('')
+        }}
+      >
+        <Input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Add a comment"
+          shape="pill"
+          className="bg-[var(--color-panel)]"
+        />
+        <Button type="submit" size="sm" disabled={!draft.trim()} className="rounded-full">
+          Send
+        </Button>
+      </form>
     </div>
   )
 }

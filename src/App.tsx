@@ -9,27 +9,33 @@ import { ProjectDetailPage } from '@/pages/ProjectDetail'
 import { CalendarPage } from '@/pages/Calendar'
 import { ArchivePage } from '@/pages/Archive'
 import { SettingsPage } from '@/pages/Settings'
+import { ClientIntakePage } from '@/pages/ClientIntake'
 
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthGate>
-        <SupabaseSync>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="projects" element={<ProjectsPage />} />
-              <Route path="my-projects" element={<ProjectsPage favoritesOnly />} />
-              <Route path="projects/:id" element={<ProjectDetailPage />} />
-              <Route path="calendar" element={<CalendarPage />} />
-              <Route path="archive" element={<ArchivePage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-        </SupabaseSync>
-      </AuthGate>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/c/:token" element={<ClientIntakePage />} />
+          <Route
+            element={
+              <AuthGate>
+                <SupabaseSync>
+                  <AppLayout />
+                </SupabaseSync>
+              </AuthGate>
+            }
+          >
+            <Route index element={<DashboardPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="my-projects" element={<ProjectsPage favoritesOnly />} />
+            <Route path="projects/:id" element={<ProjectDetailPage />} />
+            <Route path="calendar" element={<CalendarPage />} />
+            <Route path="archive" element={<ArchivePage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </ThemeProvider>
   )
 }

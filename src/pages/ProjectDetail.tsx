@@ -6,6 +6,7 @@ import { calculateHealth, getDaysRemaining } from '@/lib/health'
 import { ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { LaunchBoard } from '@/components/project/LaunchBoard'
+import { ClientDeliverablesPanel } from '@/components/project/ClientDeliverablesPanel'
 import { MemberFeaturesPanel } from '@/components/project/MemberFeaturesPanel'
 import { QuickLinks } from '@/components/project/QuickLinks'
 import { ProjectLinksEditor } from '@/components/project/ProjectLinksEditor'
@@ -144,6 +145,8 @@ export function ProjectDetailPage() {
               onContactSave={(contact) => updateProjectContact(project.id, contact)}
             />
           </Panel>
+
+          <ClientDeliverablesPanel projectId={project.id} />
 
           <LaunchBoard
             project={project}

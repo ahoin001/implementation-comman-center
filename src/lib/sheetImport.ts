@@ -173,10 +173,20 @@ function cell(row: string[], index: number) {
   return row[index]?.trim() ?? ''
 }
 
+const TITLE_ALIASES: Record<string, string> = {
+  'provide branding guidelines and logos': 'branding',
+  'provide custom header images': 'header_images',
+}
+
 function matchTask(title: string, used: Set<string>) {
   const wanted = normalize(title)
   if (!wanted) return null
   const available = LAUNCH_TEMPLATE.filter((task) => !used.has(task.key))
+  const alias = TITLE_ALIASES[wanted]
+  if (alias) {
+    const aliased = available.find((task) => task.key === alias)
+    if (aliased) return aliased
+  }
   const exact = available.find((task) => normalize(task.title) === wanted)
   if (exact) return exact
 

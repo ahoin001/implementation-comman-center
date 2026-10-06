@@ -1,0 +1,536 @@
+import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { Check, Upload } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Input'
+import { Panel } from '@/components/ui/Panel'
+import {
+  INTAKE_CARDS,
+  clientIntakePhase,
+  namedSlot,
+  newFileSlotKey,
+  readImageSize,
+  slotsFor,
+  type ClientIntakePhase,
+  type IntakeCardDef,
+  type IntakeSlotDef,
+  type IntakeSlotState,
+} from '@/lib/clientIntake'
+import {
+  resolveIntake,
+  saveIntakeCredentials,
+  saveIntakeText,
+  uploadIntakeFile,
+  type IntakeView,
+} from '@/lib/clientIntakeApi'
+
+export function ClientIntakePage() {
+  const { token = '' } = useParams()
+  const [view, setView] = useState<IntakeView | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [savedKey, setSavedKey] = useState<string | null>(null)
+
+  const load = async () => {
+    const next = await resolveIntake(token)
+    setView(next)
+  }
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    resolveIntake(token)
+      .then((next) => {
+        if (active) setView(next)
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : 'This link is no longer active')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [token])
+
+  const markSaved = (key: string) => {
+    setSavedKey(key)
+    window.setTimeout(() => setSavedKey((current) => (current === key ? null : current)), 2200)
+  }
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-16">
+        <p className="text-sm text-[var(--color-ink-soft)]">Opening your checklist…</p>
+      </main>
+    )
+  }
+
+  if (error || !view) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-16">
+        <Panel pad="md">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--color-ink)]">Link unavailable</h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-ink-soft)]">
+            {error ?? 'This link is no longer active.'} Ask your Web Scribble contact for a new one.
+          </p>
+        </Panel>
+      </main>
+    )
+  }
+
+  const notes = new Map((view.reviews ?? []).map((review) => [review.taskKey, review.note]))
+  const phased = INTAKE_CARDS.map((card) => ({
+    card,
+    phase: clientIntakePhase(card, view.tasks[card.taskKey], view.slots, view.flags, notes.get(card.taskKey)),
+    note: notes.get(card.taskKey),
+  })).filter((item) => item.phase !== 'hidden')
+  const waiting = phased.filter((item) => item.phase === 'changes' || item.phase === 'needed' || item.phase === 'review')
+  const sections: { phase: ClientIntakePhase; title: string }[] = [
+    { phase: 'changes', title: 'Please send again' },
+    { phase: 'needed', title: 'Still needed' },
+    { phase: 'review', title: 'In review' },
+    { phase: 'accepted', title: 'Accepted' },
+    { phase: 'skipped', title: 'Not needed' },
+  ]
+
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-10 sm:py-14">
+      <p className="text-sm font-medium text-[var(--color-wash-strong)]">Web Scribble</p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--color-ink)]">
+        {view.projectName}
+      </h1>
+      <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-ink-soft)]">
+        Send what you have, then come back to this link. Each item shows whether it is still needed, in review, accepted, or needs to be sent again.
+      </p>
+
+      {waiting.length === 0 && (
+        <Panel pad="md" className="mt-8">
+          <p className="text-sm font-medium text-[var(--color-ink)]">You're all set.</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--color-ink-soft)]">Nothing is waiting on you right now.</p>
+        </Panel>
+      )}
+
+      <div className="mt-8 space-y-8">
+        {sections.map((section) => {
+          const items = phased.filter((item) => item.phase === section.phase)
+          if (items.length === 0) return null
+          return (
+            <section key={section.phase} className="space-y-3">
+              <h2 className="text-sm font-semibold text-[var(--color-ink)]">{section.title}</h2>
+              {items.map(({ card, phase, note }) => (
+                <IntakeCard
+                  key={card.taskKey}
+                  token={token}
+                  card={card}
+                  phase={phase}
+                  note={note}
+                  received={slotsFor(card, view.slots)}
+                  savedKey={savedKey}
+                  onSaved={async (key) => {
+                    await load()
+                    markSaved(key)
+                  }}
+                />
+              ))}
+            </section>
+          )
+        })}
+      </div>
+    </main>
+  )
+}
+
+function IntakeCard({
+  token,
+  card,
+  phase,
+  note,
+  received,
+  savedKey,
+  onSaved,
+}: {
+  token: string
+  card: IntakeCardDef
+  phase: ClientIntakePhase
+  note?: string
+  received: IntakeSlotState[]
+  savedKey: string | null
+  onSaved: (key: string) => Promise<void>
+}) {
+  const [error, setError] = useState<string | null>(null)
+  const files = card.multiFile ? received : []
+  const locked = phase === 'review' || phase === 'accepted' || phase === 'skipped'
+
+  if (phase === 'accepted' || phase === 'skipped') {
+    return (
+      <Panel pad="md">
+        <h3 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">{card.title}</h3>
+        <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
+          {phase === 'accepted' ? 'Accepted. Nothing else is needed here.' : 'Not needed for this launch.'}
+        </p>
+      </Panel>
+    )
+  }
+
+  return (
+    <Panel pad="md" className="space-y-4">
+      <div>
+        <h3 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">{card.title}</h3>
+        <p className="mt-1 text-sm leading-6 text-[var(--color-ink-soft)]">{card.detail}</p>
+        {phase === 'review' && (
+          <p className="mt-2 text-sm font-medium text-[var(--color-wash-strong)]">
+            In review. We'll accept it here, or ask you to send it again.
+          </p>
+        )}
+        {phase === 'changes' && note && (
+          <p className="mt-2 rounded-xl bg-[color-mix(in_srgb,var(--color-warning)_14%,var(--color-panel))] px-3 py-2 text-sm leading-6 text-[var(--color-ink)]">
+            {note}
+          </p>
+        )}
+      </div>
+
+      {card.kind === 'credentials' &&
+        card.slots.map((slot) => (
+          <CredentialSlot
+            key={slot.key}
+            token={token}
+            card={card}
+            slot={slot}
+            received={Boolean(namedSlot(received, card.taskKey, slot.key))}
+            locked={locked}
+            saved={savedKey === `${card.taskKey}:${slot.key}`}
+            onError={setError}
+            onSaved={onSaved}
+          />
+        ))}
+
+      {card.kind === 'text' &&
+        card.slots.map((slot) => (
+          <TextSlot
+            key={slot.key}
+            token={token}
+            card={card}
+            slot={slot}
+            existing={namedSlot(received, card.taskKey, slot.key)?.text ?? ''}
+            locked={locked}
+            saved={savedKey === `${card.taskKey}:${slot.key}`}
+            onError={setError}
+            onSaved={onSaved}
+          />
+        ))}
+
+      {card.kind === 'image' &&
+        card.slots.map((slot) => (
+          <FileSlot
+            key={slot.key}
+            token={token}
+            card={card}
+            slot={slot}
+            received={namedSlot(received, card.taskKey, slot.key)}
+            locked={locked}
+            saved={savedKey === `${card.taskKey}:${slot.key}`}
+            onError={setError}
+            onSaved={onSaved}
+          />
+        ))}
+
+      {card.kind === 'file' && !card.multiFile &&
+        card.slots.map((slot) => (
+          <FileSlot
+            key={slot.key}
+            token={token}
+            card={card}
+            slot={slot}
+            received={namedSlot(received, card.taskKey, slot.key)}
+            locked={locked}
+            saved={savedKey === `${card.taskKey}:${slot.key}`}
+            onError={setError}
+            onSaved={onSaved}
+          />
+        ))}
+
+      {card.multiFile && (
+        <div className="space-y-2">
+          {files.length > 0 && (
+            <ul className="space-y-1.5">
+              {files.map((file) => (
+                <li key={file.slotKey} className="flex items-center gap-2 text-sm text-[var(--color-ink)]">
+                  <Check className="h-4 w-4 text-[var(--color-success)]" />
+                  <span className="truncate">{file.fileName || 'File received'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!locked && (
+            <FileSlot
+              token={token}
+              card={card}
+              slot={{ key: 'next', label: files.length > 0 ? 'Add another file' : 'Add a file' }}
+              saved={savedKey?.startsWith(`${card.taskKey}:file-`) ?? false}
+              onError={setError}
+              onSaved={onSaved}
+            />
+          )}
+        </div>
+      )}
+
+      {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+    </Panel>
+  )
+}
+
+function FileSlot({
+  token,
+  card,
+  slot,
+  slotKey,
+  received,
+  locked,
+  saved,
+  onError,
+  onSaved,
+}: {
+  token: string
+  card: IntakeCardDef
+  slot: IntakeSlotDef
+  slotKey?: string
+  received?: IntakeSlotState
+  locked?: boolean
+  saved: boolean
+  onError: (message: string | null) => void
+  onSaved: (key: string) => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [replacing, setReplacing] = useState(false)
+  const inputId = `${card.taskKey}-${slot.key}`
+  const showPicker = !locked && (!received || replacing)
+
+  const onFile = async (file: File | undefined) => {
+    if (!file) return
+    setBusy(true)
+    onError(null)
+    try {
+      let size: { width: number; height: number } | undefined
+      if (card.kind === 'image' && slot.width && slot.height) {
+        if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
+          throw new Error('Use a PNG or JPG.')
+        }
+        size = await readImageSize(file)
+        if (size.width !== slot.width || size.height !== slot.height) {
+          throw new Error(
+            `${file.name} is ${size.width}×${size.height}. This one needs ${slot.width}×${slot.height}.`
+          )
+        }
+      }
+      const uploadKey = slotKey ?? (card.multiFile ? newFileSlotKey() : slot.key)
+      await uploadIntakeFile(token, card.taskKey, uploadKey, file, size)
+      setReplacing(false)
+      await onSaved(`${card.taskKey}:${uploadKey}`)
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Could not upload that file')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!showPicker) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-field)] px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[var(--color-ink)]">{slot.label}</p>
+          <p className="truncate text-xs text-[var(--color-ink-soft)]">
+            {saved ? 'Saved' : 'Received'}
+            {received?.fileName ? ` · ${received.fileName}` : ''}
+          </p>
+        </div>
+        {!locked && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setReplacing(true)}>
+            Replace
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium text-[var(--color-ink)]">
+        {slot.label}
+        {slot.hint ? <span className="ml-2 font-normal text-[var(--color-ink-soft)]">{slot.hint}</span> : null}
+      </label>
+      <label
+        htmlFor={inputId}
+        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[color-mix(in_srgb,var(--color-ink)_16%,transparent)] bg-[var(--color-field)] px-3 py-4 text-sm text-[var(--color-ink-soft)] hover:bg-[var(--color-wash)]"
+      >
+        <Upload className="h-4 w-4" />
+        {busy ? 'Sending…' : 'Choose a file'}
+      </label>
+      <input
+        id={inputId}
+        type="file"
+        accept={card.kind === 'image' ? 'image/png,image/jpeg' : undefined}
+        className="sr-only"
+        disabled={busy}
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          void onFile(file)
+        }}
+      />
+      {saved && <p className="mt-1.5 text-xs text-[var(--color-ink-soft)]">Saved</p>}
+    </div>
+  )
+}
+
+function CredentialSlot({
+  token,
+  card,
+  slot,
+  received,
+  locked,
+  saved,
+  onError,
+  onSaved,
+}: {
+  token: string
+  card: IntakeCardDef
+  slot: IntakeSlotDef
+  received: boolean
+  locked?: boolean
+  saved: boolean
+  onError: (message: string | null) => void
+  onSaved: (key: string) => Promise<void>
+}) {
+  const [open, setOpen] = useState(!received && !locked)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (!open) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-field)] px-3 py-2.5">
+        <div>
+          <p className="text-sm font-medium text-[var(--color-ink)]">{slot.label}</p>
+          <p className="text-xs text-[var(--color-ink-soft)]">{saved ? 'Saved' : 'Received'}</p>
+        </div>
+        {!locked && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
+            Replace
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        setBusy(true)
+        onError(null)
+        void saveIntakeCredentials(token, card.taskKey, slot.key, username, password)
+          .then(() => onSaved(`${card.taskKey}:${slot.key}`))
+          .then(() => {
+            setUsername('')
+            setPassword('')
+            setOpen(false)
+          })
+          .catch((err: unknown) => onError(err instanceof Error ? err.message : 'Could not save that login'))
+          .finally(() => setBusy(false))
+      }}
+    >
+      <p className="text-sm font-medium text-[var(--color-ink)]">{slot.label}</p>
+      <Input
+        value={username}
+        onChange={(event) => setUsername(event.target.value)}
+        placeholder="Username"
+        autoComplete="off"
+        aria-label={`${slot.label} username`}
+      />
+      <Input
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+        placeholder="Password"
+        type="password"
+        autoComplete="new-password"
+        aria-label={`${slot.label} password`}
+      />
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={busy || !username.trim() || !password.trim()}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+        {received && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+        )}
+      </div>
+    </form>
+  )
+}
+
+function TextSlot({
+  token,
+  card,
+  slot,
+  existing,
+  locked,
+  saved,
+  onError,
+  onSaved,
+}: {
+  token: string
+  card: IntakeCardDef
+  slot: IntakeSlotDef
+  existing: string
+  locked?: boolean
+  saved: boolean
+  onError: (message: string | null) => void
+  onSaved: (key: string) => Promise<void>
+}) {
+  const [draft, setDraft] = useState(existing)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    setDraft(existing)
+  }, [existing])
+
+  if (locked) {
+    return <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--color-ink)]">{existing}</p>
+  }
+
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(event) => {
+        event.preventDefault()
+        setBusy(true)
+        onError(null)
+        void saveIntakeText(token, card.taskKey, slot.key, draft)
+          .then(() => onSaved(`${card.taskKey}:${slot.key}`))
+          .catch((err: unknown) => onError(err instanceof Error ? err.message : 'Could not save that note'))
+          .finally(() => setBusy(false))
+      }}
+    >
+      <label htmlFor={`${card.taskKey}-${slot.key}`} className="block text-sm font-medium text-[var(--color-ink)]">
+        {slot.label}
+      </label>
+      <Textarea
+        id={`${card.taskKey}-${slot.key}`}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        className="min-h-28"
+      />
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="sm" disabled={busy || !draft.trim()}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
+        {saved && <span className="text-xs text-[var(--color-ink-soft)]">Saved</span>}
+      </div>
+    </form>
+  )
+}

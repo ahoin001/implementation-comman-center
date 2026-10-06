@@ -61,11 +61,12 @@ const raw: Omit<LaunchTemplateTask, 'sort'>[] = [
   { key: 'develop_offers', phaseKey: 'prelaunch', groupKey: 'pricing', title: 'Develop job posting offers and pricing', description: 'Web Scribble proposes offers and pricing.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'review_offers', phaseKey: 'prelaunch', groupKey: 'pricing', title: 'Review offers, Job Watch, and partner benefits', description: 'Decide which offers and benefits to include.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'approve_offers', phaseKey: 'prelaunch', groupKey: 'pricing', title: 'Approve offers and pricing', description: 'Client approves the final offers and pricing.', party: 'client', defaultStatus: 'not_started' },
+  { key: 'update_pricing', phaseKey: 'prelaunch', groupKey: 'pricing', title: 'Update pricing on the career center', description: 'Implementation specialist updates pricing on the career center after offers are approved.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'provide_ach_w9', phaseKey: 'prelaunch', groupKey: 'payment', title: 'Provide ACH and W-9', description: 'Client sends completed ACH and W-9 forms.', party: 'client', defaultStatus: 'not_started' },
   { key: 'sales_training', phaseKey: 'prelaunch', groupKey: 'sales', title: 'Sales training', description: 'Review the sales process with the client team.', party: 'client', defaultStatus: 'not_started' },
   { key: 'sales_coordination', phaseKey: 'prelaunch', groupKey: 'sales', title: 'Sales coordination', description: 'Coordinate sales based on the role Web Scribble will have.', party: 'webscribble', defaultStatus: 'not_started' },
-  { key: 'branding', phaseKey: 'prelaunch', groupKey: 'site', title: 'Provide branding guidelines and logos', description: 'Client provides logo files (jpg, png, eps) and brand guidelines.', party: 'client', defaultStatus: 'not_started' },
-  { key: 'header_images', phaseKey: 'prelaunch', groupKey: 'site', title: 'Provide custom header images', description: 'Homepage 1920x424, career advice 1920x334, pricing 1920x257, png.', party: 'client', defaultStatus: 'not_started' },
+  { key: 'branding', phaseKey: 'prelaunch', groupKey: 'site', title: 'Get branding guidelines and logos', description: 'Ask the client for logo files (jpg, png, eps) and brand guidelines.', party: 'client', defaultStatus: 'not_started' },
+  { key: 'header_images', phaseKey: 'prelaunch', groupKey: 'site', title: 'Get custom header images', description: 'Ask the client for homepage 1920x424, career advice 1920x334, and pricing 1920x257 pngs.', party: 'client', defaultStatus: 'not_started' },
   { key: 'job_categories', phaseKey: 'prelaunch', groupKey: 'site', title: 'Provide job categories', description: 'Client shares preferred categories. Web Scribble defaults can be customized.', party: 'client', defaultStatus: 'not_started' },
   { key: 'site_copy', phaseKey: 'prelaunch', groupKey: 'site', title: 'Provide site copy', description: 'Client reviews copy and sends edits.', party: 'client', defaultStatus: 'not_started' },
   { key: 'career_tools', phaseKey: 'prelaunch', groupKey: 'site', title: 'Confirm career tools', description: 'Career advice, guides, interview coach, and offer analyzer, and whether coach tools are gated.', party: 'client', defaultStatus: 'not_started' },
@@ -75,7 +76,7 @@ const raw: Omit<LaunchTemplateTask, 'sort'>[] = [
   { key: 'review_design', phaseKey: 'prelaunch', groupKey: 'site', title: 'Review site design and UX', description: 'Review the staging site look, feel, and experience before launch.', party: 'client', defaultStatus: 'not_started' },
   { key: 'final_review', phaseKey: 'prelaunch', groupKey: 'site', title: 'Conduct final site review', description: 'Web Scribble runs the final review before go-live approval.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'approve_golive', phaseKey: 'prelaunch', groupKey: 'site', title: 'Approve the site to go live', description: 'Client approves the site for launch.', party: 'client', defaultStatus: 'not_started' },
-  { key: 'smartway_admins', phaseKey: 'prelaunch', groupKey: 'smartway', title: 'Create Smartway admin accounts', description: 'Client sends the email addresses that need Smartway access.', party: 'webscribble', defaultStatus: 'not_started' },
+  { key: 'smartway_admins', phaseKey: 'prelaunch', groupKey: 'smartway', title: 'Create Smartway admin accounts', description: 'Web Scribble creates the Smartway admin accounts. Ask the client for the email addresses that need access.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'conduct_smartway_training', phaseKey: 'prelaunch', groupKey: 'smartway', title: 'Conduct Smartway training', description: 'Tour of Smartway: reports, content, and marketing tools. Can happen before or after launch.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'sso_credentials', phaseKey: 'prelaunch', groupKey: 'sso', title: 'Provide SSO test credentials', description: 'Member and non-member test accounts for SSO testing.', party: 'client', defaultStatus: 'not_started' },
   { key: 'setup_sso', phaseKey: 'prelaunch', groupKey: 'sso', title: 'Set up and test SSO', description: 'Web Scribble coordinates SSO setup and internal testing.', party: 'webscribble', defaultStatus: 'not_started' },
@@ -121,6 +122,29 @@ export const LAUNCH_STATUS_LABELS: Record<LaunchTaskStatus, string> = {
 export const LAUNCH_PARTY_LABELS: Record<LaunchParty, string> = {
   client: 'Client',
   webscribble: 'Web Scribble',
+}
+
+/** Tasks the implementation specialist does, or has to collect from the client. */
+export const IMPLEMENTATION_TASK_KEYS = new Set([
+  'import_initial_data',
+  'import_final_data',
+  'setup_thrive',
+  'update_pricing',
+  'job_categories',
+  'branding',
+  'header_images',
+  'smartway_admins',
+  'conduct_smartway_training',
+  'sso_credentials',
+  'setup_sso',
+])
+
+export type TeamRole = 'implementation' | 'csm'
+
+export function taskTeamRole(task: { key: string; party: LaunchParty; groupKey: string }): TeamRole | null {
+  if (task.groupKey === 'golive' || IMPLEMENTATION_TASK_KEYS.has(task.key)) return 'implementation'
+  if (task.party === 'webscribble') return 'csm'
+  return null
 }
 
 export function isLaunchApplicable(status: LaunchTaskStatus): boolean {
