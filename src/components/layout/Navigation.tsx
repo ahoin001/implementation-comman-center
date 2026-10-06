@@ -13,13 +13,15 @@ import { Panel } from '@/components/ui/Panel'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/projects', label: 'Projects', icon: FolderKanban },
-  { to: '/my-projects', label: 'My Projects', icon: Star },
-  { to: '/calendar', label: 'Calendar', icon: Calendar },
-  { to: '/archive', label: 'Archive', icon: Archive },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, enabled: false },
+  { to: '/projects', label: 'Projects', icon: FolderKanban, enabled: true },
+  { to: '/my-projects', label: 'My Projects', icon: Star, enabled: true },
+  { to: '/calendar', label: 'Calendar', icon: Calendar, enabled: false },
+  { to: '/archive', label: 'Archive', icon: Archive, enabled: true },
+  { to: '/settings', label: 'Settings', icon: Settings, enabled: true },
 ]
+
+const visibleNav = navItems.filter((item) => item.enabled)
 
 function isNavActive(to: string, pathname: string) {
   if (to === '/') return pathname === '/'
@@ -44,7 +46,7 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-0.5">
-          {navItems.map(({ to, label, icon: Icon }) => {
+          {visibleNav.map(({ to, label, icon: Icon }) => {
             const isActive = isNavActive(to, location.pathname)
             return (
               <NavLink
@@ -78,7 +80,7 @@ export function MobileNav() {
   return (
     <nav className="lg:hidden fixed bottom-3 inset-x-3 z-50">
       <Panel className="flex items-center justify-between gap-1 overflow-x-auto px-2 py-2">
-        {navItems.map(({ to, label, icon: Icon }) => {
+        {visibleNav.map(({ to, label, icon: Icon }) => {
           const isActive = isNavActive(to, location.pathname)
           return (
             <NavLink

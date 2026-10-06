@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { AuthGate } from '@/components/auth/AuthGate'
@@ -26,7 +26,8 @@ export default function App() {
               </AuthGate>
             }
           >
-            <Route index element={<DashboardPage />} />
+            <Route index element={<Navigate to="/projects" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="my-projects" element={<ProjectsPage favoritesOnly />} />
             <Route path="projects/:id" element={<ProjectDetailPage />} />

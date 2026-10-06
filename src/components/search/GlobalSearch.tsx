@@ -8,7 +8,7 @@ import { useActiveProjects, searchProjects } from '@/hooks/useProjects'
 import { getPrimaryOpenTask } from '@/lib/progress'
 import { cn } from '@/lib/utils'
 
-export function GlobalSearch() {
+export function GlobalSearch({ className }: { className?: string }) {
   const [open, setOpen] = useState(false)
   const [localQuery, setLocalQuery] = useState('')
   const navigate = useNavigate()
@@ -53,7 +53,7 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-sm">
+    <div ref={containerRef} className={cn('relative w-full max-w-sm shrink-0', className)}>
       <form onSubmit={handleSubmit}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-muted)]" />

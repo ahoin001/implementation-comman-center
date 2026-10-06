@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Panel } from '@/components/ui/Panel'
 import { useStore } from '@/store/useStore'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
 
 export function ArchivePage() {
   const archived = useArchivedProjects()
@@ -20,11 +21,14 @@ export function ArchivePage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Archive</h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          Completed implementations — open to view or restore
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight">Archive</h1>
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            Completed implementations — open to view or restore
+          </p>
+        </div>
+        <GlobalSearch className="max-w-xs" />
       </div>
 
       <div className="mb-6 max-w-md">

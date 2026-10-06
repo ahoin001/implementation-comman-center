@@ -15,6 +15,7 @@ import { useStore } from '@/store/useStore'
 import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
 import { isLaunchedWithoutTraining } from '@/lib/progress'
 import { cn } from '@/lib/utils'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
 
 const GROUP_TRAINING_KEY = 'icc-projects-group-training'
 
@@ -223,9 +224,9 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight mb-1">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight">
             {favoritesOnly ? 'My Projects' : 'Projects'}
           </h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">
@@ -241,7 +242,8 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             )}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <GlobalSearch className="max-w-xs" />
           {!selectMode ? (
             <>
               <Button variant="secondary" size="sm" onClick={() => setSelectMode(true)}>

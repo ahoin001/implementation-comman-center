@@ -2,7 +2,6 @@ import { Outlet } from 'react-router-dom'
 import { LayoutGroup } from 'framer-motion'
 import { Sidebar, MobileNav } from './Navigation'
 import { ProfileChip } from './ProfileChip'
-import { GlobalSearch } from '@/components/search/GlobalSearch'
 
 /**
  * No page-level AnimatePresence / popLayout here.
@@ -16,9 +15,6 @@ export function AppLayout() {
       <div className="flex min-h-screen gap-3 p-3 lg:gap-4 lg:p-4">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="mb-3 flex justify-end">
-            <GlobalSearch />
-          </header>
           <main className="flex-1 pb-28 lg:pb-2">
             <Outlet />
           </main>

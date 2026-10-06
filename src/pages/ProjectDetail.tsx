@@ -16,6 +16,7 @@ import { NotesPanel } from '@/components/project/NotesPanel'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
 import { Avatar } from '@/components/ui/Avatar'
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -77,15 +78,19 @@ export function ProjectDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div className="min-w-0">
+      <div className="space-y-2 px-1">
+        <div className="flex items-center justify-between gap-3">
           <Link
             to={project.archived ? '/archive' : '/projects'}
-            className="mb-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             {project.archived ? 'Archive' : 'Projects'}
           </Link>
+          <GlobalSearch className="max-w-xs" />
+        </div>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
           <ProjectTitle
             name={project.name}
             abbreviation={project.abbreviation}
@@ -107,6 +112,7 @@ export function ProjectDetailPage() {
             </span>
           )}
           <HealthBadge health={calculateHealth(project)} />
+        </div>
         </div>
       </div>
 

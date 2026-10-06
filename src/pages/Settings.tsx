@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Ca
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import type { AppSettings } from '@/types'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
 
 const accentColors = [
   { label: 'Blue', value: '#0071e3' },
@@ -49,10 +50,13 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Settings</h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">Customize your command center</p>
+    <div className="max-w-3xl">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight">Settings</h1>
+          <p className="text-sm text-[var(--color-muted-foreground)]">Customize your command center</p>
+        </div>
+        <GlobalSearch className="max-w-[16rem]" />
       </div>
 
       <div className="space-y-6">
