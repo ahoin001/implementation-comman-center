@@ -17,23 +17,27 @@ const NAMED: Record<string, Record<string, { kind: SlotKind; width?: number; hei
     homepage: { kind: 'image', width: 1920, height: 424 },
     career: { kind: 'image', width: 1920, height: 334 },
     pricing: { kind: 'image', width: 1920, height: 257 },
+    logo: { kind: 'file' },
   },
   sso_credentials: {
     member: { kind: 'credentials' },
     non_member: { kind: 'credentials' },
-  },
-  thrive_credentials: {
-    account: { kind: 'credentials' },
   },
   provide_ach_w9: {
     ach: { kind: 'confirm' },
     w9: { kind: 'confirm' },
   },
   job_categories: { body: { kind: 'text' } },
-  site_copy: { body: { kind: 'text' } },
+  send_initial_export: {
+    jobseekers: { kind: 'file' },
+    employers: { kind: 'file' },
+    resumes: { kind: 'file' },
+    jobs: { kind: 'file' },
+    billing: { kind: 'file' },
+  },
 }
 
-const MULTI = new Set(['branding', 'send_initial_export', 'send_final_export', 'send_resumes'])
+const MULTI = new Set(['branding', 'send_resumes'])
 const FILE_SLOT = /^file-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const INTAKE_KEYS = [...Object.keys(NAMED), ...MULTI]
 
@@ -216,6 +220,19 @@ Deno.serve(async (req) => {
       reviews: (reviewRows ?? []).map((row) => ({ taskKey: row.task_key, note: row.note })),
       secureUploadUrl: secureUploadUrl(String(project.abbreviation ?? ''), pathConfig.secureUploadUrl),
     })
+  }
+
+  if (payload.action === 'reopen') {
+    const reopenKey = String(payload.taskKey ?? '')
+    if (!INTAKE_KEYS.includes(reopenKey)) return json({ error: 'Unknown item' }, 400)
+    const { error } = await db
+      .from('implementation_tasks')
+      .update({ status: 'in_progress', completed_at: null, updated_at: new Date().toISOString() })
+      .eq('implementation_id', implementationId)
+      .eq('task_key', reopenKey)
+      .eq('status', 'complete')
+    if (error) return json({ error: error.message }, 500)
+    return json({ ok: true })
   }
 
   const taskKey = String(payload.taskKey ?? '')

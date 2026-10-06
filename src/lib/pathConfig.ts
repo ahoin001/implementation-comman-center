@@ -11,6 +11,14 @@ export function abbreviationHost(abbreviation: string) {
   return abbreviation.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
 }
 
+/** Public page on the client's career center, so they can see where an image lands. */
+export function sitePreviewUrl(abbreviation: string, path = '/') {
+  const host = abbreviationHost(abbreviation)
+  if (!host) return ''
+  const suffix = path.startsWith('/') ? path : `/${path}`
+  return `https://${host}.webscribble.com${suffix}`
+}
+
 export function defaultSecureUploadUrl(abbreviation: string) {
   const host = abbreviationHost(abbreviation)
   if (!host) return ''

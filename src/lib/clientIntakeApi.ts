@@ -73,6 +73,10 @@ export async function clearSecureUpload(token: string, taskKey: string, slotKey:
   await postIntake({ action: 'clear', token, taskKey, slotKey })
 }
 
+export async function reopenIntake(token: string, taskKey: string) {
+  await postIntake({ action: 'reopen', token, taskKey })
+}
+
 export async function saveIntakeText(token: string, taskKey: string, slotKey: string, text: string) {
   await postIntake({ action: 'save', token, taskKey, slotKey, body: { text } })
 }

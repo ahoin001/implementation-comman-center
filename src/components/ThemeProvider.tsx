@@ -12,8 +12,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const apply = () => {
       const dark = theme === 'dark' || (theme === 'system' && media.matches)
       root.classList.toggle('dark', dark)
-      if (theme === 'system') root.removeAttribute('data-theme')
-      else root.setAttribute('data-theme', theme)
+      const next = dark ? 'dark' : 'light'
+      root.setAttribute('data-theme', next)
+      try {
+        localStorage.setItem('icc-theme', next)
+      } catch {
+        /* private mode */
+      }
     }
 
     apply()

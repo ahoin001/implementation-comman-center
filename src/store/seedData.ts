@@ -275,7 +275,7 @@ export const defaultIntegrations: AppState['settings']['integrations'] = {
 
 export const defaultSettings: AppState['settings'] = {
   userName: 'Alex',
-  theme: 'system',
+    theme: 'light',
   accentColor: '#0071e3',
   reminderWindowDays: 14,
   notificationsEnabled: true,

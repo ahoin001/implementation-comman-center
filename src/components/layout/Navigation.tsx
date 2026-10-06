@@ -7,10 +7,13 @@ import {
   Archive,
   Settings,
   Command,
+  Moon,
+  Sun,
 } from 'lucide-react'
 import { ProfileChip } from './ProfileChip'
 import { Panel } from '@/components/ui/Panel'
 import { cn } from '@/lib/utils'
+import { useStore } from '@/store/useStore'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, enabled: false },
@@ -67,10 +70,28 @@ export function Sidebar() {
         </nav>
 
         <div className="mt-1 border-t border-[var(--color-border)] pt-1">
+          <ThemeToggle />
           <ProfileChip docked />
         </div>
       </Panel>
     </aside>
+  )
+}
+
+function ThemeToggle() {
+  const theme = useStore((s) => s.settings.theme)
+  const updateSettings = useStore((s) => s.updateSettings)
+  const dark = theme === 'dark'
+
+  return (
+    <button
+      type="button"
+      onClick={() => updateSettings({ theme: dark ? 'light' : 'dark' })}
+      className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-[13px] font-medium text-[var(--color-ink)] transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-[var(--color-field)] active:scale-[0.98]"
+    >
+      {dark ? <Sun className="h-3.5 w-3.5 shrink-0" /> : <Moon className="h-3.5 w-3.5 shrink-0" />}
+      <span>{dark ? 'Light mode' : 'Dark mode'}</span>
+    </button>
   )
 }
 

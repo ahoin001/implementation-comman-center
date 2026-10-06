@@ -4,6 +4,7 @@ import { Check, ExternalLink, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { Panel } from '@/components/ui/Panel'
 import {
   INTAKE_CARDS,
@@ -14,19 +15,21 @@ import {
   slotsFor,
   type ClientIntakePhase,
   type IntakeCardDef,
+  type IntakeGuide,
   type IntakeSlotDef,
   type IntakeSlotState,
 } from '@/lib/clientIntake'
 import {
   clearSecureUpload,
   confirmSecureUpload,
+  reopenIntake,
   resolveIntake,
   saveIntakeCredentials,
   saveIntakeText,
   uploadIntakeFile,
   type IntakeView,
 } from '@/lib/clientIntakeApi'
-import { resolveSecureUploadUrl } from '@/lib/pathConfig'
+import { resolveSecureUploadUrl, sitePreviewUrl } from '@/lib/pathConfig'
 
 export function ClientIntakePage() {
   const { token = '' } = useParams()
@@ -130,6 +133,7 @@ export function ClientIntakePage() {
                   card={card}
                   phase={phase}
                   note={note}
+                  abbreviation={view.abbreviation}
                   uploadUrl={resolveSecureUploadUrl(view.abbreviation, view.secureUploadUrl)}
                   received={slotsFor(card, view.slots)}
                   savedKey={savedKey}
@@ -152,6 +156,7 @@ function IntakeCard({
   card,
   phase,
   note,
+  abbreviation,
   uploadUrl,
   received,
   savedKey,
@@ -161,42 +166,75 @@ function IntakeCard({
   card: IntakeCardDef
   phase: ClientIntakePhase
   note?: string
+  abbreviation: string
   uploadUrl?: string
   received: IntakeSlotState[]
   savedKey: string | null
   onSaved: (key: string) => Promise<void>
 }) {
   const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [reopening, setReopening] = useState(false)
   const files = card.multiFile ? received : []
-  const locked = phase === 'review' || phase === 'accepted' || phase === 'skipped'
+  const submitted = phase === 'review' || phase === 'accepted'
+  const locked = !editing && (submitted || phase === 'skipped')
 
-  if (phase === 'accepted' || phase === 'skipped') {
+  const handleSaved = async (key: string) => {
+    setEditing(false)
+    await onSaved(key)
+  }
+
+  const enableEdits = () => {
+    setReopening(true)
+    setError(null)
+    const ready = phase === 'accepted' ? reopenIntake(token, card.taskKey) : Promise.resolve()
+    void ready
+      .then(() => (phase === 'accepted' ? onSaved(`${card.taskKey}:reopen`) : undefined))
+      .then(() => setEditing(true))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Could not open this item'))
+      .finally(() => setReopening(false))
+  }
+
+  if (phase === 'skipped') {
     return (
       <Panel pad="md">
         <h3 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">{card.title}</h3>
-        <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
-          {phase === 'accepted' ? 'Accepted. Nothing else is needed here.' : 'Not needed for this launch.'}
-        </p>
+        <p className="mt-1 text-sm text-[var(--color-ink-soft)]">Not needed for this launch.</p>
       </Panel>
     )
   }
 
   return (
     <Panel pad="md" className="space-y-4">
-      <div>
-        <h3 className="text-base font-semibold tracking-tight text-[var(--color-ink)]">{card.title}</h3>
-        <p className="mt-1 text-sm leading-6 text-[var(--color-ink-soft)]">{card.detail}</p>
-        {phase === 'review' && (
-          <p className="mt-2 text-sm font-medium text-[var(--color-wash-strong)]">
-            In review. We'll accept it here, or ask you to send it again.
-          </p>
-        )}
-        {phase === 'changes' && note && (
-          <p className="mt-2 rounded-xl bg-[color-mix(in_srgb,var(--color-warning)_14%,var(--color-panel))] px-3 py-2 text-sm leading-6 text-[var(--color-ink)]">
-            {note}
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight text-[var(--color-ink)]">
+            {submitted && !editing && <Check className="h-4 w-4 shrink-0 text-[var(--color-success)]" />}
+            {card.title}
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-[var(--color-ink-soft)]">{card.detail}</p>
+          {phase === 'accepted' && !editing && (
+            <p className="mt-2 text-sm font-medium text-[var(--color-success)]">Accepted. Submitted already.</p>
+          )}
+          {phase === 'review' && !editing && (
+            <p className="mt-2 text-sm font-medium text-[var(--color-wash-strong)]">
+              Submitted. In review. We'll accept it here, or ask you to send it again.
+            </p>
+          )}
+          {phase === 'changes' && note && (
+            <p className="mt-2 rounded-xl bg-[color-mix(in_srgb,var(--color-warning)_14%,var(--color-panel))] px-3 py-2 text-sm leading-6 text-[var(--color-ink)]">
+              {note}
+            </p>
+          )}
+        </div>
+        {submitted && !editing && (
+          <Button type="button" variant="ghost" size="sm" disabled={reopening} onClick={enableEdits}>
+            {reopening ? 'Opening…' : 'Make changes'}
+          </Button>
         )}
       </div>
+
+      {card.guide && <CardGuide guide={card.guide} />}
 
       {card.kind === 'credentials' &&
         card.slots.map((slot) => (
@@ -209,7 +247,7 @@ function IntakeCard({
             locked={locked}
             saved={savedKey === `${card.taskKey}:${slot.key}`}
             onError={setError}
-            onSaved={onSaved}
+            onSaved={handleSaved}
           />
         ))}
 
@@ -224,7 +262,7 @@ function IntakeCard({
             locked={locked}
             saved={savedKey === `${card.taskKey}:${slot.key}`}
             onError={setError}
-            onSaved={onSaved}
+            onSaved={handleSaved}
           />
         ))}
 
@@ -235,11 +273,12 @@ function IntakeCard({
             token={token}
             card={card}
             slot={slot}
+            previewHref={slot.previewPath ? sitePreviewUrl(abbreviation, slot.previewPath) : undefined}
             received={namedSlot(received, card.taskKey, slot.key)}
             locked={locked}
             saved={savedKey === `${card.taskKey}:${slot.key}`}
             onError={setError}
-            onSaved={onSaved}
+            onSaved={handleSaved}
           />
         ))}
 
@@ -253,7 +292,7 @@ function IntakeCard({
           changes={phase === 'changes'}
           savedKey={savedKey}
           onError={setError}
-          onSaved={onSaved}
+          onSaved={handleSaved}
         />
       )}
 
@@ -268,7 +307,7 @@ function IntakeCard({
             locked={locked}
             saved={savedKey === `${card.taskKey}:${slot.key}`}
             onError={setError}
-            onSaved={onSaved}
+            onSaved={handleSaved}
           />
         ))}
 
@@ -291,7 +330,7 @@ function IntakeCard({
               slot={{ key: 'next', label: files.length > 0 ? 'Add another file' : 'Add a file' }}
               saved={savedKey?.startsWith(`${card.taskKey}:file-`) ?? false}
               onError={setError}
-              onSaved={onSaved}
+              onSaved={handleSaved}
             />
           )}
         </div>
@@ -299,6 +338,43 @@ function IntakeCard({
 
       {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
     </Panel>
+  )
+}
+
+function CardGuide({ guide }: { guide: IntakeGuide }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm leading-6 text-[var(--color-ink)]">{guide.caption}</p>
+      {guide.image ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(true)}>
+            {guide.label}
+          </Button>
+          <a
+            href={guide.href}
+            download
+            className="inline-flex h-8 items-center rounded-lg px-2.5 text-sm font-medium text-[var(--color-wash-strong)] hover:bg-[var(--color-wash)]"
+          >
+            Download
+          </a>
+          <Modal open={open} onClose={() => setOpen(false)} className="max-w-5xl">
+            <img src={guide.href} alt="Columns to include in each import file" className="w-full rounded-xl" />
+          </Modal>
+        </div>
+      ) : (
+        <a
+          href={guide.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-wash-strong)] hover:underline"
+        >
+          {guide.label}
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
+    </div>
   )
 }
 
@@ -422,11 +498,26 @@ function ExternalMark({
   )
 }
 
+function PreviewLink({ href }: { href?: string }) {
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-1 block truncate text-xs font-medium text-[var(--color-wash-strong)] hover:underline"
+    >
+      {href}
+    </a>
+  )
+}
+
 function FileSlot({
   token,
   card,
   slot,
   slotKey,
+  previewHref,
   received,
   locked,
   saved,
@@ -437,6 +528,7 @@ function FileSlot({
   card: IntakeCardDef
   slot: IntakeSlotDef
   slotKey?: string
+  previewHref?: string
   received?: IntakeSlotState
   locked?: boolean
   saved: boolean
@@ -454,7 +546,10 @@ function FileSlot({
     onError(null)
     try {
       let size: { width: number; height: number } | undefined
-      if (card.kind === 'image' && slot.width && slot.height) {
+      if (slot.accept) {
+        const allowed = /\.(png|jpe?g|eps)$/i.test(file.name)
+        if (!allowed) throw new Error('Use a PNG, JPG, or EPS.')
+      } else if (card.kind === 'image' && slot.width && slot.height) {
         if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
           throw new Error('Use a PNG or JPG.')
         }
@@ -485,6 +580,7 @@ function FileSlot({
             {saved ? 'Saved' : 'Received'}
             {received?.fileName ? ` · ${received.fileName}` : ''}
           </p>
+          <PreviewLink href={previewHref} />
         </div>
         {!locked && (
           <Button type="button" variant="ghost" size="sm" onClick={() => setReplacing(true)}>
@@ -501,6 +597,7 @@ function FileSlot({
         {slot.label}
         {slot.hint ? <span className="ml-2 font-normal text-[var(--color-ink-soft)]">{slot.hint}</span> : null}
       </label>
+      <PreviewLink href={previewHref} />
       <label
         htmlFor={inputId}
         className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[color-mix(in_srgb,var(--color-ink)_16%,transparent)] bg-[var(--color-field)] px-3 py-4 text-sm text-[var(--color-ink-soft)] hover:bg-[var(--color-wash)]"
@@ -511,7 +608,7 @@ function FileSlot({
       <input
         id={inputId}
         type="file"
-        accept={card.kind === 'image' ? 'image/png,image/jpeg' : undefined}
+        accept={slot.accept ?? (card.kind === 'image' && slot.width ? 'image/png,image/jpeg' : undefined)}
         className="sr-only"
         disabled={busy}
         onChange={(event) => {
