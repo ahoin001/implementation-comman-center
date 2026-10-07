@@ -6,6 +6,7 @@ import { useStore } from '@/store/useStore'
 import { useActiveProjects } from '@/hooks/useProjects'
 import { CALENDAR_EVENT_LABELS } from '@/types'
 import { cn } from '@/lib/utils'
+import { staggerDelay } from '@/components/ui/Reveal'
 
 const rowClass =
   'flex items-start gap-3 rounded-[var(--radius-md)] px-2 py-2.5 -mx-2 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99] group'
@@ -62,10 +63,10 @@ export function UpcomingMeetings() {
                 {day}
               </p>
               <ul className="space-y-0.5">
-                {dayEvents.map((event) => {
+                {dayEvents.map((event, index) => {
                   const project = projects.find((p) => p.id === event.projectId)
                   return (
-                    <li key={event.id}>
+                    <li key={event.id} className="rise-in" style={{ animationDelay: `${staggerDelay(index)}ms` }}>
                       <Link to={`/projects/${event.projectId}`} className={rowClass}>
                         {event.time ? (
                           <span className="text-[var(--color-muted-foreground)] tabular-nums w-12 shrink-0 text-sm pt-0.5">
@@ -116,7 +117,7 @@ export function RecentActivity() {
         <p className="text-sm text-[var(--color-muted-foreground)] py-6 text-center">No recent activity</p>
       ) : (
         <ul className="space-y-0.5">
-          {activities.map((activity) => {
+          {activities.map((activity, index) => {
             const content = (
               <>
                 <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] mt-2 shrink-0" />
@@ -133,7 +134,11 @@ export function RecentActivity() {
             )
 
             return (
-              <li key={activity.id}>
+              <li
+                key={activity.id}
+                className="rise-in"
+                style={{ animationDelay: `${staggerDelay(index)}ms` }}
+              >
                 {activity.projectId ? (
                   <Link to={`/projects/${activity.projectId}`} className={rowClass}>
                     {content}

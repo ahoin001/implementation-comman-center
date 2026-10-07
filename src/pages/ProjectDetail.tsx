@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Search } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { currentLaunchStage, isLaunchDone, isLaunchTracked, launchBoardProgress } from '@/lib/launchTemplate'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
@@ -18,9 +18,11 @@ import { Button } from '@/components/ui/Button'
 import { Panel } from '@/components/ui/Panel'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
 import { Avatar } from '@/components/ui/Avatar'
+import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const hydrated = useStore((s) => s.hydrated)
   const project = useStore((s) => s.getProject(id ?? ''))
   const memberFeatureDefinitions = useStore((s) => s.memberFeatureDefinitions)
   const profiles = useStore((s) => s.profiles)
@@ -44,12 +46,18 @@ export function ProjectDetailPage() {
   const updateProjectContact = useStore((s) => s.updateProjectContact)
   const updateProject = useStore((s) => s.updateProject)
 
+  if (!hydrated) {
+    return <LoadingState label="Opening project" />
+  }
+
   if (!project) {
     return (
-      <div className="text-center py-20">
-        <p className="text-[var(--color-muted-foreground)] mb-4">Project not found</p>
-        <Button onClick={() => navigate('/projects')}>Back to Projects</Button>
-      </div>
+      <EmptyState title="Project not found" icon={<Search className="h-5 w-5" />}>
+        <p>That project is gone, or the link is out of date.</p>
+        <div className="mt-5 flex justify-center">
+          <Button onClick={() => navigate('/projects')}>Back to Projects</Button>
+        </div>
+      </EmptyState>
     )
   }
 
@@ -90,7 +98,7 @@ export function ProjectDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <Panel pad="md" className="order-1 xl:col-start-1 xl:row-start-1">
+        <Panel pad="md" className="rise-in order-1 xl:col-start-1 xl:row-start-1">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <ProjectTitle
@@ -163,6 +171,7 @@ export function ProjectDetailPage() {
             onDeleteComment={(taskId, commentId) => deleteTaskComment(project.id, taskId, commentId)}
           />
 
+          <div className="rise-in" style={{ animationDelay: '80ms' }}>
           <MemberFeaturesPanel
             project={project}
             definitions={memberFeatureDefinitions}
@@ -173,10 +182,13 @@ export function ProjectDetailPage() {
             onDeleteDefinition={deleteMemberFeatureDefinition}
           />
           </div>
+          </div>
 
         <div className="contents xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:flex xl:flex-col xl:gap-4 xl:self-start">
-          <ClientDeliverablesPanel projectId={project.id} className="order-2 xl:order-none" />
-        <div className="order-4 space-y-4 xl:order-none">
+          <div className="rise-in order-2 xl:order-none" style={{ animationDelay: '40ms' }}>
+            <ClientDeliverablesPanel projectId={project.id} />
+          </div>
+        <div className="rise-in order-4 space-y-4 xl:order-none" style={{ animationDelay: '120ms' }}>
           <Panel pad="md">
             <p className="text-sm font-semibold text-[var(--color-ink)]">Who&apos;s on it</p>
             {crew.length === 0 ? (

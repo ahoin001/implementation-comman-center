@@ -14,6 +14,7 @@ import {
 } from '@/lib/progress'
 import { calculateHealth, getDaysRemaining, formatLaunchDate } from '@/lib/health'
 import { cn } from '@/lib/utils'
+import { staggerDelay } from '@/components/ui/Reveal'
 
 export function UpcomingLaunches() {
   const setActiveFilter = useStore((s) => s.setActiveFilter)
@@ -55,7 +56,7 @@ export function UpcomingLaunches() {
         </Link>
       ) : (
         <div className="space-y-0.5">
-          {projects.map((project) => {
+          {projects.map((project, index) => {
             const progress = calculateProgress(project)
             const health = calculateHealth(project)
             const launched = isProjectLaunchComplete(project)
@@ -67,7 +68,9 @@ export function UpcomingLaunches() {
               <Link
                 key={project.id}
                 to={`/projects/${project.id}`}
+                style={{ animationDelay: `${staggerDelay(index)}ms` }}
                 className={cn(
+                  'rise-in',
                   'flex items-center gap-3 rounded-[var(--radius-md)] px-2 py-2.5 -mx-2 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.99] group',
                   fullyWrapped
                     ? 'bg-[var(--color-success)]/[0.06] hover:bg-[var(--color-success)]/[0.1]'

@@ -18,6 +18,8 @@ import { EventFormModal } from '@/components/calendar/EventFormModal'
 import { CALENDAR_EVENT_LABELS, type CalendarEvent, type CalendarEventType } from '@/types'
 import { getProjectLabel } from '@/lib/calendar'
 import { cn } from '@/lib/utils'
+import { LoadingState } from '@/components/ui/EmptyState'
+import { staggerDelay } from '@/components/ui/Reveal'
 
 const eventColors: Record<CalendarEventType, string> = {
   kickoff: 'bg-blue-500',
@@ -41,6 +43,7 @@ export function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(toDateKey(new Date()))
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
 
+  const hydrated = useStore((s) => s.hydrated)
   const events = useStore((s) => s.calendarEvents)
   const addCalendarEvent = useStore((s) => s.addCalendarEvent)
   const updateCalendarEvent = useStore((s) => s.updateCalendarEvent)
@@ -110,7 +113,10 @@ export function CalendarPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {!hydrated ? (
+        <LoadingState label="Loading calendar" />
+      ) : (
+      <div className="rise-in grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <Button
@@ -217,14 +223,14 @@ export function CalendarPage() {
           <p className="text-xs text-[var(--color-muted-foreground)] mb-4">Click to edit or delete</p>
           <ul className="space-y-2 max-h-[520px] overflow-y-auto">
             {upcoming.length === 0 && (
-              <p className="text-sm text-[var(--color-muted-foreground)] py-6 text-center">
+              <p className="py-8 text-center text-sm text-[var(--color-ink-soft)]">
                 No events yet. Click a day on the calendar to add one.
               </p>
             )}
-            {upcoming.map((event) => {
+            {upcoming.map((event, index) => {
               const project = projects.find((p) => p.id === event.projectId)
               return (
-                <li key={event.id}>
+                <li key={event.id} className="rise-in" style={{ animationDelay: `${staggerDelay(index)}ms` }}>
                   <button
                     type="button"
                     onClick={() => openEdit(event)}
@@ -255,6 +261,7 @@ export function CalendarPage() {
           </ul>
         </Card>
       </div>
+      )}
 
       <EventFormModal
         open={modalOpen}

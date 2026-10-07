@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CheckSquare, GraduationCap, ListPlus, Trash2, X } from 'lucide-react'
+import { CheckSquare, FolderOpen, GraduationCap, ListPlus, Search, Star, Trash2, X } from 'lucide-react'
 import type { Project, ProjectFilter } from '@/types'
 import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
 import { ProjectCard } from '@/components/project/ProjectCard'
@@ -9,7 +9,8 @@ import { BulkAddProjectsModal } from '@/components/project/BulkAddProjectsModal'
 import { ProjectsStickyBoard } from '@/components/project/ProjectsStickyBoard'
 import { AttentionStrip } from '@/components/project/AttentionStrip'
 import { Button } from '@/components/ui/Button'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
+import { staggerDelay, useEntrance } from '@/components/ui/Reveal'
 import { Panel } from '@/components/ui/Panel'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
@@ -102,22 +103,26 @@ function ProjectGrid({
   selectedIds,
   onToggleSelect,
   emphasizeTrainingGap,
+  enter,
 }: {
   projects: Project[]
   selectMode: boolean
   selectedIds: Set<string>
   onToggleSelect: (id: string) => void
   emphasizeTrainingGap?: boolean
+  enter?: boolean
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {projects.map((project) => (
+      {projects.map((project, index) => (
         <div
           key={project.id}
           className={cn(
+            enter && 'rise-in',
             emphasizeTrainingGap &&
               'rounded-[calc(var(--radius-lg)+2px)] ring-1 ring-[var(--color-warning)]/40 ring-offset-2 ring-offset-[var(--color-background)]'
           )}
+          style={enter ? { animationDelay: `${staggerDelay(index)}ms` } : undefined}
         >
           <ProjectCard
             project={project}
@@ -137,6 +142,8 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
   const deleteProjects = useStore((s) => s.deleteProjects)
   const addNote = useStore((s) => s.addNote)
   const favoriteIds = useStore((s) => s.favoriteIds)
+  const hydrated = useStore((s) => s.hydrated)
+  const enter = useEntrance(hydrated)
 
   const [inProgressFirst, setInProgressFirst] = useState(true)
   const [groupTrainingGaps, setGroupTrainingGaps] = useState(readGroupTrainingToggle)
@@ -230,7 +237,9 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             {favoritesOnly ? 'My Projects' : 'Projects'}
           </h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">
-            {projects.length} implementation{projects.length !== 1 ? 's' : ''}
+            {hydrated
+              ? `${projects.length} implementation${projects.length !== 1 ? 's' : ''}`
+              : 'Loading implementations'}
             {activeFilter !== 'all' && (
               <span className="text-[var(--color-muted)]"> · {FILTER_LABELS[activeFilter]}</span>
             )}
@@ -353,7 +362,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
         </div>
       </div>
 
-      {!selectMode && (
+      {hydrated && !selectMode && (
         <>
           <AttentionStrip
             projects={activeProjects}
@@ -369,7 +378,9 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
         </>
       )}
 
-      {projects.length > 0 ? (
+      {!hydrated ? (
+        <LoadingState label="Loading projects" />
+      ) : projects.length > 0 ? (
         groupTrainingGaps && trainingGaps.length > 0 ? (
           <div className="space-y-8">
             <section className="space-y-3">
@@ -392,6 +403,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
                 emphasizeTrainingGap
+                enter={enter}
               />
             </section>
 
@@ -411,6 +423,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
                   selectMode={selectMode}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
+                  enter={enter}
                 />
               </section>
             )}
@@ -421,26 +434,48 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
+            enter={enter}
           />
         )
       ) : (
-        <EmptyState>
-          <p className="mb-4 text-[var(--color-ink-soft)]">
+        <EmptyState
+          title={
+            favoritesOnly
+              ? 'No starred projects'
+              : activeFilter === 'all'
+                ? 'No projects yet'
+                : 'Nothing matches'
+          }
+          icon={
+            favoritesOnly ? (
+              <Star className="h-5 w-5" />
+            ) : activeFilter === 'all' ? (
+              <FolderOpen className="h-5 w-5" />
+            ) : (
+              <Search className="h-5 w-5" />
+            )
+          }
+        >
+          <p>
             {favoritesOnly
               ? 'Star a project to keep it here.'
-              : 'No projects match this filter.'}
+              : activeFilter === 'all'
+                ? 'Add the implementations you are running.'
+                : 'Try another filter, or clear this one to see the full list.'}
           </p>
-          {!favoritesOnly && (
-            <Button variant="secondary" onClick={() => setBulkAddOpen(true)}>
-              <ListPlus className="h-4 w-4" />
-              Bulk Add Projects
-            </Button>
-          )}
-          {favoritesOnly && activeFilter !== 'all' && (
-            <Button variant="secondary" onClick={() => setActiveFilter('all')}>
-              Clear filter
-            </Button>
-          )}
+          <div className="mt-5 flex justify-center">
+            {!favoritesOnly && activeFilter === 'all' && (
+              <Button variant="secondary" onClick={() => setBulkAddOpen(true)}>
+                <ListPlus className="h-4 w-4" />
+                Bulk Add Projects
+              </Button>
+            )}
+            {activeFilter !== 'all' && (
+              <Button variant="secondary" onClick={() => setActiveFilter('all')}>
+                Clear filter
+              </Button>
+            )}
+          </div>
         </EmptyState>
       )}
 

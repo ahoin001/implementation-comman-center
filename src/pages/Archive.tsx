@@ -1,19 +1,23 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
-import { ArchiveRestore } from 'lucide-react'
+import { Archive, ArchiveRestore, Search } from 'lucide-react'
 import { useState } from 'react'
 import { useArchivedProjects, searchProjects } from '@/hooks/useProjects'
 import { ProgressRing } from '@/components/project/ProgressRing'
 import { calculateProgress, isLaunchFullyWrapped } from '@/lib/progress'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
+import { staggerDelay, useEntrance } from '@/components/ui/Reveal'
 import { Panel } from '@/components/ui/Panel'
 import { useStore } from '@/store/useStore'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
+import { cn } from '@/lib/utils'
 
 export function ArchivePage() {
   const archived = useArchivedProjects()
+  const hydrated = useStore((s) => s.hydrated)
+  const enter = useEntrance(hydrated)
   const unarchiveProject = useStore((s) => s.unarchiveProject)
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
@@ -39,16 +43,26 @@ export function ArchivePage() {
         />
       </div>
 
-      {projects.length === 0 ? (
-        <EmptyState>
-          <p className="text-[var(--color-ink-soft)]">No archived projects yet.</p>
+      {!hydrated ? (
+        <LoadingState label="Loading archive" />
+      ) : projects.length === 0 ? (
+        <EmptyState
+          title={query ? 'Nothing matches' : 'Nothing archived'}
+          icon={query ? <Search className="h-5 w-5" /> : <Archive className="h-5 w-5" />}
+        >
+          <p>
+            {query
+              ? 'Try another name, or clear the search.'
+              : 'Finished implementations land here when you archive them.'}
+          </p>
         </EmptyState>
       ) : (
         <div className="space-y-3">
-          {projects.map((project) => (
+          {projects.map((project, index) => (
             <Panel
               key={project.id}
-              className="flex items-center gap-4 p-4"
+              className={cn('flex items-center gap-4 p-4', enter && 'rise-in')}
+              style={enter ? { animationDelay: `${staggerDelay(index)}ms` } : undefined}
             >
               <Link
                 to={`/projects/${project.id}`}

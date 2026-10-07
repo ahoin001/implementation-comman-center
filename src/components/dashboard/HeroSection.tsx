@@ -4,6 +4,7 @@ import type { ProjectFilter } from '@/types'
 import { useStore } from '@/store/useStore'
 import { useDashboardStats } from '@/hooks/useProjects'
 import { getGreeting, cn } from '@/lib/utils'
+import { staggerDelay } from '@/components/ui/Reveal'
 
 const statItems: {
   label: string
@@ -36,12 +37,14 @@ export function HeroSection() {
       </h1>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {statItems.map(({ label, key, icon: Icon, filter }) => (
+        {statItems.map(({ label, key, icon: Icon, filter }, index) => (
           <button
             key={label}
             type="button"
             onClick={() => openProjects(filter)}
+            style={{ animationDelay: `${staggerDelay(index)}ms` }}
             className={cn(
+              'rise-in',
               'float-panel p-4 text-left group',
               'transition-[transform,background-color] duration-150 ease-[var(--ease-out)]',
               'hover:bg-[var(--color-field)] active:scale-[0.98]',

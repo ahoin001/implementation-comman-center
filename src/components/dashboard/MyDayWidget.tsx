@@ -6,6 +6,7 @@ import { useMyDayActions } from '@/hooks/useProjects'
 import { useStore } from '@/store/useStore'
 import type { ProjectHealth } from '@/types'
 import { cn } from '@/lib/utils'
+import { staggerDelay } from '@/components/ui/Reveal'
 
 const actionIcons: Record<string, typeof Rocket> = {
   Launch: Rocket,
@@ -41,11 +42,11 @@ export function MyDayWidget() {
       </CardHeader>
 
       <ul className="space-y-1">
-        {actions.map(({ projectId, projectName, action, health }) => {
+        {actions.map(({ projectId, projectName, action, health }, index) => {
           const Icon = getActionIcon(action)
           const isTraining = /training|smartway/i.test(action)
           return (
-            <li key={projectId}>
+            <li key={projectId} className="rise-in" style={{ animationDelay: `${staggerDelay(index)}ms` }}>
               <Link
                 to={`/projects/${projectId}`}
                 className="flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-3 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99] group"

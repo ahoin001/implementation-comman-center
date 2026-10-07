@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, MessageSquare, Search, Trash2 } from 'lucide-react'
 import type { LaunchTask, Profile, Project } from '@/types'
@@ -24,6 +24,7 @@ import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { LaunchPlanSheet } from '@/components/project/LaunchPlanSheet'
 import { taskMarkClass, taskStatusTriggerClass, taskTitleClass } from '@/components/project/taskGlance'
+import { staggerDelay, useEntrance } from '@/components/ui/Reveal'
 
 type TaskScope = 'all' | 'open' | 'mine'
 type TaskOwner = 'any' | 'client' | 'webscribble'
@@ -120,6 +121,7 @@ export function LaunchBoard({
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [openGroupKeys, setOpenGroupKeys] = useState<string[] | null>(null)
+  const enter = useEntrance()
 
   const names = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.displayName])), [profiles])
   const toggleOpen = useCallback((id: string) => {
@@ -240,8 +242,12 @@ export function LaunchBoard({
       ) : layout === 'checklist' ? (
         <div className="space-y-2.5">
           {shownGroups.map(({ group, rows, done, total }, index) => (
-            <GroupPanel
+            <div
               key={group.key}
+              className={cn(enter && 'rise-in')}
+              style={enter ? { animationDelay: `${staggerDelay(index)}ms` } : undefined}
+            >
+            <GroupPanel
               title={group.title}
               phase={phaseKey === null ? phaseTitle(group.phaseKey) : undefined}
               done={done}
@@ -280,6 +286,7 @@ export function LaunchBoard({
                 )
               )}
             </GroupPanel>
+            </div>
           ))}
         </div>
       ) : null}
@@ -341,6 +348,8 @@ function checklistItems(rows: LaunchTask[]): Array<
   return items
 }
 
+const EXPAND_MS = 280
+
 function Expand({
   open,
   reduce,
@@ -350,42 +359,83 @@ function Expand({
   reduce: boolean
   children: ReactNode
 }) {
+  const innerRef = useRef<HTMLDivElement>(null)
+  const skipEnter = useRef(open)
   const [shown, setShown] = useState(open)
-  const [expanded, setExpanded] = useState(open)
+  const [height, setHeight] = useState<number | 'auto'>(open ? 'auto' : 0)
+  const [instant, setInstant] = useState(false)
 
-  useEffect(() => {
-    if (open) {
-      setShown(true)
-      if (reduce) {
-        setExpanded(true)
-        return
-      }
-      const frame = requestAnimationFrame(() => setExpanded(true))
-      return () => cancelAnimationFrame(frame)
-    }
+  useLayoutEffect(() => {
     if (reduce) {
-      setExpanded(false)
-      setShown(false)
+      setShown(open)
+      setHeight(open ? 'auto' : 0)
+      setInstant(true)
       return
     }
-    setExpanded(false)
+
+    if (open) {
+      setShown(true)
+      return
+    }
+
+    const el = innerRef.current
+    if (!el) {
+      setShown(false)
+      setHeight(0)
+      return
+    }
+
+    setInstant(true)
+    setHeight(el.scrollHeight)
+    let innerFrame = 0
+    const frame = requestAnimationFrame(() => {
+      setInstant(false)
+      innerFrame = requestAnimationFrame(() => setHeight(0))
+    })
+    const timer = window.setTimeout(() => {
+      setShown(false)
+      setHeight(0)
+    }, EXPAND_MS)
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelAnimationFrame(innerFrame)
+      window.clearTimeout(timer)
+    }
   }, [open, reduce])
+
+  useLayoutEffect(() => {
+    if (!open || reduce || !shown) return
+    if (skipEnter.current) {
+      skipEnter.current = false
+      setHeight('auto')
+      return
+    }
+    const el = innerRef.current
+    if (!el) return
+    setInstant(true)
+    setHeight(0)
+    let innerFrame = 0
+    const frame = requestAnimationFrame(() => {
+      const measured = innerRef.current?.scrollHeight ?? 0
+      setInstant(false)
+      innerFrame = requestAnimationFrame(() => setHeight(measured))
+    })
+    const timer = window.setTimeout(() => setHeight('auto'), EXPAND_MS)
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelAnimationFrame(innerFrame)
+      window.clearTimeout(timer)
+    }
+  }, [open, reduce, shown])
 
   if (!shown) return null
 
   return (
     <div
-      className={cn(
-        'grid',
-        !reduce && 'transition-[grid-template-rows,opacity] duration-300 ease-[var(--ease-out)]',
-        expanded ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0'
-      )}
-      onTransitionEnd={(event) => {
-        if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows') return
-        if (!open) setShown(false)
-      }}
+      className={cn('overflow-hidden', !open && 'pointer-events-none', !instant && !reduce && 'expand-panel')}
+      style={{ height: height === 'auto' ? 'auto' : height }}
     >
-      <div className="min-h-0 overflow-hidden">{children}</div>
+      <div ref={innerRef}>{children}</div>
     </div>
   )
 }
