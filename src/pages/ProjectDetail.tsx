@@ -1,8 +1,10 @@
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useLayoutEffect } from 'react'
+import { useParams, Link, useNavigate, useLocation, useViewTransitionState } from 'react-router-dom'
 import { ArrowLeft, Search } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { currentLaunchStage, isLaunchDone, isLaunchTracked, launchBoardProgress } from '@/lib/launchTemplate'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
+import { projectListPath } from '@/lib/projectGlance'
 import { ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { LaunchBoard } from '@/components/project/LaunchBoard'
@@ -23,6 +25,13 @@ import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const heroTransition = useViewTransitionState(id ? `/projects/${id}` : '/projects')
+
+  useLayoutEffect(() => {
+    const main = document.querySelector('main.main')
+    if (main instanceof HTMLElement) main.scrollTop = 0
+  }, [id])
   const hydrated = useStore((s) => s.hydrated)
   const project = useStore((s) => s.getProject(id ?? ''))
   const memberFeatureDefinitions = useStore((s) => s.memberFeatureDefinitions)
@@ -89,7 +98,11 @@ export function ProjectDetailPage() {
     <div className="screen">
       <div className="icc-chrome card-w flex flex-wrap items-center justify-between gap-3">
         <Link
-          to={project.archived ? '/archive' : '/projects'}
+          to={projectListPath(
+            Boolean(project.archived),
+            (location.state as { from?: string } | null)?.from
+          )}
+          viewTransition
           className="eyebrow text-[var(--ink-3)] hover:text-[var(--ink)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -99,7 +112,14 @@ export function ProjectDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <Panel pad="md" className="rise order-1 xl:col-start-1 xl:row-start-1">
+        <Panel
+          pad="md"
+          className={
+            heroTransition
+              ? 'rise project-hero vt-project order-1 xl:col-start-1 xl:row-start-1'
+              : 'rise project-hero order-1 xl:col-start-1 xl:row-start-1'
+          }
+        >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <ProjectTitle

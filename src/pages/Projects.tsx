@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { CheckSquare, FolderOpen, GraduationCap, ListPlus, Search, Star, Trash2, X } from 'lucide-react'
-import type { Project, ProjectFilter } from '@/types'
+import { CheckSquare, FolderOpen, ListPlus, Search, Star, Trash2, X } from 'lucide-react'
+import type { Project, ProjectFilter, ProjectLayout } from '@/types'
 import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
 import { ProjectCard } from '@/components/project/ProjectCard'
 import { NewProjectButton } from '@/components/project/NewProjectButton'
@@ -12,24 +12,15 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
 import { FilterChip as Chip } from '@/components/ui/FilterChip'
 import { ScreenHead } from '@/components/ui/ScreenHead'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { Toggle } from '@/components/ui/Toggle'
 import { Panel } from '@/components/ui/Panel'
 import { Workbench } from '@/components/ui/Workbench'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
-import { isLaunchedWithoutTraining } from '@/lib/progress'
-import { cn } from '@/lib/utils'
+import { useProjectListScroll } from '@/hooks/useProjectListScroll'
+import { groupProjects } from '@/lib/projectGlance'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
-
-const GROUP_TRAINING_KEY = 'icc-projects-group-training'
-
-function readGroupTrainingToggle(): boolean {
-  try {
-    return sessionStorage.getItem(GROUP_TRAINING_KEY) === '1'
-  } catch {
-    return false
-  }
-}
 
 function FilterChip({
   filter,
@@ -49,33 +40,27 @@ function FilterChip({
 
 function ProjectGrid({
   projects,
+  layout,
   selectMode,
   selectedIds,
   onToggleSelect,
-  emphasizeTrainingGap,
-  listKey,
 }: {
   projects: Project[]
+  layout: ProjectLayout
   selectMode: boolean
   selectedIds: Set<string>
   onToggleSelect: (id: string) => void
-  emphasizeTrainingGap?: boolean
-  listKey?: string
 }) {
   return (
-    <div key={listKey} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sy-stagger">
+    <div className={layout === 'list' ? 'project-list' : 'project-board'}>
       {projects.map((project) => (
-        <div
+        <ProjectCard
           key={project.id}
-          className={cn(emphasizeTrainingGap && 'rounded-[28px] ring-1 ring-[var(--amber)]/40')}
-        >
-          <ProjectCard
-            project={project}
-            selectable={selectMode}
-            selected={selectedIds.has(project.id)}
-            onToggleSelect={() => onToggleSelect(project.id)}
-          />
-        </div>
+          project={project}
+          selectable={selectMode}
+          selected={selectedIds.has(project.id)}
+          onToggleSelect={() => onToggleSelect(project.id)}
+        />
       ))}
     </div>
   )
@@ -88,10 +73,12 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
   const addNote = useStore((s) => s.addNote)
   const favoriteIds = useStore((s) => s.favoriteIds)
   const hydrated = useStore((s) => s.hydrated)
+  const projectLayout = useStore((s) => s.projectLayout)
+  const setProjectLayout = useStore((s) => s.setProjectLayout)
   const listKey = `${favoritesOnly ? 'mine' : 'all'}:${activeFilter}`
+  useProjectListScroll(listKey)
 
   const [inProgressFirst, setInProgressFirst] = useState(true)
-  const [groupTrainingGaps, setGroupTrainingGaps] = useState(readGroupTrainingToggle)
   const listed = useFilteredProjects({ inProgressFirst })
   const projects = useMemo(
     () => (favoritesOnly ? listed.filter((project) => favoriteIds.includes(project.id)) : listed),
@@ -110,19 +97,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
     [projects, selectedIds]
   )
   const taskFilterActive = TASK_FILTERS.includes(activeFilter)
-
-  const { trainingGaps, otherProjects } = useMemo(() => {
-    if (!groupTrainingGaps) {
-      return { trainingGaps: [] as Project[], otherProjects: projects }
-    }
-    const gaps: Project[] = []
-    const others: Project[] = []
-    for (const p of projects) {
-      if (isLaunchedWithoutTraining(p)) gaps.push(p)
-      else others.push(p)
-    }
-    return { trainingGaps: gaps, otherProjects: others }
-  }, [projects, groupTrainingGaps])
+  const bands = useMemo(() => groupProjects(projects), [projects])
 
   const exitSelectMode = () => {
     setSelectMode(false)
@@ -165,15 +140,6 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
     setActiveFilter(activeFilter === filter && filter !== 'all' ? 'all' : filter)
   }
 
-  const setGroupTraining = (on: boolean) => {
-    setGroupTrainingGaps(on)
-    try {
-      sessionStorage.setItem(GROUP_TRAINING_KEY, on ? '1' : '0')
-    } catch {
-      /* ignore */
-    }
-  }
-
   return (
     <div className="screen">
       <ScreenHead
@@ -182,7 +148,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
           hydrated
             ? `${projects.length} implementation${projects.length !== 1 ? 's' : ''}${
                 activeFilter !== 'all' ? ` · ${FILTER_LABELS[activeFilter]}` : ''
-              }${groupTrainingGaps && trainingGaps.length > 0 ? ` · ${trainingGaps.length} need training` : ''}`
+              }`
             : 'Loading implementations'
         }
       >
@@ -259,13 +225,18 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
         </div>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <SegmentedControl
+            label="Project layout"
+            value={projectLayout}
+            onChange={setProjectLayout}
+            options={[
+              { id: 'grid', label: 'Grid' },
+              { id: 'list', label: 'List' },
+            ]}
+          />
           <label className="inline-flex items-center gap-2.5 text-sm text-[var(--ink)]">
             <Toggle checked={inProgressFirst} onChange={setInProgressFirst} label="In progress first" />
             In progress first
-          </label>
-          <label className="inline-flex items-center gap-2.5 text-sm text-[var(--ink)]">
-            <Toggle checked={groupTrainingGaps} onChange={setGroupTraining} label="Group training gaps" />
-            Group training gaps
           </label>
         </div>
 
@@ -311,62 +282,26 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
       {!hydrated ? (
         <LoadingState label="Loading projects" />
       ) : projects.length > 0 ? (
-        groupTrainingGaps && trainingGaps.length > 0 ? (
-          <div className="space-y-8">
-            <section className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="tag review">
-                  <GraduationCap className="h-3.5 w-3.5" />
-                  Launched · Needs training
-                </span>
-                <span className="text-xs tabular-nums text-[var(--color-muted-foreground)]">
-                  {trainingGaps.length}
-                </span>
-                <div className="h-px flex-1 min-w-[2rem] bg-[var(--color-warning)]/25" />
-              </div>
-              <p className="text-[11px] text-[var(--color-muted-foreground)] -mt-1">
-                Site is live; SmartWay Training still open
-              </p>
+        <div className="project-stages">
+          {bands.map((band) => (
+            <section key={band.id} className="project-band" aria-labelledby={`band-${listKey}-${band.id}`}>
+              <header className="project-band-head">
+                <h2 id={`band-${listKey}-${band.id}`} className="project-band-label">
+                  {band.label}
+                </h2>
+                <span className="project-band-count">{band.projects.length}</span>
+                <span className="project-band-rule" />
+              </header>
               <ProjectGrid
-                projects={trainingGaps}
+                projects={band.projects}
+                layout={projectLayout}
                 selectMode={selectMode}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
-                emphasizeTrainingGap
-                listKey={listKey}
               />
             </section>
-
-            {otherProjects.length > 0 && (
-              <section className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
-                    Other projects
-                  </span>
-                  <span className="text-xs tabular-nums text-[var(--color-muted-foreground)]">
-                    {otherProjects.length}
-                  </span>
-                  <div className="h-px flex-1 min-w-[2rem] bg-[var(--color-border)]" />
-                </div>
-                <ProjectGrid
-                  projects={otherProjects}
-                  selectMode={selectMode}
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                  listKey={listKey}
-                />
-              </section>
-            )}
-          </div>
-        ) : (
-          <ProjectGrid
-            projects={projects}
-            selectMode={selectMode}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-            listKey={listKey}
-          />
-        )
+          ))}
+        </div>
       ) : (
         <EmptyState
           title={

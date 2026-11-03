@@ -46,7 +46,7 @@ export function ProjectCard({
       <div className="project-card-main">
         <ProjectAvatar name={project.name} abbreviation={project.abbreviation} />
         <div className="project-card-copy">
-          <h2>{project.name}</h2>
+          <h3>{project.name}</h3>
           <p>{glance.stage}</p>
           <span className={cn('tag', signalTag[glance.signal.tone])} title={glance.signal.label}>
             <span>{glance.signal.label}</span>

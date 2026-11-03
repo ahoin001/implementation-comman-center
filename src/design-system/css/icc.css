@@ -613,8 +613,11 @@ button.project-card {
   contain-intrinsic-size: auto 168px;
 }
 
-.project-card.vt-project {
+.vt-project {
   view-transition-name: project-hero;
+}
+
+.project-card.vt-project {
   content-visibility: visible;
 }
 
@@ -634,7 +637,7 @@ button.project-card {
   gap: 2px;
 }
 
-.project-card-copy h2 {
+.project-card-copy h3 {
   max-width: 100%;
   margin: 0;
   font-size: 15px;
@@ -663,6 +666,7 @@ button.project-card {
 }
 
 .project-card .tag span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -672,10 +676,6 @@ button.project-card {
   position: absolute;
   top: 18px;
   right: 18px;
-}
-
-.project-card {
-  position: relative;
 }
 
 .project-card-meta {
@@ -747,8 +747,22 @@ button.project-card {
   box-shadow: inset 0 1px 0 var(--hair), 0 0 0 4px rgba(109, 123, 255, 0.15);
 }
 
-.project-card.is-selectable .project-card-copy {
-  padding-right: 28px;
+.project-card.is-selectable {
+  height: 132px;
+  contain-intrinsic-size: auto 132px;
+}
+
+.project-list .project-card-main {
+  flex: 1;
+  padding-right: 0;
+}
+
+.project-list .project-card-meta {
+  order: 2;
+}
+
+.project-list .project-card-aside {
+  order: 3;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -787,6 +801,11 @@ button.project-card {
 .project-list .project-card-aside {
   position: static;
   margin-left: 12px;
+}
+
+.project-list .project-card.is-selected {
+  border-color: #a9b3ff;
+  box-shadow: inset 0 1px 0 var(--hair), 0 0 0 4px rgba(109, 123, 255, 0.15);
 }
 
 :root[data-theme='dark'] .project-list .project-card {
