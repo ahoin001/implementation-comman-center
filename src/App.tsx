@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { IconSprite } from '@/design-system/react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ThemeProvider } from '@/components/ThemeProvider'
@@ -12,33 +12,34 @@ import { ArchivePage } from '@/pages/Archive'
 import { SettingsPage } from '@/pages/Settings'
 import { ClientIntakePage } from '@/pages/ClientIntake'
 
+const router = createBrowserRouter([
+  { path: '/c/:token', element: <ClientIntakePage /> },
+  {
+    element: (
+      <AuthGate>
+        <SupabaseSync>
+          <AppLayout />
+        </SupabaseSync>
+      </AuthGate>
+    ),
+    children: [
+      { index: true, element: <Navigate to="/projects" replace /> },
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'projects', element: <ProjectsPage /> },
+      { path: 'my-projects', element: <ProjectsPage favoritesOnly /> },
+      { path: 'projects/:id', element: <ProjectDetailPage /> },
+      { path: 'calendar', element: <CalendarPage /> },
+      { path: 'archive', element: <ArchivePage /> },
+      { path: 'settings', element: <SettingsPage /> },
+    ],
+  },
+])
+
 export default function App() {
   return (
     <ThemeProvider>
       <IconSprite />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/c/:token" element={<ClientIntakePage />} />
-          <Route
-            element={
-              <AuthGate>
-                <SupabaseSync>
-                  <AppLayout />
-                </SupabaseSync>
-              </AuthGate>
-            }
-          >
-            <Route index element={<Navigate to="/projects" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="projects" element={<ProjectsPage />} />
-            <Route path="my-projects" element={<ProjectsPage favoritesOnly />} />
-            <Route path="projects/:id" element={<ProjectDetailPage />} />
-            <Route path="calendar" element={<CalendarPage />} />
-            <Route path="archive" element={<ArchivePage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </ThemeProvider>
   )
 }
