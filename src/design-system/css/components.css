@@ -71,8 +71,10 @@ symbol .a { fill: var(--ac); stroke: none; }
 
 /* ---------- form controls ---------- */
 .check { appearance: none; width: 20px; height: 20px; flex: none; margin: 0; border-radius: 7px; border: 1.5px solid #c9ced8; background: #fff; cursor: pointer; display: grid; place-items: center; transition: background 0.2s, border-color 0.2s; }
-.check:checked { background: linear-gradient(135deg, #6d7bff, #a77bff); border-color: transparent; }
-.check:checked::after { content: ''; width: 9px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+.check:checked,
+.check.on { background: linear-gradient(135deg, #6d7bff, #a77bff); border-color: transparent; }
+.check:checked::after,
+.check.on::after { content: ''; width: 9px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
 .seg { display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); }
 .seg button { height: 32px; padding: 0 14px; border-radius: 999px; border: 0; background: transparent; font-size: 13px; font-weight: 550; color: var(--ink-2); cursor: pointer; }
 .seg button[aria-pressed='true'] { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(15, 18, 24, 0.08), 0 4px 12px rgba(15, 18, 24, 0.08); }
@@ -235,6 +237,8 @@ symbol .a { fill: var(--ac); stroke: none; }
 :root[data-theme='dark'] .btn.ghost { box-shadow: none; }
 :root[data-theme='dark'] .btn.ghost:hover { background: rgba(255, 255, 255, 0.06); }
 :root[data-theme='dark'] .check { border-color: rgba(255, 255, 255, 0.26); background: rgba(255, 255, 255, 0.04); }
+:root[data-theme='dark'] .check:checked,
+:root[data-theme='dark'] .check.on { background: linear-gradient(135deg, #6d7bff, #a77bff); border-color: transparent; }
 :root[data-theme='dark'] .seg { background: var(--surface-2); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3); }
 :root[data-theme='dark'] .seg button[aria-pressed='true'] { background: var(--raised-2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25); }
 :root[data-theme='dark'] .toggle { background: #3a3a40; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35); }

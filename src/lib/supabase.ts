@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -17,7 +17,7 @@ if (!isSupabaseConfigured()) {
   console.warn('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — Supabase sync disabled')
 }
 
-export const supabase: SupabaseClient = createClient(
+export const supabase = createClient(
   url || 'https://example.supabase.co',
   anonKey || 'public-anon-key',
   {

@@ -423,6 +423,9 @@ export const HEALTH_LABELS: Record<ProjectHealth, string> = {
   complete: 'Launched',
 }
 
+/** Projects board density. Client UI only — not synced. */
+export type ProjectLayout = 'grid' | 'list'
+
 export type ProjectFilter =
   | 'all'
   | 'launching_soon'

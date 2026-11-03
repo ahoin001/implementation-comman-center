@@ -6,6 +6,7 @@ import type {
   AppSettings,
   WaitingOn,
   ProjectFilter,
+  ProjectLayout,
   ProjectLinks,
   Contact,
   IntegrationsConfig,
@@ -49,6 +50,8 @@ interface StoreState {
   currentUserId: string | null
   searchQuery: string
   activeFilter: ProjectFilter
+  projectLayout: ProjectLayout
+  projectListScroll: Record<string, number>
   hydrated: boolean
   syncing: boolean
   syncError: string | null
@@ -57,6 +60,8 @@ interface StoreState {
   refresh: () => Promise<void>
   setSearchQuery: (query: string) => void
   setActiveFilter: (filter: ProjectFilter) => void
+  setProjectLayout: (layout: ProjectLayout) => void
+  setProjectListScroll: (key: string, y: number) => void
   updateSettings: (settings: Partial<AppSettings>) => void
 
   getProject: (id: string) => Project | undefined
@@ -129,6 +134,17 @@ function logSyncError(err: unknown) {
   console.error(err)
 }
 
+const PROJECT_LAYOUT_KEY = 'icc-project-layout'
+
+function readProjectLayout(): ProjectLayout {
+  if (typeof sessionStorage === 'undefined') return 'grid'
+  try {
+    return sessionStorage.getItem(PROJECT_LAYOUT_KEY) === 'list' ? 'list' : 'grid'
+  } catch {
+    return 'grid'
+  }
+}
+
 function applyLaunchPatch(
   task: LaunchTask,
   patch: {
@@ -158,6 +174,8 @@ export const useStore = create<StoreState>()((set, get) => ({
   currentUserId: null,
   searchQuery: '',
   activeFilter: 'all',
+  projectLayout: readProjectLayout(),
+  projectListScroll: {},
   hydrated: false,
   syncing: false,
   syncError: null,
@@ -215,6 +233,18 @@ export const useStore = create<StoreState>()((set, get) => ({
 
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
+  setProjectLayout: (projectLayout) => {
+    try {
+      sessionStorage.setItem(PROJECT_LAYOUT_KEY, projectLayout)
+    } catch {
+      /* ignore private mode */
+    }
+    set({ projectLayout })
+  },
+  setProjectListScroll: (key, y) =>
+    set((state) => ({
+      projectListScroll: { ...state.projectListScroll, [key]: y },
+    })),
 
   updateSettings: (updates) => {
     const settings = {

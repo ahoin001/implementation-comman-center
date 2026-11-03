@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { Check } from 'lucide-react'
+import { motion as motionTokens } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 interface ProgressRingProps {
@@ -63,11 +64,7 @@ export function ProgressRing({
           // Don't replay empty→full on every mount (causes flicker with shared layout)
           initial={false}
           animate={{ strokeDashoffset: offset }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0 }
-              : { duration: 0.25, ease: [0.23, 1, 0.32, 1] }
-          }
+          transition={shouldReduceMotion ? { duration: 0 } : motionTokens.progress}
         />
       </svg>
       {showLabel &&

@@ -43,6 +43,11 @@
   --ui: 'Source Sans 3 Variable', 'Source Sans 3', system-ui, sans-serif;
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Duration ladder from MOTION.md. New motion reads these instead of raw times. */
+  --dur-color: 200ms;
+  --dur-lift: 350ms;
+  --dur-morph: 400ms;
+  --dur-rise: 700ms;
   --radius: 28px;
 
   --titlebar-h: 44px;

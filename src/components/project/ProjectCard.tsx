@@ -1,27 +1,13 @@
 import { useState } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
-import { Link } from 'react-router-dom'
-import { Check, Pin, Star } from 'lucide-react'
+import { Link, useLocation, useViewTransitionState } from 'react-router-dom'
+import { Star } from 'lucide-react'
 import type { Project } from '@/types'
-import { NOTE_SEVERITY_LABELS, WAITING_ON_LABELS, isClientWaiting } from '@/types'
-import {
-  calculateProgress,
-  getCurrentStageLabel,
-  getPrimaryOpenTask,
-  hasOpenFlexibleTasks,
-  isLaunchFullyWrapped,
-  isProjectLaunchComplete,
-} from '@/lib/progress'
-import { currentLaunchStage, launchBoardProgress } from '@/lib/launchTemplate'
+import { WAITING_ON_LABELS } from '@/types'
+import { formatLaunchDate, getDaysRemaining } from '@/lib/health'
+import { getProjectGlance, type CardSignalTone } from '@/lib/projectGlance'
 import { useStore } from '@/store/useStore'
-import { calculateHealth, getDaysRemaining, formatLaunchDate } from '@/lib/health'
-import { getTopStickyNote, noteSeverity } from '@/lib/projectNotes'
 import { ProgressRing } from './ProgressRing'
-import { ProjectAvatar, ProjectTitle } from './ProjectIdentity'
-import { HealthBadge } from '@/components/ui/HealthBadge'
-import { RequiredDocsBadge } from '@/components/project/RequiredDocsBadge'
-import { MissingCredentialsBadge } from '@/components/project/MissingCredentialsBadge'
-import { FlexibleFollowUpBadges } from '@/components/project/FlexibleFollowUpBadges'
+import { ProjectAvatar } from './ProjectIdentity'
 import { cn } from '@/lib/utils'
 
 interface ProjectCardProps {
@@ -31,18 +17,11 @@ interface ProjectCardProps {
   onToggleSelect?: () => void
 }
 
-const sharedTransition = { type: 'spring' as const, bounce: 0, duration: 0.35 }
-
-const stickyBorder: Record<string, string> = {
-  info: 'border-[var(--color-accent)]/50',
-  warning: 'border-[var(--color-warning)]',
-  urgent: 'border-[var(--color-danger)]',
-}
-
-const stickyBadge: Record<string, string> = {
-  info: 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]',
-  warning: 'bg-[var(--color-warning)]/15 text-[var(--color-warning)]',
-  urgent: 'bg-[var(--color-danger)]/10 text-[var(--color-danger)]',
+const signalTag: Record<CardSignalTone, string> = {
+  danger: 'keep',
+  warning: 'review',
+  info: '',
+  calm: '',
 }
 
 export function ProjectCard({
@@ -51,71 +30,52 @@ export function ProjectCard({
   selected = false,
   onToggleSelect,
 }: ProjectCardProps) {
+  const location = useLocation()
+  const to = `/projects/${project.id}`
+  const transitioning = useViewTransitionState(to)
   const starred = useStore((s) => s.favoriteIds.includes(project.id))
   const toggleFavorite = useStore((s) => s.toggleFavorite)
-  const reduceMotion = useReducedMotion()
   const [starPop, setStarPop] = useState(0)
-  const board = project.launchTasks ?? []
-  const progress = board.length ? launchBoardProgress(board) : calculateProgress(project)
-  const health = calculateHealth(project)
-  const launched = board.length
-    ? board.some((task) => task.key === 'launch_career_center' && task.status === 'complete')
-    : isProjectLaunchComplete(project)
-  const fullyWrapped = board.length ? progress === 100 : isLaunchFullyWrapped(project)
-  const flexOpen = hasOpenFlexibleTasks(project)
-  const stageLabel = board.length ? currentLaunchStage(board) : getCurrentStageLabel(project)
-  const openTask = getPrimaryOpenTask(project)
+  const glance = getProjectGlance(project)
   const daysRemaining = getDaysRemaining(project.launchDate)
-  const sticky = selectable ? null : getTopStickyNote(project)
-  const id = project.id
-  const enableShared = !selectable
+  const showCountdown = !glance.launched && daysRemaining !== null && daysRemaining >= 0
+  const showWaiting = project.waitingOn !== 'none'
 
-  const statusLine = (() => {
-    if (fullyWrapped) return 'Launched · All set'
-    if (launched && openTask) {
-      return openTask.status === 'blocked'
-        ? `${openTask.label} — blocked`
-        : openTask.label
-    }
-    if (openTask) {
-      return openTask.status === 'blocked'
-        ? `${openTask.label} — blocked`
-        : openTask.label
-    }
-    return 'All tasks complete'
-  })()
+  const body = (
+    <>
+      <div className="project-card-main">
+        <ProjectAvatar name={project.name} abbreviation={project.abbreviation} />
+        <div className="project-card-copy">
+          <h2>{project.name}</h2>
+          <p>{glance.stage}</p>
+          <span className={cn('tag', signalTag[glance.signal.tone])} title={glance.signal.label}>
+            <span>{glance.signal.label}</span>
+          </span>
+        </div>
+      </div>
 
-  const cardBody = (
-    <motion.article
-      layoutId={enableShared ? `project-card-${id}` : undefined}
-      transition={sharedTransition}
-      className={cn(
-        'card-w press p-5 relative',
-        'transition-[box-shadow,transform] duration-200 ease-[var(--ease)]',
-        selectable && 'cursor-pointer',
-        selected && 'shadow-[0_0_0_1.5px_#a9b3ff,0_6px_16px_rgba(109,123,255,0.16)]',
-        launched && flexOpen && 'ring-1 ring-[var(--amber)]/35'
-      )}
-    >
-      {selectable && (
-        <div
-          className={cn(
-            'absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-md border transition-colors duration-150',
-            selected
-              ? 'border-transparent bg-[var(--blue)] text-white'
-              : 'border-[var(--line)] bg-[var(--surface)]'
+      <div className="project-card-aside">
+        {selectable ? (
+          <span className={cn('check', selected && 'on')} aria-hidden />
+        ) : (
+          <ProgressRing progress={glance.progress} size={44} strokeWidth={3} launched={glance.wrapped} />
+        )}
+      </div>
+
+      {!selectable && (
+        <div className="project-card-meta">
+          {project.launchDate && (
+            <span className="project-card-date">
+              {formatLaunchDate(project.launchDate)}
+              {showCountdown && <span> · {daysRemaining}d</span>}
+            </span>
           )}
-        >
-          {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-        </div>
-      )}
-
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <ProjectAvatar name={project.name} abbreviation={project.abbreviation} />
-          <ProjectTitle name={project.name} abbreviation={project.abbreviation} subtitle={stageLabel} />
-        </div>
-        {!selectable && (
+          {showWaiting && (
+            <span className="project-card-wait">
+              <span className="sr-only">Waiting on </span>
+              {WAITING_ON_LABELS[project.waitingOn]}
+            </span>
+          )}
           <button
             type="button"
             aria-label={starred ? 'Remove from My Projects' : 'Add to My Projects'}
@@ -126,115 +86,35 @@ export function ProjectCard({
               toggleFavorite(project.id)
               setStarPop((count) => count + 1)
             }}
-            className={cn(
-              'mt-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-150',
-              starred
-                ? 'text-amber-500 hover:bg-amber-500/10'
-                : 'text-[var(--color-ink-soft)] hover:bg-[var(--color-field)] hover:text-[var(--color-ink)]'
-            )}
+            className="project-card-star"
           >
-            <motion.span
-              key={starPop}
-              className="inline-flex"
-              initial={reduceMotion || starPop === 0 ? false : { scale: 0.35, rotate: -18 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 560, damping: 14, mass: 0.55 }}
-            >
+            <span key={starPop} className={starPop > 0 ? 'project-star-pop' : undefined}>
               <Star className={cn('h-4 w-4', starred && 'fill-current')} />
-            </motion.span>
+            </span>
           </button>
-        )}
-        <ProgressRing progress={progress} size={52} strokeWidth={3} launched={fullyWrapped} />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <HealthBadge health={health} />
-        <FlexibleFollowUpBadges project={project} />
-        <RequiredDocsBadge project={project} />
-        <MissingCredentialsBadge project={project} />
-        {project.launchDate && (
-          <span className="text-xs text-[var(--color-muted-foreground)]">
-            {launched ? (
-              <>Launched · {formatLaunchDate(project.launchDate)}</>
-            ) : (
-              <>
-                {formatLaunchDate(project.launchDate)}
-                {daysRemaining !== null && daysRemaining >= 0 && (
-                  <span className="ml-1">· {daysRemaining}d</span>
-                )}
-              </>
-            )}
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-2 pt-3 border-t border-[var(--color-border)]">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] mb-0.5">
-            {fullyWrapped ? 'Status' : flexOpen && launched ? 'Still open' : 'To Do'}
-          </p>
-          <p
-            className={cn(
-              'text-sm font-medium',
-              flexOpen && launched
-                ? 'text-[var(--color-warning)]'
-                : 'text-[var(--color-foreground)]'
-            )}
-          >
-            {statusLine}
-          </p>
         </div>
+      )}
+    </>
+  )
 
-        {sticky && (
-          <div
-            className={cn(
-              'rounded-[var(--radius-md)] border-l-2 bg-black/[0.02] dark:bg-white/[0.03] px-2.5 py-2',
-              stickyBorder[noteSeverity(sticky)]
-            )}
-          >
-            <div className="flex items-center gap-1.5 mb-1">
-              <span
-                className={cn(
-                  'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-                  stickyBadge[noteSeverity(sticky)]
-                )}
-              >
-                {NOTE_SEVERITY_LABELS[noteSeverity(sticky)]}
-              </span>
-              {sticky.pinned && <Pin className="h-2.5 w-2.5 text-[var(--color-accent)]" />}
-            </div>
-            <p className="text-xs text-[var(--color-foreground)] line-clamp-2 whitespace-pre-wrap">
-              {sticky.content}
-            </p>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between gap-2 text-xs text-[var(--color-muted-foreground)]">
-          <span className="min-w-0 truncate">
-            Waiting on {WAITING_ON_LABELS[project.waitingOn]}
-            {isClientWaiting(project.waitingOn) && (project.outreachCount ?? 0) > 0 && (
-              <span className="ml-1.5 inline-flex items-center rounded-full bg-[var(--color-accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-accent)] tabular-nums">
-                {project.outreachCount}× reached out
-              </span>
-            )}
-          </span>
-          <span className="shrink-0">{project.contact.name}</span>
-        </div>
-      </div>
-    </motion.article>
+  const className = cn(
+    'card-w project-card press',
+    selectable && 'is-selectable',
+    selected && 'is-selected',
+    transitioning && 'vt-project'
   )
 
   if (selectable) {
     return (
-      <button type="button" onClick={onToggleSelect} className="block w-full text-left group">
-        {cardBody}
+      <button type="button" onClick={onToggleSelect} className={className} aria-pressed={selected}>
+        {body}
       </button>
     )
   }
 
   return (
-    <Link to={`/projects/${id}`} className="block group">
-      {cardBody}
+    <Link to={to} viewTransition state={{ from: location.pathname }} className={className}>
+      {body}
     </Link>
   )
 }
