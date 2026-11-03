@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 export function Modal({
@@ -13,36 +13,29 @@ export function Modal({
   children: ReactNode
   className?: string
 }) {
-  return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.button
-            type="button"
-            aria-label="Close"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-50 bg-[color-mix(in_srgb,var(--color-ink)_30%,transparent)]"
-            onClick={onClose}
-          />
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            initial={{ opacity: 0, scale: 0.95, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 8 }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
-            className={cn(
-              'float-panel fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto p-6 max-h-[90vh]',
-              className
-            )}
-          >
-            {children}
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, onClose])
+
+  if (!open || typeof document === 'undefined') return null
+
+  return createPortal(
+    <div className="modal-root" role="presentation">
+      <button type="button" aria-label="Close" className="scrim" onClick={onClose} />
+      <div role="dialog" aria-modal="true" className={cn('dialog card-w panel', className)}>
+        {children}
+      </div>
+    </div>,
+    document.body
   )
 }

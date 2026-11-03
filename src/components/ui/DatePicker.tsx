@@ -39,11 +39,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
             openPicker()
           }
         }}
-        className={cn(
-          'relative flex h-10 w-full cursor-pointer items-center rounded-xl bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_10px_22px_-14px_rgba(47,68,130,0.55)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)] transition-[box-shadow,ring-color] duration-150',
-          'hover:ring-[color-mix(in_srgb,var(--color-wash-strong)_45%,transparent)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
-          className
-        )}
+        className={cn('picker', className)}
       >
         <input
           ref={setRef}
@@ -56,12 +52,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           }}
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         />
-        <span
-          className={cn(
-            'pointer-events-none flex-1 px-3 text-sm',
-            props.value ? 'text-[var(--color-ink)]' : 'text-[var(--color-ink-soft)]'
-          )}
-        >
+        <span className={cn('pointer-events-none flex-1 text-sm', props.value ? 'text-[var(--ink)]' : 'text-[var(--ink-3)]')}>
           {props.value
             ? new Date(`${props.value}T12:00:00`).toLocaleDateString(undefined, {
                 weekday: 'short',
@@ -71,7 +62,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
               })
             : (props.placeholder ?? 'Select date')}
         </span>
-        <Calendar className="pointer-events-none mr-3 h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
+        <Calendar className="pointer-events-none h-4 w-4 shrink-0 text-[var(--ink-3)]" />
       </div>
     )
   }
@@ -113,11 +104,7 @@ export const TimePicker = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<
             openPicker()
           }
         }}
-        className={cn(
-          'relative flex h-10 w-full cursor-pointer items-center rounded-xl bg-[var(--color-panel)] text-[var(--color-ink)] shadow-[0_10px_22px_-14px_rgba(47,68,130,0.55)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)] transition-[box-shadow,ring-color] duration-150',
-          'hover:ring-[color-mix(in_srgb,var(--color-wash-strong)_45%,transparent)] focus-within:ring-2 focus-within:ring-[var(--color-wash-strong)]',
-          className
-        )}
+        className={cn('picker', className)}
       >
         <input
           ref={setRef}
@@ -130,12 +117,7 @@ export const TimePicker = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<
           }}
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         />
-        <span
-          className={cn(
-            'pointer-events-none flex-1 px-3 text-sm tabular-nums',
-            props.value ? 'text-[var(--color-ink)]' : 'text-[var(--color-ink-soft)]'
-          )}
-        >
+        <span className={cn('pointer-events-none flex-1 text-sm tabular-nums', props.value ? 'text-[var(--ink)]' : 'text-[var(--ink-3)]')}>
           {props.value || (props.placeholder ?? 'Select time')}
         </span>
       </div>

@@ -10,8 +10,11 @@ import { ProjectsStickyBoard } from '@/components/project/ProjectsStickyBoard'
 import { AttentionStrip } from '@/components/project/AttentionStrip'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
-import { staggerDelay, useEntrance } from '@/components/ui/Reveal'
+import { FilterChip as Chip } from '@/components/ui/FilterChip'
+import { ScreenHead } from '@/components/ui/ScreenHead'
+import { Toggle } from '@/components/ui/Toggle'
 import { Panel } from '@/components/ui/Panel'
+import { Workbench } from '@/components/ui/Workbench'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
 import { isLaunchedWithoutTraining } from '@/lib/progress'
@@ -32,68 +35,15 @@ function FilterChip({
   filter,
   active,
   onSelect,
-  size = 'md',
 }: {
   filter: ProjectFilter
   active: boolean
   onSelect: (filter: ProjectFilter) => void
-  size?: 'md' | 'sm'
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(filter)}
-      className={cn(
-        'shrink-0 cursor-pointer rounded-full font-medium transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97]',
-        size === 'md' ? 'px-3.5 py-1.5 text-sm' : 'px-3 py-1 text-xs',
-        active
-          ? 'bg-[var(--color-wash-strong)] text-white'
-          : 'bg-[var(--color-field)] text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]'
-      )}
-    >
+    <Chip pressed={active} onClick={() => onSelect(filter)}>
       {FILTER_LABELS[filter]}
-    </button>
-  )
-}
-
-function ViewToggle({
-  checked,
-  onChange,
-  label,
-  activeTone = 'accent',
-}: {
-  checked: boolean
-  onChange: (next: boolean) => void
-  label: string
-  activeTone?: 'accent' | 'warning'
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="inline-flex shrink-0 cursor-pointer items-center gap-2.5 rounded-full py-1 text-sm text-[var(--color-ink)]"
-    >
-      <span
-        className={cn(
-          'relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-[var(--ease-out)]',
-          checked
-            ? activeTone === 'warning'
-              ? 'bg-[var(--color-warning)]'
-              : 'bg-[var(--color-wash-strong)]'
-            : 'bg-[var(--color-field)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)]'
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(29,36,51,0.28)] transition-transform duration-200 ease-[var(--ease-out)]',
-            checked && 'translate-x-4'
-          )}
-        />
-      </span>
-      {label}
-    </button>
+    </Chip>
   )
 }
 
@@ -103,26 +53,21 @@ function ProjectGrid({
   selectedIds,
   onToggleSelect,
   emphasizeTrainingGap,
-  enter,
+  listKey,
 }: {
   projects: Project[]
   selectMode: boolean
   selectedIds: Set<string>
   onToggleSelect: (id: string) => void
   emphasizeTrainingGap?: boolean
-  enter?: boolean
+  listKey?: string
 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {projects.map((project, index) => (
+    <div key={listKey} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sy-stagger">
+      {projects.map((project) => (
         <div
           key={project.id}
-          className={cn(
-            enter && 'rise-in',
-            emphasizeTrainingGap &&
-              'rounded-[calc(var(--radius-lg)+2px)] ring-1 ring-[var(--color-warning)]/40 ring-offset-2 ring-offset-[var(--color-background)]'
-          )}
-          style={enter ? { animationDelay: `${staggerDelay(index)}ms` } : undefined}
+          className={cn(emphasizeTrainingGap && 'rounded-[28px] ring-1 ring-[var(--amber)]/40')}
         >
           <ProjectCard
             project={project}
@@ -143,7 +88,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
   const addNote = useStore((s) => s.addNote)
   const favoriteIds = useStore((s) => s.favoriteIds)
   const hydrated = useStore((s) => s.hydrated)
-  const enter = useEntrance(hydrated)
+  const listKey = `${favoritesOnly ? 'mine' : 'all'}:${activeFilter}`
 
   const [inProgressFirst, setInProgressFirst] = useState(true)
   const [groupTrainingGaps, setGroupTrainingGaps] = useState(readGroupTrainingToggle)
@@ -230,27 +175,17 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight">
-            {favoritesOnly ? 'My Projects' : 'Projects'}
-          </h1>
-          <p className="text-sm text-[var(--color-muted-foreground)]">
-            {hydrated
-              ? `${projects.length} implementation${projects.length !== 1 ? 's' : ''}`
-              : 'Loading implementations'}
-            {activeFilter !== 'all' && (
-              <span className="text-[var(--color-muted)]"> · {FILTER_LABELS[activeFilter]}</span>
-            )}
-            {groupTrainingGaps && trainingGaps.length > 0 && (
-              <span className="text-[var(--color-warning)]">
-                {' '}
-                · {trainingGaps.length} need training
-              </span>
-            )}
-          </p>
-        </div>
+    <div className="screen">
+      <ScreenHead
+        title={favoritesOnly ? 'My Projects' : 'Projects'}
+        sub={
+          hydrated
+            ? `${projects.length} implementation${projects.length !== 1 ? 's' : ''}${
+                activeFilter !== 'all' ? ` · ${FILTER_LABELS[activeFilter]}` : ''
+              }${groupTrainingGaps && trainingGaps.length > 0 ? ` · ${trainingGaps.length} need training` : ''}`
+            : 'Loading implementations'
+        }
+      >
         <div className="flex flex-wrap items-center justify-end gap-2">
           <GlobalSearch className="max-w-xs" />
           {!selectMode ? (
@@ -301,7 +236,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             </>
           )}
         </div>
-      </div>
+      </ScreenHead>
 
       {selectMode && (
         <Panel className="mb-4 px-4 py-2.5 text-sm text-[var(--color-ink-soft)]">
@@ -311,32 +246,27 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
         </Panel>
       )}
 
-      <div className="mb-6 space-y-3">
-        <div className="flex flex-col gap-3">
-          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-            {STATUS_FILTERS.map((filter) => (
-              <FilterChip
-                key={filter}
-                filter={filter}
-                active={activeFilter === filter}
-                onSelect={handleSelectFilter}
-              />
-            ))}
-          </div>
+      <Workbench>
+        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+          {STATUS_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter}
+              filter={filter}
+              active={activeFilter === filter}
+              onSelect={handleSelectFilter}
+            />
+          ))}
+        </div>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <ViewToggle
-              checked={inProgressFirst}
-              onChange={setInProgressFirst}
-              label="In progress first"
-            />
-            <ViewToggle
-              checked={groupTrainingGaps}
-              onChange={setGroupTraining}
-              label="Group training gaps"
-              activeTone="warning"
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <label className="inline-flex items-center gap-2.5 text-sm text-[var(--ink)]">
+            <Toggle checked={inProgressFirst} onChange={setInProgressFirst} label="In progress first" />
+            In progress first
+          </label>
+          <label className="inline-flex items-center gap-2.5 text-sm text-[var(--ink)]">
+            <Toggle checked={groupTrainingGaps} onChange={setGroupTraining} label="Group training gaps" />
+            Group training gaps
+          </label>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -347,7 +277,6 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
               filter={filter}
               active={activeFilter === filter}
               onSelect={handleSelectFilter}
-              size="sm"
             />
           ))}
           {taskFilterActive && (
@@ -360,7 +289,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             </button>
           )}
         </div>
-      </div>
+      </Workbench>
 
       {hydrated && !selectMode && (
         <>
@@ -378,6 +307,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
         </>
       )}
 
+      <div className="icc-stage">
       {!hydrated ? (
         <LoadingState label="Loading projects" />
       ) : projects.length > 0 ? (
@@ -385,7 +315,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
           <div className="space-y-8">
             <section className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning)]/15 px-2.5 py-1 text-xs font-medium text-[var(--color-warning)]">
+                <span className="tag review">
                   <GraduationCap className="h-3.5 w-3.5" />
                   Launched · Needs training
                 </span>
@@ -403,7 +333,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelect}
                 emphasizeTrainingGap
-                enter={enter}
+                listKey={listKey}
               />
             </section>
 
@@ -423,7 +353,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
                   selectMode={selectMode}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
-                  enter={enter}
+                  listKey={listKey}
                 />
               </section>
             )}
@@ -434,7 +364,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
-            enter={enter}
+            listKey={listKey}
           />
         )
       ) : (
@@ -478,6 +408,7 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
           </div>
         </EmptyState>
       )}
+      </div>
 
       <BulkAddProjectsModal open={bulkAddOpen} onClose={() => setBulkAddOpen(false)} />
     </div>

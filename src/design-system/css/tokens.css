@@ -1,0 +1,101 @@
+/* Cleanly design tokens.
+   Source: C:\Users\ahoin\Desktop\cleanly\src\styles\app.css
+   Light is the original look. Dark is "A · Graphite". */
+
+:root {
+  color-scheme: light;
+  --ink: #0f1218;
+  --ink-2: #3c4250;
+  --ink-3: #5b6270;
+  --on-ink: #fff;
+  --line: #e2e5ea;
+  --line-soft: #eef0f3;
+  --paper: #f2f3f6;
+  --surface: #fff;
+  --surface-2: #f7f8fb;
+  --raised: #fff;
+  --raised-2: #f3f4f7;
+  --card: rgba(255, 255, 255, 0.84);
+  --hair: rgba(255, 255, 255, 0.9);
+  --shadow: 0 24px 60px rgba(15, 18, 24, 0.06);
+  --track: #e8eaee;
+  --link: var(--blue);
+  --link-hover: #1a2fb0;
+  --focus: var(--blue);
+  --eyebrow: var(--blue);
+  --scrim: rgba(15, 18, 24, 0.28);
+  --grid: #e5e7ec;
+  --blue: #2b4cff;
+  --violet: #8a5cff;
+  --pink: #ff5d8f;
+  --amber: #ffb547;
+  --mint: #1fbf8f;
+  --danger: #d6334f;
+
+  /* Prism ribbon used on chips, CTA discs, checkboxes, toggles */
+  --prism-a: #6d7bff;
+  --prism-b: #a77bff;
+  --prism-c: #ff8fc8;
+  --prism-grad: linear-gradient(135deg, #6d7bff 0%, #a77bff 55%, #ff8fc8 100%);
+  --numeral-grad: linear-gradient(100deg, var(--ink) 0%, var(--blue) 48%, var(--violet) 72%, var(--pink) 100%);
+
+  --display: 'Unbounded Variable', Unbounded, system-ui, sans-serif;
+  --ui: 'Source Sans 3 Variable', 'Source Sans 3', system-ui, sans-serif;
+  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --radius: 28px;
+
+  --titlebar-h: 44px;
+  --nav-w: 236px;
+  --rhythm: 18px;
+  --nav-item-h: 40px;
+  --btn-h: 40px;
+  --cta-h: 56px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: var(--ui);
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea, select { font-family: inherit; }
+a { color: var(--link); }
+a:hover { color: var(--link-hover); }
+::selection { background: rgba(43, 76, 255, 0.18); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #f5f5f7;
+  --ink-2: #c7c7cc;
+  --ink-3: #a8a8af;
+  --on-ink: #161618;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --paper: #161618;
+  --surface: #202024;
+  --surface-2: #1b1b1e;
+  --raised: #2a2a2e;
+  --raised-2: #36363c;
+  --card: linear-gradient(180deg, #202024 0%, #1b1b1e 100%);
+  --hair: rgba(255, 255, 255, 0.08);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 60px rgba(0, 0, 0, 0.35);
+  --track: rgba(255, 255, 255, 0.09);
+  --link: #c5cbff;
+  --link-hover: #e4e7ff;
+  --focus: #c5cbff;
+  --eyebrow: #a8a8af;
+  --scrim: rgba(0, 0, 0, 0.55);
+  --grid: rgba(255, 255, 255, 0.035);
+  --danger: #ff6b81;
+  --numeral-grad: linear-gradient(100deg, #f5f5f7 0%, #c3c9ff 40%, #b48cff 70%, #ff9fcf 100%);
+}
+
+:root[data-theme='dark'] ::selection { background: rgba(167, 123, 255, 0.35); }
+:root[data-theme='dark'] :focus-visible { outline-offset: 3px; }

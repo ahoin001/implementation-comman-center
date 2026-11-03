@@ -74,7 +74,7 @@ export function ContactGlance({ contact, onSave, className, variant = 'card' }: 
           variant === 'meta' &&
             cn(
               'rounded-[var(--radius-md)] -mx-1 px-1 py-0.5',
-              'hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99]',
+              'hover:bg-[var(--surface-2)] active:scale-[0.99]',
               open && 'bg-black/5 dark:bg-white/5'
             )
         )}

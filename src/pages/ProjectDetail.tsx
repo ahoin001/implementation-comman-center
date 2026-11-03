@@ -19,6 +19,7 @@ import { Panel } from '@/components/ui/Panel'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
+
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -85,11 +86,11 @@ export function ProjectDetailPage() {
     .sort((a, b) => b.count - a.count)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 px-1">
+    <div className="screen">
+      <div className="icc-chrome card-w flex flex-wrap items-center justify-between gap-3">
         <Link
           to={project.archived ? '/archive' : '/projects'}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+          className="eyebrow text-[var(--ink-3)] hover:text-[var(--ink)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {project.archived ? 'Archive' : 'Projects'}
@@ -98,7 +99,7 @@ export function ProjectDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <Panel pad="md" className="rise-in order-1 xl:col-start-1 xl:row-start-1">
+        <Panel pad="md" className="rise order-1 xl:col-start-1 xl:row-start-1">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <ProjectTitle
@@ -116,28 +117,21 @@ export function ProjectDetailPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {project.archived && (
-                  <span className="rounded-full bg-[var(--color-field)] px-2.5 py-1 text-xs font-medium text-[var(--color-ink-soft)]">
-                    Archived
-                  </span>
-                )}
+                {project.archived && <span className="tag">Archived</span>}
                 <HealthBadge health={calculateHealth(project)} />
               </div>
             </div>
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="shrink-0 sm:w-28">
-                <p className="text-4xl font-semibold tracking-tight tabular-nums text-[var(--color-ink)]">{progress}%</p>
+                <p className="text-[36px] font-semibold tracking-[-0.03em] tabular-nums text-[var(--ink)]">{progress}%</p>
                 <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
                   {completeCount} of {tracked.length} complete
                 </p>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="h-2.5 overflow-hidden rounded-full bg-[var(--color-field)]">
-                  <div
-                    className="progress-fill h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out)]"
-                    style={{ width: `${progress}%` }}
-                  />
+                <div className="progress" data-value={progress}>
+                  <i style={{ width: `${progress}%` }} />
                 </div>
                 <p className="mt-2 text-xs text-[var(--color-ink-soft)]">
                   {inProgress} in progress
@@ -171,7 +165,7 @@ export function ProjectDetailPage() {
             onDeleteComment={(taskId, commentId) => deleteTaskComment(project.id, taskId, commentId)}
           />
 
-          <div className="rise-in" style={{ animationDelay: '80ms' }}>
+          <div className="rise" style={{ animationDelay: '80ms' }}>
           <MemberFeaturesPanel
             project={project}
             definitions={memberFeatureDefinitions}
@@ -185,10 +179,10 @@ export function ProjectDetailPage() {
           </div>
 
         <div className="contents xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:flex xl:flex-col xl:gap-4 xl:self-start">
-          <div className="rise-in order-2 xl:order-none" style={{ animationDelay: '40ms' }}>
+          <div className="rise order-2 xl:order-none" style={{ animationDelay: '40ms' }}>
             <ClientDeliverablesPanel projectId={project.id} />
           </div>
-        <div className="rise-in order-4 space-y-4 xl:order-none" style={{ animationDelay: '120ms' }}>
+        <div className="rise order-4 space-y-4 xl:order-none" style={{ animationDelay: '120ms' }}>
           <Panel pad="md">
             <p className="text-sm font-semibold text-[var(--color-ink)]">Who&apos;s on it</p>
             {crew.length === 0 ? (

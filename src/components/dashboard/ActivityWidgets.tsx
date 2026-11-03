@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { staggerDelay } from '@/components/ui/Reveal'
 
 const rowClass =
-  'flex items-start gap-3 rounded-[var(--radius-md)] px-2 py-2.5 -mx-2 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99] group'
+  'flex items-start gap-3 rounded-[var(--radius-md)] px-2 py-2.5 -mx-2 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-[var(--surface-2)] active:scale-[0.99] group'
 
 export function UpcomingMeetings() {
   const events = useStore((s) => s.calendarEvents)
@@ -49,7 +49,7 @@ export function UpcomingMeetings() {
       {Object.keys(grouped).length === 0 ? (
         <Link
           to="/calendar"
-          className="flex flex-col items-center justify-center gap-2 py-8 text-center rounded-[var(--radius-md)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          className="flex flex-col items-center justify-center gap-2 py-8 text-center rounded-[var(--radius-md)] hover:bg-[var(--surface-2)] transition-colors"
         >
           <CalendarDays className="h-5 w-5 text-[var(--color-muted)]" />
           <p className="text-sm text-[var(--color-muted-foreground)]">No meetings today or tomorrow</p>

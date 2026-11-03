@@ -104,8 +104,8 @@ export function ClientIntakePage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:py-14">
-      <p className="text-sm font-medium text-[var(--color-wash-strong)]">Web Scribble</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--color-ink)]">
+      <p className="eyebrow">Web Scribble</p>
+      <h1 className="mt-2 font-[family-name:var(--display)] text-[28px] font-medium tracking-[-0.04em] text-[var(--ink)]">
         {view.projectName}
       </h1>
       <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-ink-soft)]">
@@ -406,7 +406,7 @@ function ExternalMarks({
           href={uploadUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--color-wash-strong)] px-4 text-sm font-medium text-white shadow-[0_8px_16px_-8px_color-mix(in_srgb,var(--color-wash-strong)_80%,transparent)] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2"
+          className="btn primary"
         >
           <ExternalLink className="h-4 w-4" />
           Open file manager

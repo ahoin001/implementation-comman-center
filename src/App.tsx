@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
+import { IconSprite } from '@/design-system/react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { AuthGate } from '@/components/auth/AuthGate'
@@ -14,6 +15,7 @@ import { ClientIntakePage } from '@/pages/ClientIntake'
 export default function App() {
   return (
     <ThemeProvider>
+      <IconSprite />
       <BrowserRouter>
         <Routes>
           <Route path="/c/:token" element={<ClientIntakePage />} />

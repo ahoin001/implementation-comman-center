@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { Toggle } from '@/components/ui/Toggle'
 
 interface PathSettingSwitchProps {
   label: string
@@ -21,24 +21,7 @@ function PathSettingSwitch({
           {description}
         </p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onCheckedChange(!checked)}
-        className={cn(
-          'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200',
-          checked ? 'bg-[var(--color-accent)]' : 'bg-black/12 dark:bg-white/15'
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200',
-            checked && 'translate-x-5'
-          )}
-        />
-      </button>
+      <Toggle checked={checked} onChange={onCheckedChange} label={label} />
     </div>
   )
 }
@@ -66,7 +49,7 @@ export function PathProjectSettings({
 }: PathProjectSettingsProps) {
   return (
     <div
-      className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/[0.015] dark:bg-white/[0.02] overflow-hidden divide-y divide-[var(--color-border)]/80"
+      className="overflow-hidden rounded-[18px] divide-y divide-[var(--line-soft)] border border-[var(--line)] bg-[var(--surface-2)]"
       role="group"
       aria-label="Project path settings"
     >

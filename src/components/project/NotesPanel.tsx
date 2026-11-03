@@ -224,7 +224,7 @@ export function NotesPanel({
                       <button
                         type="button"
                         onClick={cancelEdit}
-                        className="p-1.5 rounded-sm text-[var(--color-muted-foreground)] hover:bg-black/5 dark:hover:bg-white/5"
+                        className="p-1.5 rounded-sm text-[var(--color-muted-foreground)] hover:bg-[var(--surface-2)]"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

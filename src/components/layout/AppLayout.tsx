@@ -1,22 +1,32 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { LayoutGroup } from 'framer-motion'
 import { Sidebar, MobileNav } from './Navigation'
 import { ProfileChip } from './ProfileChip'
 
-/**
- * No page-level AnimatePresence / popLayout here.
- * popLayout inserts a height placeholder for the exiting route; on full-page
- * swaps that placeholder often sticks until resize — the huge top gap on Projects.
- * Shared layoutIds still work via LayoutGroup for card ↔ detail morphs.
- */
 export function AppLayout() {
+  const location = useLocation()
+
   return (
     <LayoutGroup id="app">
-      <div className="flex min-h-screen gap-3 p-3 lg:gap-4 lg:p-4">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <main className="flex-1 pb-28 lg:pb-2">
-            <Outlet />
+      <div className="app" data-bg="dots">
+        <div className="bg-layer bg-dots" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </div>
+        <div className="bg-layer bg-glow" aria-hidden>
+          <i className="glow-lav" />
+          <i className="glow-pink" />
+          <div className="glow-horizon">
+            <i />
+          </div>
+        </div>
+        <div className="body">
+          <Sidebar />
+          <main className="main">
+            <div key={location.pathname} className="page-in">
+              <Outlet />
+            </div>
           </main>
         </div>
         <MobileNav />

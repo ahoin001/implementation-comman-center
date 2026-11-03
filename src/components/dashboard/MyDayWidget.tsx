@@ -49,7 +49,7 @@ export function MyDayWidget() {
             <li key={projectId} className="rise-in" style={{ animationDelay: `${staggerDelay(index)}ms` }}>
               <Link
                 to={`/projects/${projectId}`}
-                className="flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-3 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99] group"
+                className="flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-3 transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-[var(--surface-2)] active:scale-[0.99] group"
               >
                 <div
                   className={cn(
@@ -85,7 +85,7 @@ export function MyDayWidget() {
         <Link
           to="/projects"
           onClick={() => setActiveFilter('all')}
-          className="block text-sm text-[var(--color-muted-foreground)] py-8 text-center rounded-[var(--radius-md)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          className="block text-sm text-[var(--color-muted-foreground)] py-8 text-center rounded-[var(--radius-md)] hover:bg-[var(--surface-2)] transition-colors"
         >
           All caught up — browse projects
         </Link>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { CleanButton } from '@/components/ui/CleanButton'
 import { Input } from '@/components/ui/Input'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { useStore } from '@/store/useStore'
@@ -38,10 +39,7 @@ export function NewProjectButton() {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" />
-        New Project
-      </Button>
+      <CleanButton label="New Project" sub="Add an implementation" icon="plus" onClick={() => setOpen(true)} />
 
       <Modal open={open} onClose={() => setOpen(false)}>
               <div className="flex items-center justify-between mb-4">

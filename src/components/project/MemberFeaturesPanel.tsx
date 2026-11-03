@@ -5,6 +5,7 @@ import { countEnabledMemberFeatures } from '@/lib/memberFeatures'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Toggle } from '@/components/ui/Toggle'
 import { cn } from '@/lib/utils'
 
 interface MemberFeaturesPanelProps {
@@ -107,24 +108,11 @@ export function MemberFeaturesPanel({
                   key={def.id}
                   className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2.5"
                 >
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={enabled}
-                    aria-label={def.label}
-                    onClick={() => onToggle(def.id, !enabled)}
-                    className={cn(
-                      'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200',
-                      enabled ? 'bg-[var(--color-accent)]' : 'bg-black/15 dark:bg-white/20'
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200',
-                        enabled && 'translate-x-5'
-                      )}
-                    />
-                  </button>
+                  <Toggle
+                    checked={enabled}
+                    onChange={(next) => onToggle(def.id, next)}
+                    label={def.label}
+                  />
                   <span
                     className={cn(
                       'flex-1 min-w-0 text-sm',

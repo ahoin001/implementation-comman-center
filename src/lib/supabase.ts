@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -9,24 +9,28 @@ export const SOLO_USER_ID =
 
 export const ICC_SCHEMA = 'app_implementation_center_v1'
 
-if (!url || !anonKey) {
-  console.warn('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — Supabase sync disabled')
-}
-
-export const supabase = createClient(url ?? '', anonKey ?? '', {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  db: {
-    schema: ICC_SCHEMA,
-  },
-})
-
 export function isSupabaseConfigured(): boolean {
   return Boolean(url && anonKey)
 }
+
+if (!isSupabaseConfigured()) {
+  console.warn('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — Supabase sync disabled')
+}
+
+export const supabase: SupabaseClient = createClient(
+  url || 'https://example.supabase.co',
+  anonKey || 'public-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    db: {
+      schema: ICC_SCHEMA,
+    },
+  }
+)
 
 /** Typed helper for ICC schema tables */
 export function icc() {

@@ -24,7 +24,6 @@ import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { LaunchPlanSheet } from '@/components/project/LaunchPlanSheet'
 import { taskMarkClass, taskStatusTriggerClass, taskTitleClass } from '@/components/project/taskGlance'
-import { staggerDelay, useEntrance } from '@/components/ui/Reveal'
 
 type TaskScope = 'all' | 'open' | 'mine'
 type TaskOwner = 'any' | 'client' | 'webscribble'
@@ -121,7 +120,7 @@ export function LaunchBoard({
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [openGroupKeys, setOpenGroupKeys] = useState<string[] | null>(null)
-  const enter = useEntrance()
+  const listKey = `${project.id}:${phaseKey ?? 'all'}:${scope}:${owner}:${role}:${query}:${layout}`
 
   const names = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.displayName])), [profiles])
   const toggleOpen = useCallback((id: string) => {
@@ -240,13 +239,9 @@ export function LaunchBoard({
           onDeleteComment={onDeleteComment}
         />
       ) : layout === 'checklist' ? (
-        <div className="space-y-2.5">
+        <div key={listKey} className="space-y-2.5 sy-stagger">
           {shownGroups.map(({ group, rows, done, total }, index) => (
-            <div
-              key={group.key}
-              className={cn(enter && 'rise-in')}
-              style={enter ? { animationDelay: `${staggerDelay(index)}ms` } : undefined}
-            >
+            <div key={group.key}>
             <GroupPanel
               title={group.title}
               phase={phaseKey === null ? phaseTitle(group.phaseKey) : undefined}

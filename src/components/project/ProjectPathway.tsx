@@ -474,7 +474,7 @@ export function ProjectLaunchPath({
                                     'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
                                     status === value
                                       ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
-                                      : 'text-[var(--color-muted-foreground)] hover:bg-black/5 dark:hover:bg-white/5'
+                                      : 'text-[var(--color-muted-foreground)] hover:bg-[var(--surface-2)]'
                                   )}
                                 >
                                   {optLabel}
@@ -511,7 +511,7 @@ export function ProjectLaunchPath({
                                     key={key}
                                     className={cn(
                                       'flex items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-1.5 text-sm cursor-pointer',
-                                      'hover:bg-black/5 dark:hover:bg-white/5',
+                                      'hover:bg-[var(--surface-2)]',
                                       checked
                                         ? 'text-[var(--color-foreground)]'
                                         : 'text-[var(--color-muted-foreground)]'
@@ -630,7 +630,7 @@ export function ProjectLaunchPath({
                                       'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-transparent transition-[transform,background-color,color] duration-150 active:scale-[0.97]',
                                       active
                                         ? activeClass
-                                        : 'text-[var(--color-muted-foreground)] hover:bg-black/5 dark:hover:bg-white/5',
+                                        : 'text-[var(--color-muted-foreground)] hover:bg-[var(--surface-2)]',
                                       lockedDone && 'opacity-40 cursor-not-allowed'
                                     )}
                                   >

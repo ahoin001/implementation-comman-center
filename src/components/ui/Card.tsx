@@ -13,7 +13,7 @@ export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElemen
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={cn('text-base font-semibold tracking-tight text-[var(--color-foreground)]', className)}
+      className={cn('m-0 text-[15px] font-semibold tracking-[-0.01em] text-[var(--ink)]', className)}
       {...props}
     />
   )
@@ -21,6 +21,6 @@ export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEle
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn('text-sm text-[var(--color-muted-foreground)]', className)} {...props} />
+    <p className={cn('mt-1 text-sm leading-normal text-[var(--ink-3)]', className)} {...props} />
   )
 }

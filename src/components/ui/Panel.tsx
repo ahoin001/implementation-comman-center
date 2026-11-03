@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils'
 
 const padding = {
   none: '',
-  sm: 'p-3 sm:p-4',
-  md: 'p-5',
+  sm: 'p-3',
+  md: 'panel',
 } as const
 
 export function Panel({
@@ -12,5 +12,5 @@ export function Panel({
   pad = 'none',
   ...props
 }: HTMLAttributes<HTMLDivElement> & { pad?: keyof typeof padding }) {
-  return <div className={cn('float-panel', padding[pad], className)} {...props} />
+  return <div className={cn('card-w', padding[pad], className)} {...props} />
 }

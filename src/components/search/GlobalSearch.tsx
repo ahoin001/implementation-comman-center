@@ -53,41 +53,35 @@ export function GlobalSearch({ className }: { className?: string }) {
   }
 
   return (
-    <div ref={containerRef} className={cn('relative w-full max-w-sm shrink-0', className)}>
+    <div ref={containerRef} className={cn('search-wrap relative w-full max-w-sm shrink-0', className)}>
       <form onSubmit={handleSubmit}>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-muted)]" />
-          <Input
-            placeholder="Search projects, contacts, notes…"
-            value={localQuery}
-            onChange={(e) => {
-              setLocalQuery(e.target.value)
-              setOpen(true)
-            }}
-            onFocus={() => setOpen(true)}
-            className="h-10 rounded-full border-transparent bg-[var(--color-panel)] pl-9 pr-16 shadow-[var(--shadow-panel)]"
-          />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center rounded border border-[var(--color-border)] px-1.5 text-[10px] text-[var(--color-muted)]">
-            ⌘K
-          </kbd>
-        </div>
+        <Search className="search-ico h-4 w-4" />
+        <Input
+          shape="pill"
+          placeholder="Search projects, contacts, notes…"
+          value={localQuery}
+          onChange={(e) => {
+            setLocalQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          className="pr-16"
+        />
+        <kbd className="kbd absolute right-3 top-1/2 hidden -translate-y-1/2 sm:inline-flex">⌘K</kbd>
       </form>
 
       {open && localQuery && results.length > 0 && (
-        <Panel className="absolute top-full z-50 mt-2 w-full overflow-hidden">
+        <Panel className="absolute top-full z-50 mt-2 w-full overflow-hidden p-1">
           {results.map((p) => (
             <button
               key={p.id}
               type="button"
               onClick={() => handleSelect(p.id)}
-              className={cn(
-                'flex w-full flex-col items-start px-4 py-3 text-left transition-colors duration-150',
-                'hover:bg-[var(--color-field)] active:scale-[0.99]'
-              )}
+              className="row w-full text-left"
             >
-              <span className="text-sm font-medium">{p.name}</span>
-              <span className="text-xs text-[var(--color-muted-foreground)]">
-                {getPrimaryOpenTask(p)?.label ?? 'All tasks complete'}
+              <span className="grow">
+                <span className="title">{p.name}</span>
+                <span className="sub">{getPrimaryOpenTask(p)?.label ?? 'All tasks complete'}</span>
               </span>
             </button>
           ))}

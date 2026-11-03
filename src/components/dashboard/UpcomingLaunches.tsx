@@ -48,7 +48,7 @@ export function UpcomingLaunches() {
         <Link
           to="/projects"
           onClick={() => setActiveFilter('no_launch_date')}
-          className="flex flex-col items-center justify-center gap-2 py-8 text-center rounded-[var(--radius-md)] hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          className="flex flex-col items-center justify-center gap-2 py-8 text-center rounded-[var(--radius-md)] hover:bg-[var(--surface-2)] transition-colors"
         >
           <Rocket className="h-5 w-5 text-[var(--color-muted)]" />
           <p className="text-sm text-[var(--color-muted-foreground)]">No launch dates set</p>
@@ -76,7 +76,7 @@ export function UpcomingLaunches() {
                     ? 'bg-[var(--color-success)]/[0.06] hover:bg-[var(--color-success)]/[0.1]'
                     : launched && flexOpen
                       ? 'bg-[var(--color-warning)]/[0.07] hover:bg-[var(--color-warning)]/[0.12]'
-                      : 'hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'hover:bg-[var(--surface-2)]'
                 )}
               >
                 <ProgressRing

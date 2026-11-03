@@ -13,21 +13,13 @@ export function DashboardPage() {
   }
 
   return (
-    <div>
-      <div className="rise-in">
-        <HeroSection />
+    <div className="screen">
+      <HeroSection />
+      <div className="split-hero sy-stagger">
+        <MyDayWidget />
+        <UpcomingMeetings />
       </div>
-
-      <div className="rise-in grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ animationDelay: '40ms' }}>
-        <div className="lg:col-span-2">
-          <MyDayWidget />
-        </div>
-        <div>
-          <UpcomingMeetings />
-        </div>
-      </div>
-
-      <div className="rise-in mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2" style={{ animationDelay: '80ms' }}>
+      <div className="split-support sy-stagger">
         <RecentActivity />
         <UpcomingLaunches />
       </div>

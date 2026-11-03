@@ -8,41 +8,36 @@ import { calculateProgress, isLaunchFullyWrapped } from '@/lib/progress'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
-import { staggerDelay, useEntrance } from '@/components/ui/Reveal'
+import { ScreenHead } from '@/components/ui/ScreenHead'
 import { Panel } from '@/components/ui/Panel'
+import { Workbench } from '@/components/ui/Workbench'
 import { useStore } from '@/store/useStore'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
-import { cn } from '@/lib/utils'
 
 export function ArchivePage() {
   const archived = useArchivedProjects()
   const hydrated = useStore((s) => s.hydrated)
-  const enter = useEntrance(hydrated)
   const unarchiveProject = useStore((s) => s.unarchiveProject)
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const projects = query ? searchProjects(archived, query) : archived
 
   return (
-    <div>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight">Archive</h1>
-          <p className="text-sm text-[var(--color-muted-foreground)]">
-            Completed implementations — open to view or restore
-          </p>
-        </div>
+    <div className="screen">
+      <ScreenHead title="Archive" sub="Completed implementations — open to view or restore.">
         <GlobalSearch className="max-w-xs" />
-      </div>
+      </ScreenHead>
 
-      <div className="mb-6 max-w-md">
+      <Workbench>
         <Input
+          className="max-w-md"
           placeholder="Search archived projects…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-      </div>
+      </Workbench>
 
+      <div className="icc-stage">
       {!hydrated ? (
         <LoadingState label="Loading archive" />
       ) : projects.length === 0 ? (
@@ -57,12 +52,11 @@ export function ArchivePage() {
           </p>
         </EmptyState>
       ) : (
-        <div className="space-y-3">
-          {projects.map((project, index) => (
+        <div key={query || 'all'} className="space-y-3 sy-stagger">
+          {projects.map((project) => (
             <Panel
               key={project.id}
-              className={cn('flex items-center gap-4 p-4', enter && 'rise-in')}
-              style={enter ? { animationDelay: `${staggerDelay(index)}ms` } : undefined}
+              className="press flex items-center gap-4 p-4"
             >
               <Link
                 to={`/projects/${project.id}`}
@@ -103,6 +97,7 @@ export function ArchivePage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

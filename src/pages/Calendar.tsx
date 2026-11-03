@@ -19,18 +19,19 @@ import { CALENDAR_EVENT_LABELS, type CalendarEvent, type CalendarEventType } fro
 import { getProjectLabel } from '@/lib/calendar'
 import { cn } from '@/lib/utils'
 import { LoadingState } from '@/components/ui/EmptyState'
+import { ScreenHead } from '@/components/ui/ScreenHead'
 import { staggerDelay } from '@/components/ui/Reveal'
 
 const eventColors: Record<CalendarEventType, string> = {
-  kickoff: 'bg-blue-500',
-  adhoc: 'bg-[var(--color-accent)]',
-  training: 'bg-purple-500',
+  kickoff: 'bg-[var(--blue)]',
+  adhoc: 'bg-[var(--violet)]',
+  training: 'bg-[var(--amber)]',
 }
 
 const eventBadgeStyles: Record<CalendarEventType, string> = {
-  kickoff: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  adhoc: 'bg-[var(--color-accent)]/10 text-[var(--color-accent)]',
-  training: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+  kickoff: 'bg-[rgba(43,76,255,0.12)] text-[var(--blue)]',
+  adhoc: 'bg-[rgba(138,92,255,0.12)] text-[var(--violet)]',
+  training: 'bg-[rgba(255,181,71,0.18)] text-[#9a5a00]',
 }
 
 function toDateKey(date: Date): string {
@@ -99,24 +100,18 @@ export function CalendarPage() {
     })
 
   return (
-    <div>
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight mb-1">Calendar</h1>
-          <p className="text-sm text-[var(--color-muted-foreground)]">
-            Click any day to schedule kickoffs, SmartWay training, or adhoc meetings
-          </p>
-        </div>
+    <div className="screen">
+      <ScreenHead title="Calendar" sub="Kickoffs, SmartWay training, and adhoc meetings.">
         <Button onClick={() => openCreate(toDateKey(new Date()))}>
           <Plus className="h-4 w-4" />
           New Event
         </Button>
-      </div>
+      </ScreenHead>
 
       {!hydrated ? (
         <LoadingState label="Loading calendar" />
       ) : (
-      <div className="rise-in grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="rise grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <Button
@@ -169,9 +164,9 @@ export function CalendarPage() {
                   onClick={() => openCreate(dateKey)}
                   className={cn(
                     'min-h-[80px] rounded-[var(--radius-md)] p-1.5 border text-left transition-[background-color,transform,border-color] duration-150',
-                    'hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:border-[var(--color-accent)]/30 active:scale-[0.98]',
-                    today ? 'border-[var(--color-accent)]/40 bg-[var(--color-accent)]/[0.04]' : 'border-transparent',
-                    dayEvents.length > 0 && 'bg-black/[0.02] dark:bg-white/[0.02]'
+                    'hover:bg-[var(--surface-2)] hover:border-[var(--blue)]/30 active:scale-[0.98]',
+                    today ? 'border-[var(--blue)]/40 bg-[rgba(43,76,255,0.04)]' : 'border-transparent',
+                    dayEvents.length > 0 && 'bg-[var(--surface-2)]'
                   )}
                 >
                   <span className={cn('text-xs font-medium tabular-nums', today && 'text-[var(--color-accent)]')}>
@@ -234,7 +229,7 @@ export function CalendarPage() {
                   <button
                     type="button"
                     onClick={() => openEdit(event)}
-                    className="w-full text-left rounded-[var(--radius-md)] p-3 transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99]"
+                    className="w-full text-left rounded-[var(--radius-md)] p-3 transition-colors duration-150 hover:bg-[var(--surface-2)] active:scale-[0.99]"
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', eventBadgeStyles[event.type])}>

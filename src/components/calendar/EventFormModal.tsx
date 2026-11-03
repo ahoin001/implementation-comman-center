@@ -115,7 +115,7 @@ export function EventFormModal({
                       onClick={() => setType(t)}
                       className={cn(
                         'rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition-[transform,background-color] duration-150 active:scale-[0.97]',
-                        type === t ? typeStyles[t] : 'ring-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-black/5 dark:hover:bg-white/5'
+                        type === t ? typeStyles[t] : 'ring-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--surface-2)]'
                       )}
                     >
                       {CALENDAR_EVENT_LABELS[t]}

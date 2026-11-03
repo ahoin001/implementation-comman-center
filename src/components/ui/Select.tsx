@@ -79,16 +79,10 @@ export function Select({
         aria-controls={listId}
         aria-label={ariaLabel}
         onClick={() => setOpen((current) => !current)}
-        className={cn(
-          'flex w-full items-center justify-between gap-2 rounded-xl bg-[var(--color-panel)] text-left font-medium text-[var(--color-ink)] shadow-[0_10px_22px_-14px_rgba(47,68,130,0.55)] ring-1 ring-[color-mix(in_srgb,var(--color-ink)_14%,transparent)] transition-[box-shadow,ring-color] duration-150 hover:ring-[color-mix(in_srgb,var(--color-wash-strong)_45%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-wash-strong)]',
-          size === 'sm' ? 'h-9 px-2.5 text-[13px]' : 'h-10 px-3 text-sm',
-          triggerClassName
-        )}
+        className={cn('picker w-full justify-between gap-2 text-left', size === 'sm' && 'h-8 text-[13px]', triggerClassName)}
       >
         <span className="truncate">{selected?.label ?? 'Select'}</span>
-        <ChevronDown
-          className={cn('h-4 w-4 shrink-0 opacity-70 transition-transform duration-200', open && 'rotate-180')}
-        />
+        <ChevronDown className={cn('h-4 w-4 shrink-0 opacity-70 transition-transform duration-200', open && 'rotate-180')} />
       </button>
       {open &&
         box &&
@@ -99,7 +93,7 @@ export function Select({
             role="listbox"
             aria-label={ariaLabel}
             style={{ top: box.top, left: box.left, width: box.width }}
-            className="float-panel fixed z-[70] max-h-60 overflow-auto p-1"
+            className="menu-pop fixed z-[70] max-h-60"
           >
             {options.map((option) => {
               const active = option.value === value
@@ -113,12 +107,6 @@ export function Select({
                       onChange(option.value)
                       setOpen(false)
                     }}
-                    className={cn(
-                      'flex w-full rounded-lg px-3 py-2 text-left text-sm',
-                      active
-                        ? 'bg-[var(--color-wash-strong)] font-medium text-white'
-                        : 'text-[var(--color-ink)] hover:bg-[var(--color-wash)]'
-                    )}
                   >
                     {option.label}
                   </button>

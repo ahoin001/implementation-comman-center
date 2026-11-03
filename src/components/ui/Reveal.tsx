@@ -2,18 +2,18 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
-/** True only for the first beat after `ready`, so later filter changes stay still. */
-export function useEntrance(ready = true) {
+/** Plays a rise/stagger beat after `ready`, and again whenever `resetKey` changes. */
+export function useEntrance(ready = true, resetKey?: string | number) {
   const [enter, setEnter] = useState(true)
   useEffect(() => {
     if (!ready) return
-    const timer = window.setTimeout(() => setEnter(false), 560)
+    setEnter(true)
+    const timer = window.setTimeout(() => setEnter(false), 700)
     return () => window.clearTimeout(timer)
-  }, [ready])
+  }, [ready, resetKey])
   return ready && enter
 }
 
-/** One short entrance. Delay is only for the first few items in a list. */
 export function Reveal({
   delay = 0,
   className,
@@ -26,7 +26,7 @@ export function Reveal({
   const reduce = useReducedMotion()
   return (
     <div
-      className={cn(!reduce && 'rise-in', className)}
+      className={cn(!reduce && 'rise', className)}
       style={!reduce && delay > 0 ? { animationDelay: `${delay}ms` } : undefined}
     >
       {children}
@@ -35,5 +35,5 @@ export function Reveal({
 }
 
 export function staggerDelay(index: number) {
-  return Math.min(index, 6) * 36
+  return Math.min(index, 4) * 60
 }

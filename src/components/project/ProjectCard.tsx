@@ -90,12 +90,11 @@ export function ProjectCard({
       layoutId={enableShared ? `project-card-${id}` : undefined}
       transition={sharedTransition}
       className={cn(
-        'float-panel p-5 relative',
-        'transition-[box-shadow,border-color] duration-200 ease-[var(--ease-out)]',
-        'hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20',
+        'card-w press p-5 relative',
+        'transition-[box-shadow,transform] duration-200 ease-[var(--ease)]',
         selectable && 'cursor-pointer',
-        selected && 'ring-2 ring-[var(--color-accent)] border-transparent',
-        launched && flexOpen && 'ring-1 ring-[var(--color-warning)]/35'
+        selected && 'shadow-[0_0_0_1.5px_#a9b3ff,0_6px_16px_rgba(109,123,255,0.16)]',
+        launched && flexOpen && 'ring-1 ring-[var(--amber)]/35'
       )}
     >
       {selectable && (
@@ -103,8 +102,8 @@ export function ProjectCard({
           className={cn(
             'absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-md border transition-colors duration-150',
             selected
-              ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
-              : 'border-[var(--color-border)] bg-[var(--color-card-solid)]'
+              ? 'border-transparent bg-[var(--blue)] text-white'
+              : 'border-[var(--line)] bg-[var(--surface)]'
           )}
         >
           {selected && <Check className="h-3.5 w-3.5" strokeWidth={3} />}

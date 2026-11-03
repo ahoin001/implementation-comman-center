@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Command } from 'lucide-react'
+import { BrandMark } from '@/design-system/react'
 import { Panel } from '@/components/ui/Panel'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { signIn, signUp } from '@/lib/auth'
 
 type Mode = 'sign-in' | 'sign-up'
@@ -39,96 +40,91 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Panel className="w-full max-w-sm p-6">
-        <div className="flex items-center gap-2.5 mb-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-accent)]">
-            <Command className="h-4 w-4 text-white" />
+    <div className="app" data-bg="dots">
+      <div className="bg-layer bg-dots" aria-hidden>
+        <i />
+        <i />
+        <i />
+      </div>
+      <div className="relative z-[1] flex min-h-dvh items-center justify-center px-4">
+        <Panel className="w-full max-w-sm panel rise">
+          <div className="mb-6 flex items-center gap-2.5">
+            <BrandMark size={30} />
+            <div>
+              <p className="brand-name leading-none">Command Center</p>
+              <p className="nav-label !p-0">Implementation</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold tracking-tight leading-none">Command Center</p>
-            <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">Implementation</p>
-          </div>
-        </div>
 
-        <h1 className="text-xl font-semibold tracking-tight mb-1">
-          {mode === 'sign-in' ? 'Sign in' : 'Create your account'}
-        </h1>
-        <p className="text-sm text-[var(--color-muted-foreground)] mb-5">
-          Teammates share every project. Star the ones you want on My Projects.
-        </p>
+          <h1 className="mb-1 text-[22px] font-semibold tracking-[-0.018em]">
+            {mode === 'sign-in' ? 'Sign in' : 'Create your account'}
+          </h1>
+          <p className="mb-5 max-w-[36ch] text-sm leading-normal text-[var(--ink-2)]">
+            Teammates share every project. Star the ones you want on My Projects.
+          </p>
 
-        <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border)] p-0.5 mb-5">
-          {(
-            [
-              { id: 'sign-in' as const, label: 'Sign in' },
-              { id: 'sign-up' as const, label: 'Sign up' },
-            ]
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setMode(tab.id)
+          <div className="mb-5">
+            <SegmentedControl
+              label="Auth mode"
+              value={mode}
+              onChange={(next) => {
+                setMode(next)
                 setError(null)
                 setNotice(null)
               }}
-              className={
-                mode === tab.id
-                  ? 'rounded-[calc(var(--radius-md)-2px)] bg-[var(--color-foreground)] px-3 py-1.5 text-sm font-medium text-[var(--color-background)]'
-                  : 'rounded-[calc(var(--radius-md)-2px)] px-3 py-1.5 text-sm font-medium text-[var(--color-muted-foreground)]'
-              }
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              options={[
+                { id: 'sign-in', label: 'Sign in' },
+                { id: 'sign-up', label: 'Sign up' },
+              ]}
+            />
+          </div>
 
-        <form onSubmit={submit} className="space-y-3">
-          {mode === 'sign-up' && (
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-[var(--color-muted-foreground)]">Display name</span>
+          <form onSubmit={submit} className="space-y-3">
+            {mode === 'sign-up' && (
+              <label className="field">
+                Display name
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Alex"
+                  autoComplete="nickname"
+                  required
+                />
+              </label>
+            )}
+            <label className="field">
+              Email
               <Input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Alex"
-                autoComplete="nickname"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@webscribble.com"
+                autoComplete="email"
                 required
               />
             </label>
-          )}
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-[var(--color-muted-foreground)]">Email</span>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@webscribble.com"
-              autoComplete="email"
-              required
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-[var(--color-muted-foreground)]">Password</span>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
-              autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
-              minLength={6}
-              required
-            />
-          </label>
+            <label className="field">
+              Password
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+                minLength={6}
+                required
+              />
+            </label>
 
-          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
-          {notice && <p className="text-sm text-[var(--color-muted-foreground)]">{notice}</p>}
+            {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
+            {notice && <p className="text-sm text-[var(--ink-3)]">{notice}</p>}
 
-          <Button type="submit" className="w-full" disabled={busy}>
-            {busy ? 'Working…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
-          </Button>
-        </form>
-      </Panel>
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy ? 'Working…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+            </Button>
+          </form>
+        </Panel>
+      </div>
     </div>
   )
 }

@@ -40,7 +40,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!isSupabaseConfigured()) return children
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-[var(--color-muted-foreground)]">
+      <div className="flex min-h-dvh items-center justify-center text-sm text-[var(--ink-3)]">
         Loading…
       </div>
     )

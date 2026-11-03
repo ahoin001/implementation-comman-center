@@ -4,15 +4,16 @@ import { signOut } from '@/lib/auth'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Toggle } from '@/components/ui/Toggle'
+import { ScreenHead } from '@/components/ui/ScreenHead'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import type { AppSettings } from '@/types'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
 
-const accentColors = [
-  { label: 'Blue', value: '#0071e3' },
-  { label: 'Purple', value: '#af52de' },
-  { label: 'Green', value: '#34c759' },
-  { label: 'Orange', value: '#ff9500' },
-  { label: 'Red', value: '#ff3b30' },
+const themeOptions: { id: AppSettings['theme']; label: string }[] = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Graphite' },
+  { id: 'system', label: 'System' },
 ]
 
 export function SettingsPage() {
@@ -50,26 +51,20 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight">Settings</h1>
-          <p className="text-sm text-[var(--color-muted-foreground)]">Customize your command center</p>
-        </div>
+    <div className="screen">
+      <ScreenHead title="Settings" sub="Light paper, Graphite dark, and the tools you need to run launches.">
         <GlobalSearch className="max-w-[16rem]" />
-      </div>
+      </ScreenHead>
 
-      <div className="space-y-6">
+      <div className="split-settings sy-settings">
         <Card>
           <CardHeader>
             <CardTitle>Cloud Sync</CardTitle>
-            <CardDescription>
-              Data is stored in Supabase (no login for now — solo mode).
-            </CardDescription>
+            <CardDescription>Projects and settings live in Supabase for the team.</CardDescription>
           </CardHeader>
-          <p className="text-sm text-[var(--color-muted-foreground)]">
+          <p className="text-sm text-[var(--ink-3)]">
             Status:{' '}
-            <span className={syncError ? 'text-[var(--color-danger)]' : 'text-[var(--color-success)]'}>
+            <span className={syncError ? 'text-[var(--danger)]' : 'text-[var(--mint)]'}>
               {!hydrated ? 'Connecting…' : syncError ? syncError : 'Connected'}
             </span>
           </p>
@@ -78,7 +73,7 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Profile</CardTitle>
-            <CardDescription>Your display name on the dashboard</CardDescription>
+            <CardDescription>Your name on the board and in comments.</CardDescription>
           </CardHeader>
           <Input
             value={settings.userName}
@@ -93,42 +88,19 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
+            <CardDescription>Light is the original look. Graphite is its own dark theme.</CardDescription>
           </CardHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Theme</label>
-              <div className="flex gap-2">
-                {(['light', 'dark', 'system'] as AppSettings['theme'][]).map((theme) => (
-                  <Button
-                    key={theme}
-                    variant={settings.theme === theme ? 'default' : 'secondary'}
-                    size="sm"
-                    onClick={() => updateSettings({ theme })}
-                    className="capitalize"
-                  >
-                    {theme}
-                  </Button>
-                ))}
-              </div>
+          <div className="sy-opt">
+            <div className="grow">
+              <b>Theme</b>
+              <small>Paper by day, Graphite after hours.</small>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Accent Color</label>
-              <div className="flex gap-2">
-                {accentColors.map(({ label, value }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => updateSettings({ accentColor: value })}
-                    className="h-8 w-8 rounded-full border-2 transition-transform duration-150 active:scale-90"
-                    style={{
-                      backgroundColor: value,
-                      borderColor: settings.accentColor === value ? 'var(--color-foreground)' : 'transparent',
-                    }}
-                    title={label}
-                  />
-                ))}
-              </div>
-            </div>
+            <SegmentedControl
+              label="Theme"
+              value={settings.theme}
+              onChange={(theme) => updateSettings({ theme })}
+              options={themeOptions}
+            />
           </div>
         </Card>
 
@@ -136,17 +108,19 @@ export function SettingsPage() {
           <CardHeader>
             <CardTitle>Notifications</CardTitle>
           </CardHeader>
-          <label className="flex items-center justify-between cursor-pointer">
-            <span className="text-sm">Enable reminders</span>
-            <input
-              type="checkbox"
+          <div className="sy-opt">
+            <div className="grow">
+              <b>Reminders</b>
+              <small>Ping before a launch window.</small>
+            </div>
+            <Toggle
+              label="Enable reminders"
               checked={settings.notificationsEnabled}
-              onChange={(e) => updateSettings({ notificationsEnabled: e.target.checked })}
-              className="h-4 w-4 rounded accent-[var(--color-accent)]"
+              onChange={(notificationsEnabled) => updateSettings({ notificationsEnabled })}
             />
-          </label>
-          <div className="mt-4">
-            <label className="text-sm font-medium mb-2 block">Reminder window (days before launch)</label>
+          </div>
+          <label className="field mt-4">
+            Reminder window (days before launch)
             <Input
               type="number"
               min={1}
@@ -154,7 +128,7 @@ export function SettingsPage() {
               value={settings.reminderWindowDays}
               onChange={(e) => updateSettings({ reminderWindowDays: parseInt(e.target.value) || 14 })}
             />
-          </div>
+          </label>
         </Card>
 
         <Card>
@@ -235,8 +209,8 @@ export function SettingsPage() {
             <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
             <Button variant="outline" onClick={resetToSeed}>Reload from Cloud</Button>
           </div>
-          {importStatus === 'success' && <p className="text-sm text-[var(--color-success)] mt-2">Import successful</p>}
-          {importStatus === 'error' && <p className="text-sm text-[var(--color-danger)] mt-2">Import failed — invalid file</p>}
+          {importStatus === 'success' && <p className="mt-2 text-sm text-[var(--mint)]">Import successful</p>}
+          {importStatus === 'error' && <p className="mt-2 text-sm text-[var(--danger)]">Import failed — invalid file</p>}
         </Card>
       </div>
     </div>

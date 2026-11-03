@@ -37,7 +37,7 @@ export function DeliverableCheckbox({
       <label
         className={cn(
           'flex items-center gap-2.5 rounded-[var(--radius-md)] px-2 py-1.5 text-sm cursor-pointer transition-colors duration-150',
-          'hover:bg-black/5 dark:hover:bg-white/5',
+          'hover:bg-[var(--surface-2)]',
           checked ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]'
         )}
       >

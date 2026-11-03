@@ -63,34 +63,19 @@ export function AttentionStrip({ projects, activeFilter, onSelectFilter }: Atten
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] mr-1">
-        Attention
-      </span>
+      <span className="nav-label !p-0 mr-1">Attention</span>
       {items.map((item) => {
         const active = activeFilter === item.filter
         return (
           <button
             key={item.filter}
             type="button"
+            aria-pressed={active}
             onClick={() => onSelectFilter(item.filter)}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-[background-color,color,transform] duration-150 active:scale-[0.97]',
-              active
-                ? 'bg-[var(--color-accent)] text-white'
-                : item.tone === 'danger'
-                  ? 'bg-[var(--color-danger)]/10 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/15'
-                  : 'bg-[var(--color-warning)]/15 text-[var(--color-warning)] hover:bg-[var(--color-warning)]/20'
-            )}
+            className={cn('fx-chip', item.tone === 'danger' && !active && 'text-[var(--danger)]')}
           >
             {item.label}
-            <span
-              className={cn(
-                'tabular-nums rounded-full px-1.5 py-0.5 text-[10px]',
-                active ? 'bg-white/20' : 'bg-black/5 dark:bg-white/10'
-              )}
-            >
-              {item.count}
-            </span>
+            <i>{item.count}</i>
           </button>
         )
       })}
