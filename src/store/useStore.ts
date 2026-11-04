@@ -32,10 +32,10 @@ import { applyDeliverablePatch, createDefaultDeliverables } from '@/lib/delivera
 import { createDefaultPathConfig, normalizePathConfig } from '@/lib/pathConfig'
 import { normalizeMemberFeatures } from '@/lib/memberFeatures'
 import { canCompleteLaunch } from '@/lib/progress'
-import { isSupabaseConfigured } from '@/lib/supabase'
+import { isSupabaseConfigured, SOLO_USER_ID } from '@/lib/supabase'
 import { getActorId } from '@/lib/session'
 import { updateOwnProfile } from '@/lib/auth'
-import type { LaunchTaskStatus } from '@/lib/launchTemplate'
+import { createDefaultLaunchTasks, type LaunchTaskStatus } from '@/lib/launchTemplate'
 import type { ImportedTask } from '@/lib/sheetImport'
 import * as api from '@/lib/supabaseApi'
 
@@ -94,6 +94,7 @@ interface StoreState {
     }
   ) => void
   addTaskComment: (projectId: string, taskId: string, body: string) => void
+  updateTaskComment: (projectId: string, taskId: string, commentId: string, body: string) => void
   deleteTaskComment: (projectId: string, taskId: string, commentId: string) => void
   toggleFavorite: (projectId: string) => void
   updateDeliverable: (projectId: string, key: DeliverableKey, patch: Partial<DeliverableItem>) => void
@@ -184,6 +185,8 @@ export const useStore = create<StoreState>()((set, get) => ({
     if (!isSupabaseConfigured()) {
       set({
         hydrated: true,
+        currentUserId: SOLO_USER_ID,
+        profiles: [{ id: SOLO_USER_ID, displayName: 'Alex' }],
         syncError: 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY',
       })
       return
@@ -532,6 +535,34 @@ export const useStore = create<StoreState>()((set, get) => ({
       .catch(logSyncError)
   },
 
+  updateTaskComment: (projectId, taskId, commentId, body) => {
+    const trimmed = body.trim()
+    if (!trimmed) return
+    const userId = get().currentUserId
+    const task = get().getProject(projectId)?.launchTasks?.find((item) => item.id === taskId)
+    const comment = task?.comments.find((item) => item.id === commentId)
+    if (!userId || comment?.userId !== userId) return
+    set((state) => ({
+      projects: state.projects.map((project) => {
+        if (project.id !== projectId) return project
+        return {
+          ...project,
+          launchTasks: (project.launchTasks ?? []).map((item) =>
+            item.id === taskId
+              ? {
+                  ...item,
+                  comments: item.comments.map((entry) =>
+                    entry.id === commentId ? { ...entry, body: trimmed } : entry
+                  ),
+                }
+              : item
+          ),
+        }
+      }),
+    }))
+    void api.updateTaskComment(commentId, trimmed).catch(logSyncError)
+  },
+
   deleteTaskComment: (projectId, taskId, commentId) => {
     const userId = get().currentUserId
     const task = get().getProject(projectId)?.launchTasks?.find((item) => item.id === taskId)
@@ -764,10 +795,13 @@ export const useStore = create<StoreState>()((set, get) => ({
       },
       links: {},
       notes: [],
+      launchTasks: createDefaultLaunchTasks(),
       createdAt: now,
       updatedAt: now,
     }
     set((state) => ({ projects: [project, ...state.projects] }))
+
+    if (!isSupabaseConfigured()) return id
 
     void api
       .insertImplementation({ ...data, id })

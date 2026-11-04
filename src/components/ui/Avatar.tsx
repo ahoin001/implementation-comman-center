@@ -13,7 +13,7 @@ export function Avatar({
   className,
 }: {
   name: string
-  size?: 'sm' | 'md'
+  size?: 'xs' | 'sm' | 'md'
   className?: string
 }) {
   return (

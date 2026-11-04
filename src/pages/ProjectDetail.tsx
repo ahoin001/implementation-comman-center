@@ -1,10 +1,17 @@
 import { useLayoutEffect } from 'react'
 import { useParams, Link, useNavigate, useLocation, useViewTransitionState } from 'react-router-dom'
-import { ArrowLeft, Search } from 'lucide-react'
+import { ArrowLeft, Check, Search } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import { currentLaunchStage, isLaunchDone, isLaunchTracked, launchBoardProgress } from '@/lib/launchTemplate'
+import {
+  careerCenterLaunchTask,
+  currentLaunchStage,
+  isLaunchDone,
+  isLaunchTracked,
+  launchBoardProgress,
+} from '@/lib/launchTemplate'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
 import { projectListPath } from '@/lib/projectGlance'
+import { markViewTransition } from '@/lib/viewTransition'
 import { ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { LaunchBoard } from '@/components/project/LaunchBoard'
@@ -21,6 +28,7 @@ import { Panel } from '@/components/ui/Panel'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
+import { StatusPill } from '@/components/ui/StatusPill'
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -39,6 +47,7 @@ export function ProjectDetailPage() {
   const currentUserId = useStore((s) => s.currentUserId)
   const updateLaunchTask = useStore((s) => s.updateLaunchTask)
   const addTaskComment = useStore((s) => s.addTaskComment)
+  const updateTaskComment = useStore((s) => s.updateTaskComment)
   const deleteTaskComment = useStore((s) => s.deleteTaskComment)
   const toggleMemberFeature = useStore((s) => s.toggleMemberFeature)
   const addMemberFeatureDefinition = useStore((s) => s.addMemberFeatureDefinition)
@@ -77,6 +86,8 @@ export function ProjectDetailPage() {
   const completeCount = tracked.filter((task) => isLaunchDone(task.status)).length
   const progress = live.length ? launchBoardProgress(live) : 0
   const stageLabel = live.length ? currentLaunchStage(live) : 'Launch board'
+  const goLive = careerCenterLaunchTask(live)
+  const launched = goLive?.status === 'complete'
   const daysRemaining = getDaysRemaining(project.launchDate)
   const commentCount = live.reduce((sum, task) => sum + task.comments.length, 0)
   const inProgress = live.filter((task) => task.status === 'in_progress').length
@@ -103,6 +114,7 @@ export function ProjectDetailPage() {
             (location.state as { from?: string } | null)?.from
           )}
           viewTransition
+          onClick={markViewTransition}
           className="eyebrow text-[var(--ink-3)] hover:text-[var(--ink)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -138,7 +150,25 @@ export function ProjectDetailPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {project.archived && <span className="tag">Archived</span>}
+                {launched && (
+                  <StatusPill tone="success" icon={<Check className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />}>
+                    Launched
+                  </StatusPill>
+                )}
                 <HealthBadge health={calculateHealth(project)} />
+                {goLive && (
+                  <Button
+                    variant={launched ? 'ghost' : 'default'}
+                    size="sm"
+                    onClick={() =>
+                      updateLaunchTask(project.id, goLive.id, {
+                        status: launched ? 'not_started' : 'complete',
+                      })
+                    }
+                  >
+                    {launched ? 'Undo launch' : 'Mark launched'}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -182,6 +212,9 @@ export function ProjectDetailPage() {
             currentUserId={currentUserId}
             onUpdateTask={(taskId, patch) => updateLaunchTask(project.id, taskId, patch)}
             onAddComment={(taskId, body) => addTaskComment(project.id, taskId, body)}
+            onUpdateComment={(taskId, commentId, body) =>
+              updateTaskComment(project.id, taskId, commentId, body)
+            }
             onDeleteComment={(taskId, commentId) => deleteTaskComment(project.id, taskId, commentId)}
           />
 

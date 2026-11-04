@@ -1,10 +1,29 @@
+import { useEffect, useState, type ReactNode } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { LayoutGroup } from 'framer-motion'
+import { settleViewTransition, wasViewTransition, markViewTransition } from '@/lib/viewTransition'
 import { Sidebar, MobileNav } from './Navigation'
 import { ProfileChip } from './ProfileChip'
 
+function PageFrame({ children }: { children: ReactNode }) {
+  const [quiet] = useState(wasViewTransition)
+
+  useEffect(() => {
+    const timer = window.setTimeout(settleViewTransition, 50)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  return <div className={quiet ? 'page-settled' : 'page-in'}>{children}</div>
+}
+
 export function AppLayout() {
   const location = useLocation()
+
+  useEffect(() => {
+    const onPop = () => markViewTransition()
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   return (
     <LayoutGroup id="app">
@@ -24,9 +43,9 @@ export function AppLayout() {
         <div className="body">
           <Sidebar />
           <main className="main">
-            <div key={location.pathname} className="page-in">
+            <PageFrame key={location.pathname}>
               <Outlet />
-            </div>
+            </PageFrame>
           </main>
         </div>
         <MobileNav />

@@ -5,6 +5,7 @@ import type { Project } from '@/types'
 import { WAITING_ON_LABELS } from '@/types'
 import { formatLaunchDate, getDaysRemaining } from '@/lib/health'
 import { getProjectGlance, type CardSignalTone } from '@/lib/projectGlance'
+import { markViewTransition } from '@/lib/viewTransition'
 import { useStore } from '@/store/useStore'
 import { ProgressRing } from './ProgressRing'
 import { ProjectAvatar } from './ProjectIdentity'
@@ -113,7 +114,13 @@ export function ProjectCard({
   }
 
   return (
-    <Link to={to} viewTransition state={{ from: location.pathname }} className={className}>
+    <Link
+      to={to}
+      viewTransition
+      state={{ from: location.pathname }}
+      onClick={markViewTransition}
+      className={className}
+    >
       {body}
     </Link>
   )

@@ -1,6 +1,12 @@
+import type { LaunchTask } from '@/types'
+import { generateId } from '@/lib/utils'
+
 export type LaunchParty = 'client' | 'webscribble'
 
 export type LaunchTaskStatus = 'not_started' | 'in_progress' | 'complete' | 'na' | 'as_needed'
+
+/** Go-live task that marks a project launched without closing the rest of the board. */
+export const CAREER_CENTER_LAUNCH_KEY = 'launch_career_center'
 
 export interface LaunchPhase {
   key: string
@@ -83,7 +89,7 @@ const raw: Omit<LaunchTemplateTask, 'sort'>[] = [
   { key: 'test_sso', phaseKey: 'prelaunch', groupKey: 'sso', title: 'Client tests SSO', description: 'Client confirms SSO and flags tweaks.', party: 'client', defaultStatus: 'not_started' },
   { key: 'knowledge_base', phaseKey: 'prelaunch', groupKey: 'resources', title: 'Share knowledge base', description: 'Send the Web Scribble knowledge base link and how to get support.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'transfer_domain', phaseKey: 'launch', groupKey: 'golive', title: 'Transfer domain', description: 'Point the jobs CNAME to lb1.webscribble.co and tell Web Scribble when DNS is updated.', party: 'client', defaultStatus: 'not_started' },
-  { key: 'launch_career_center', phaseKey: 'launch', groupKey: 'golive', title: 'Launch the career center', description: 'After DNS is updated, confirm the go-live moment.', party: 'webscribble', defaultStatus: 'not_started' },
+  { key: CAREER_CENTER_LAUNCH_KEY, phaseKey: 'launch', groupKey: 'golive', title: 'Launch the career center', description: 'After DNS is updated, confirm the go-live moment.', party: 'webscribble', defaultStatus: 'not_started' },
   { key: 'widgets_rss', phaseKey: 'launch', groupKey: 'golive', title: 'Add widgets and RSS to the main site', description: 'Use the Smartway publishing suite for widgets, HTML, and RSS on high-traffic pages.', party: 'client', defaultStatus: 'as_needed' },
   { key: 'post_launch_troubleshooting', phaseKey: 'after', groupKey: 'tech_support', title: 'Post-launch troubleshooting', description: 'help@webscribble.com for issues right after launch.', party: 'webscribble', defaultStatus: 'as_needed' },
   { key: 'ongoing_tech_support', phaseKey: 'after', groupKey: 'tech_support', title: 'Ongoing technical support', description: 'Ongoing site support through help@webscribble.com.', party: 'webscribble', defaultStatus: 'as_needed' },
@@ -106,7 +112,7 @@ export const LEGACY_STATUS_SOURCES: Record<string, string> = {
   conduct_smartway_training: 'smartway_training',
   develop_offers: 'pricing_plan',
   approve_offers: 'pricing_plan',
-  launch_career_center: 'launch',
+  [CAREER_CENTER_LAUNCH_KEY]: 'launch',
 }
 
 export const MAPPED_LEGACY_KEYS = new Set(Object.values(LEGACY_STATUS_SOURCES))
@@ -156,6 +162,18 @@ export function isLaunchDone(status: LaunchTaskStatus): boolean {
   return status === 'complete' || status === 'na'
 }
 
+export function careerCenterLaunchTask<T extends { key: string; legacy?: boolean }>(
+  tasks: T[]
+): T | undefined {
+  return tasks.find((task) => !task.legacy && task.key === CAREER_CENTER_LAUNCH_KEY)
+}
+
+export function isCareerCenterLaunched(
+  tasks: { key: string; status: LaunchTaskStatus; legacy?: boolean }[]
+): boolean {
+  return careerCenterLaunchTask(tasks)?.status === 'complete'
+}
+
 export function isLaunchTracked(status: LaunchTaskStatus): boolean {
   return status !== 'as_needed'
 }
@@ -196,4 +214,19 @@ export function currentLaunchStage(
     if (applicable.some((task) => !isLaunchDone(task.status))) return phase.title
   }
   return 'Complete'
+}
+
+export function createDefaultLaunchTasks(): LaunchTask[] {
+  return LAUNCH_TEMPLATE.map((task) => ({
+    id: generateId(),
+    key: task.key,
+    phaseKey: task.phaseKey,
+    groupKey: task.groupKey,
+    title: task.title,
+    description: task.description,
+    party: task.party,
+    status: task.defaultStatus,
+    sort: task.sort,
+    comments: [],
+  }))
 }

@@ -25,8 +25,8 @@
   --color-wash-strong: var(--ink);
   --color-field: var(--surface-2);
   --color-panel: var(--surface);
-  --color-plan-phase: var(--ink);
-  --color-plan-phase-ink: var(--on-ink);
+  --color-plan-phase: color-mix(in srgb, var(--prism-a) 12%, var(--surface));
+  --color-plan-phase-ink: var(--ink);
   --color-plan-group: var(--surface-2);
   --color-plan-group-ink: var(--ink);
   --color-plan-group-meta: var(--ink-3);

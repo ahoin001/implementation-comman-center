@@ -13,6 +13,8 @@ interface AttentionStripProps {
   projects: Project[]
   activeFilter: ProjectFilter
   onSelectFilter: (filter: ProjectFilter) => void
+  /** Inside the view menu: no section label, no outer margin. */
+  bare?: boolean
 }
 
 interface AttentionItem {
@@ -22,7 +24,7 @@ interface AttentionItem {
   tone: 'danger' | 'warning'
 }
 
-export function AttentionStrip({ projects, activeFilter, onSelectFilter }: AttentionStripProps) {
+export function AttentionStrip({ projects, activeFilter, onSelectFilter, bare = false }: AttentionStripProps) {
   const items = useMemo((): AttentionItem[] => {
     const incomplete = projects.filter((p) => calculateHealth(p) !== 'complete')
     return [
@@ -62,7 +64,7 @@ export function AttentionStrip({ projects, activeFilter, onSelectFilter }: Atten
   if (items.length === 0) return null
 
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2">
+    <div className={bare ? 'project-refine-chips' : 'mb-6 flex flex-wrap items-center gap-2'}>
       <span className="nav-label !p-0 mr-1">Attention</span>
       {items.map((item) => {
         const active = activeFilter === item.filter

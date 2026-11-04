@@ -1,42 +1,20 @@
 import { useMemo, useState } from 'react'
 import { CheckSquare, FolderOpen, ListPlus, Search, Star, Trash2, X } from 'lucide-react'
 import type { Project, ProjectFilter, ProjectLayout } from '@/types'
-import { FILTER_LABELS, STATUS_FILTERS, TASK_FILTERS } from '@/types'
+import { FILTER_LABELS } from '@/types'
 import { ProjectCard } from '@/components/project/ProjectCard'
 import { NewProjectButton } from '@/components/project/NewProjectButton'
-import { ImportChecklistButton } from '@/components/project/ImportChecklistModal'
+import { ProjectRefine } from '@/components/project/ProjectRefine'
 import { BulkAddProjectsModal } from '@/components/project/BulkAddProjectsModal'
 import { ProjectsStickyBoard } from '@/components/project/ProjectsStickyBoard'
-import { AttentionStrip } from '@/components/project/AttentionStrip'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, LoadingState } from '@/components/ui/EmptyState'
-import { FilterChip as Chip } from '@/components/ui/FilterChip'
-import { ScreenHead } from '@/components/ui/ScreenHead'
-import { SegmentedControl } from '@/components/ui/SegmentedControl'
-import { Toggle } from '@/components/ui/Toggle'
-import { Panel } from '@/components/ui/Panel'
-import { Workbench } from '@/components/ui/Workbench'
 import { useStore } from '@/store/useStore'
 import { useActiveProjects, useFilteredProjects } from '@/hooks/useProjects'
 import { useProjectListScroll } from '@/hooks/useProjectListScroll'
 import { groupProjects } from '@/lib/projectGlance'
+import { collectStickyNotes } from '@/lib/projectNotes'
 import { GlobalSearch } from '@/components/search/GlobalSearch'
-
-function FilterChip({
-  filter,
-  active,
-  onSelect,
-}: {
-  filter: ProjectFilter
-  active: boolean
-  onSelect: (filter: ProjectFilter) => void
-}) {
-  return (
-    <Chip pressed={active} onClick={() => onSelect(filter)}>
-      {FILTER_LABELS[filter]}
-    </Chip>
-  )
-}
 
 function ProjectGrid({
   projects,
@@ -90,13 +68,14 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkAddOpen, setBulkAddOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [stickiesOpen, setStickiesOpen] = useState(false)
 
   const allVisibleSelected = projects.length > 0 && projects.every((p) => selectedIds.has(p.id))
   const selectedCount = useMemo(
     () => projects.filter((p) => selectedIds.has(p.id)).length,
     [projects, selectedIds]
   )
-  const taskFilterActive = TASK_FILTERS.includes(activeFilter)
+  const stickyCount = useMemo(() => collectStickyNotes(projects).length, [projects])
   const bands = useMemo(() => groupProjects(projects), [projects])
 
   const exitSelectMode = () => {
@@ -142,38 +121,43 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
 
   return (
     <div className="screen">
-      <ScreenHead
-        title={favoritesOnly ? 'My Projects' : 'Projects'}
-        sub={
-          hydrated
-            ? `${projects.length} implementation${projects.length !== 1 ? 's' : ''}${
-                activeFilter !== 'all' ? ` · ${FILTER_LABELS[activeFilter]}` : ''
-              }`
-            : 'Loading implementations'
-        }
-      >
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <GlobalSearch className="max-w-xs" />
+      <header className="project-toolbar icc-chrome card-w">
+        <div className="project-toolbar-title">
+          <h1>{favoritesOnly ? 'My Projects' : 'Projects'}</h1>
+          <span className="project-toolbar-count">{hydrated ? projects.length : '—'}</span>
+        </div>
+        <GlobalSearch className="project-toolbar-search" />
+        <div className="project-toolbar-actions">
           {!selectMode ? (
             <>
-              <Button variant="secondary" size="sm" onClick={() => setSelectMode(true)}>
-                <CheckSquare className="h-4 w-4" />
-                Select
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => setBulkAddOpen(true)}>
-                <ListPlus className="h-4 w-4" />
-                Bulk Add
-              </Button>
-              {!favoritesOnly && <ImportChecklistButton />}
+              <ProjectRefine
+                activeFilter={activeFilter}
+                onSelectFilter={handleSelectFilter}
+                layout={projectLayout}
+                onLayout={setProjectLayout}
+                inProgressFirst={inProgressFirst}
+                onInProgressFirst={setInProgressFirst}
+                attentionProjects={activeProjects}
+                stickyCount={stickyCount}
+                stickiesOpen={stickiesOpen}
+                onToggleStickies={() => setStickiesOpen((open) => !open)}
+                onSelectMode={() => setSelectMode(true)}
+                onBulkAdd={() => setBulkAddOpen(true)}
+                showImport={!favoritesOnly}
+              />
               <NewProjectButton />
             </>
           ) : (
             <>
+              <span className="project-toolbar-count">
+                {selectedCount === 0 ? 'Select projects' : `${selectedCount} selected`}
+              </span>
               <Button variant="ghost" size="sm" onClick={exitSelectMode}>
                 <X className="h-4 w-4" />
                 Cancel
               </Button>
               <Button variant="secondary" size="sm" onClick={toggleSelectAll}>
+                <CheckSquare className="h-4 w-4" />
                 {allVisibleSelected ? 'Deselect all' : 'Select all'}
               </Button>
               {!confirmDelete ? (
@@ -184,15 +168,12 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
                   onClick={() => setConfirmDelete(true)}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete {selectedCount > 0 ? selectedCount : ''}
+                  Delete
                 </Button>
               ) : (
                 <>
-                  <span className="text-sm text-[var(--color-danger)]">
-                    Delete {selectedCount}?
-                  </span>
                   <Button variant="danger" size="sm" onClick={handleBulkDelete}>
-                    Confirm
+                    Delete {selectedCount}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
                     Keep
@@ -202,80 +183,22 @@ export function ProjectsPage({ favoritesOnly = false }: { favoritesOnly?: boolea
             </>
           )}
         </div>
-      </ScreenHead>
+      </header>
 
-      {selectMode && (
-        <Panel className="mb-4 px-4 py-2.5 text-sm text-[var(--color-ink-soft)]">
-          {selectedCount === 0
-            ? 'Tap projects to select them for bulk delete.'
-            : `${selectedCount} selected`}
-        </Panel>
+      {activeFilter !== 'all' && (
+        <button type="button" className="fx-chip project-live-filter" onClick={() => setActiveFilter('all')}>
+          {FILTER_LABELS[activeFilter]}
+          <X className="h-3.5 w-3.5" />
+        </button>
       )}
 
-      <Workbench>
-        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-          {STATUS_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter}
-              filter={filter}
-              active={activeFilter === filter}
-              onSelect={handleSelectFilter}
-            />
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <SegmentedControl
-            label="Project layout"
-            value={projectLayout}
-            onChange={setProjectLayout}
-            options={[
-              { id: 'grid', label: 'Grid' },
-              { id: 'list', label: 'List' },
-            ]}
-          />
-          <label className="inline-flex items-center gap-2.5 text-sm text-[var(--ink)]">
-            <Toggle checked={inProgressFirst} onChange={setInProgressFirst} label="In progress first" />
-            In progress first
-          </label>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs font-medium text-[var(--color-ink-soft)]">Launch path</span>
-          {TASK_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter}
-              filter={filter}
-              active={activeFilter === filter}
-              onSelect={handleSelectFilter}
-            />
-          ))}
-          {taskFilterActive && (
-            <button
-              type="button"
-              onClick={() => setActiveFilter('all')}
-              className="shrink-0 cursor-pointer rounded-full px-3 py-1 text-xs text-[var(--color-ink-soft)] transition-colors hover:text-[var(--color-ink)]"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      </Workbench>
-
-      {hydrated && !selectMode && (
-        <>
-          <AttentionStrip
-            projects={activeProjects}
-            activeFilter={activeFilter}
-            onSelectFilter={handleSelectFilter}
-          />
-          <ProjectsStickyBoard
-            projects={projects}
-            onAddSticky={(projectId, content, severity) =>
-              addNote(projectId, content, { pinned: true, severity })
-            }
-          />
-        </>
+      {hydrated && stickiesOpen && !selectMode && (
+        <ProjectsStickyBoard
+          projects={projects}
+          onAddSticky={(projectId, content, severity) =>
+            addNote(projectId, content, { pinned: true, severity })
+          }
+        />
       )}
 
       <div className="icc-stage">

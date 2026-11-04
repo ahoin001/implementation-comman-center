@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useReducedMotion } from 'framer-motion'
-import { Check, ChevronDown, MessageSquare, Search, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, MessageSquare, Search } from 'lucide-react'
+import { runSharedElementTransition } from '@/lib/viewTransition'
 import type { LaunchTask, Profile, Project } from '@/types'
 import type { LaunchParty, LaunchTaskStatus } from '@/lib/launchTemplate'
 import {
@@ -14,7 +15,6 @@ import {
   taskTeamRole,
 } from '@/lib/launchTemplate'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
 import { Input, Textarea } from '@/components/ui/Input'
 import { Panel } from '@/components/ui/Panel'
 import { SectionLabel } from '@/components/ui/SectionLabel'
@@ -23,6 +23,7 @@ import { StatusPill, type StatusTone } from '@/components/ui/StatusPill'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { LaunchPlanSheet } from '@/components/project/LaunchPlanSheet'
+import { TaskCommentThread } from '@/components/project/TaskCommentThread'
 import { taskMarkClass, taskStatusTriggerClass, taskTitleClass } from '@/components/project/taskGlance'
 
 type TaskScope = 'all' | 'open' | 'mine'
@@ -71,15 +72,6 @@ const STATUS_TONE: Record<LaunchTaskStatus, StatusTone> = {
   as_needed: 'warning',
 }
 
-function formatWhen(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
 function cycleStatus(status: LaunchTaskStatus): LaunchTaskStatus {
   if (status === 'not_started') return 'in_progress'
   if (status === 'in_progress') return 'complete'
@@ -100,6 +92,7 @@ interface LaunchBoardProps {
     }
   ) => void
   onAddComment: (taskId: string, body: string) => void
+  onUpdateComment: (taskId: string, commentId: string, body: string) => void
   onDeleteComment: (taskId: string, commentId: string) => void
 }
 
@@ -109,6 +102,7 @@ export function LaunchBoard({
   currentUserId,
   onUpdateTask,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: LaunchBoardProps) {
   const tasks = project.launchTasks ?? []
@@ -122,6 +116,8 @@ export function LaunchBoard({
   const [openGroupKeys, setOpenGroupKeys] = useState<string[] | null>(null)
   const listKey = `${project.id}:${phaseKey ?? 'all'}:${scope}:${owner}:${role}:${query}:${layout}`
 
+  const reduceMotion = useReducedMotion()
+  const [boardVt, setBoardVt] = useState(false)
   const names = useMemo(() => new Map(profiles.map((profile) => [profile.id, profile.displayName])), [profiles])
   const toggleOpen = useCallback((id: string) => {
     setOpenId((current) => (current === id ? null : id))
@@ -179,12 +175,19 @@ export function LaunchBoard({
             <SegmentedControl
               value={layout}
               onChange={(next) => {
-                setLayout(next)
-                try {
-                  localStorage.setItem(LAYOUT_KEY, next)
-                } catch {
-                  // Preference stays for this visit if storage is blocked.
-                }
+                runSharedElementTransition(
+                  () => setBoardVt(true),
+                  () => {
+                    setLayout(next)
+                    try {
+                      localStorage.setItem(LAYOUT_KEY, next)
+                    } catch {
+                      // Preference stays for this visit if storage is blocked.
+                    }
+                  },
+                  () => setBoardVt(false),
+                  reduceMotion
+                )
               }}
               options={LAYOUTS}
               label="Task layout"
@@ -228,6 +231,7 @@ export function LaunchBoard({
       </div>
       </Panel>
 
+      <div className={boardVt ? 'vt-launch-board' : undefined}>
       {layout === 'plan' && shownGroups.length > 0 ? (
         <LaunchPlanSheet
           groups={shownGroups}
@@ -236,6 +240,7 @@ export function LaunchBoard({
           currentUserId={currentUserId}
           onUpdateTask={onUpdateTask}
           onAddComment={onAddComment}
+          onUpdateComment={onUpdateComment}
           onDeleteComment={onDeleteComment}
         />
       ) : layout === 'checklist' ? (
@@ -263,6 +268,7 @@ export function LaunchBoard({
                     onToggle={toggleOpen}
                     onUpdate={onUpdateTask}
                     onAddComment={onAddComment}
+                    onUpdateComment={onUpdateComment}
                     onDeleteComment={onDeleteComment}
                   />
                 ) : (
@@ -276,6 +282,7 @@ export function LaunchBoard({
                     onToggle={toggleOpen}
                     onUpdate={onUpdateTask}
                     onAddComment={onAddComment}
+                    onUpdateComment={onUpdateComment}
                     onDeleteComment={onDeleteComment}
                   />
                 )
@@ -291,6 +298,7 @@ export function LaunchBoard({
           {filtering ? 'Nothing matches. Clear a filter to see the rest of the board.' : 'No launch tasks yet.'}
         </p>
       )}
+      </div>
 
       {earlier.length > 0 && !filtering && (
         <details className="mt-4 rounded-2xl bg-[var(--color-field)] px-3 py-2">
@@ -587,6 +595,7 @@ const ImportDataRow = memo(function ImportDataRow({
   onToggle,
   onUpdate,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: {
   initial: LaunchTask
@@ -598,6 +607,7 @@ const ImportDataRow = memo(function ImportDataRow({
   onToggle: (id: string) => void
   onUpdate: LaunchBoardProps['onUpdateTask']
   onAddComment: LaunchBoardProps['onAddComment']
+  onUpdateComment: LaunchBoardProps['onUpdateComment']
   onDeleteComment: LaunchBoardProps['onDeleteComment']
 }) {
   const reduce = useReducedMotion()
@@ -649,6 +659,7 @@ const ImportDataRow = memo(function ImportDataRow({
               names={names}
               currentUserId={currentUserId}
               onAddComment={(body) => onAddComment(task.id, body)}
+              onUpdateComment={(commentId, body) => onUpdateComment(task.id, commentId, body)}
               onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
             />
           ))}
@@ -664,6 +675,7 @@ function ImportStepNotes({
   names,
   currentUserId,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: {
   label: string
@@ -671,60 +683,22 @@ function ImportStepNotes({
   names: Map<string, string>
   currentUserId: string | null
   onAddComment: (body: string) => void
+  onUpdateComment: (commentId: string, body: string) => void
   onDeleteComment: (commentId: string) => void
 }) {
-  const [draft, setDraft] = useState('')
   return (
     <div className="space-y-2">
-      <SectionLabel>{label}</SectionLabel>
       {task.description && <p className="text-sm text-[var(--color-ink-soft)]">{task.description}</p>}
-      {task.comments.length === 0 ? (
-        <p className="text-xs text-[var(--color-ink-soft)]">No comments yet.</p>
-      ) : (
-        <ul className="space-y-2">
-          {task.comments.map((comment) => (
-            <li key={comment.id} className="rounded-2xl bg-[var(--color-panel)] px-3 py-2 text-sm text-[var(--color-ink)]">
-              <p className="text-[11px] text-[var(--color-ink-soft)]">
-                <span className="font-medium text-[var(--color-ink)]">{names.get(comment.userId) ?? 'Teammate'}</span>
-                <span> · {formatWhen(comment.createdAt)}</span>
-                {comment.userId === currentUserId && (
-                  <button
-                    type="button"
-                    title="Delete comment"
-                    onClick={() => {
-                      if (window.confirm('Delete this comment?')) onDeleteComment(comment.id)
-                    }}
-                    className="ml-1 text-[var(--color-ink-soft)] hover:text-[var(--color-danger)]"
-                  >
-                    <Trash2 className="inline h-3 w-3" />
-                  </button>
-                )}
-              </p>
-              <p className="mt-1 whitespace-pre-wrap">{comment.body}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form
-        className="flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (!draft.trim()) return
-          onAddComment(draft)
-          setDraft('')
-        }}
-      >
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Add a comment"
-          shape="pill"
-          className="bg-[var(--color-panel)]"
-        />
-        <Button type="submit" size="sm" disabled={!draft.trim()} className="rounded-full">
-          Send
-        </Button>
-      </form>
+      <TaskCommentThread
+        comments={task.comments}
+        names={names}
+        currentUserId={currentUserId}
+        onAdd={onAddComment}
+        onUpdate={onUpdateComment}
+        onDelete={onDeleteComment}
+        collapsible={false}
+        label={label}
+      />
     </div>
   )
 }
@@ -738,6 +712,7 @@ const TaskRow = memo(function TaskRow({
   onToggle,
   onUpdate,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: {
   task: LaunchTask
@@ -748,6 +723,7 @@ const TaskRow = memo(function TaskRow({
   onToggle: (id: string) => void
   onUpdate: LaunchBoardProps['onUpdateTask']
   onAddComment: LaunchBoardProps['onAddComment']
+  onUpdateComment: LaunchBoardProps['onUpdateComment']
   onDeleteComment: LaunchBoardProps['onDeleteComment']
 }) {
   const reduce = useReducedMotion()
@@ -759,7 +735,6 @@ const TaskRow = memo(function TaskRow({
       description?: string
     }
   ) => onUpdate(task.id, patch)
-  const [draft, setDraft] = useState('')
   const [guidance, setGuidance] = useState(task.description)
   useEffect(() => {
     setGuidance(task.description)
@@ -846,70 +821,15 @@ const TaskRow = memo(function TaskRow({
                 />
               </label>
 
-              <div className="space-y-2.5">
-                <SectionLabel>Comments</SectionLabel>
-                {task.comments.length === 0 && (
-                  <p className="text-xs text-[var(--color-ink-soft)]">No comments yet. Leave a note for the next person.</p>
-                )}
-                <ul className="space-y-2">
-                  {task.comments.map((comment) => {
-                    const mine = comment.userId === currentUserId
-                    return (
-                      <li key={comment.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                        <div
-                          className={cn(
-                            'max-w-[36rem] rounded-2xl px-3 py-2',
-                            mine
-                              ? 'bg-[var(--color-wash)] text-[var(--color-ink)]'
-                              : 'bg-[var(--color-panel)] text-[var(--color-ink)]'
-                          )}
-                        >
-                          <p className="flex items-center gap-1 text-[11px] text-[var(--color-ink-soft)]">
-                            <span className="font-medium text-[var(--color-ink)]">
-                              {names.get(comment.userId) ?? 'Teammate'}
-                            </span>
-                            <span aria-hidden>·</span>
-                            <span>{formatWhen(comment.createdAt)}</span>
-                            {mine && (
-                              <button
-                                type="button"
-                                title="Delete comment"
-                                onClick={() => {
-                                  if (window.confirm('Delete this comment?')) onDeleteComment(task.id, comment.id)
-                                }}
-                                className="ml-1 rounded-full p-0.5 text-[var(--color-ink-soft)] hover:text-[var(--color-danger)]"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            )}
-                          </p>
-                          <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-                <form
-                  className="flex gap-2"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    if (!draft.trim()) return
-                    onAddComment(task.id, draft)
-                    setDraft('')
-                  }}
-                >
-                  <Input
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
-                    placeholder="Add a comment"
-                    shape="pill"
-                    className="bg-[var(--color-panel)]"
-                  />
-                  <Button type="submit" size="sm" disabled={!draft.trim()} className="rounded-full">
-                    Send
-                  </Button>
-                </form>
-              </div>
+              <TaskCommentThread
+                comments={task.comments}
+                names={names}
+                currentUserId={currentUserId}
+                onAdd={(body) => onAddComment(task.id, body)}
+                onUpdate={(commentId, body) => onUpdateComment(task.id, commentId, body)}
+                onDelete={(commentId) => onDeleteComment(task.id, commentId)}
+                collapsible={false}
+              />
             </div>
       </Expand>
     </div>

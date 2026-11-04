@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
 import type { LaunchTask, Profile } from '@/types'
 import type { LaunchParty, LaunchTaskStatus } from '@/lib/launchTemplate'
 import {
@@ -8,10 +6,9 @@ import {
   LAUNCH_STATUS_LABELS,
 } from '@/lib/launchTemplate'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { Select } from '@/components/ui/Select'
+import { TaskCommentThread } from '@/components/project/TaskCommentThread'
 import { taskStatusTriggerClass, taskTitleClass } from '@/components/project/taskGlance'
 
 const statusOptions = (Object.keys(LAUNCH_STATUS_LABELS) as LaunchTaskStatus[]).map((status) => ({
@@ -40,6 +37,7 @@ interface LaunchPlanSheetProps {
     }
   ) => void
   onAddComment: (taskId: string, body: string) => void
+  onUpdateComment: (taskId: string, commentId: string, body: string) => void
   onDeleteComment: (taskId: string, commentId: string) => void
 }
 
@@ -50,6 +48,7 @@ export function LaunchPlanSheet({
   currentUserId,
   onUpdateTask,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: LaunchPlanSheetProps) {
   const assigneeOptions = [
@@ -62,21 +61,22 @@ export function LaunchPlanSheet({
   })).filter((item) => item.groups.length > 0)
 
   return (
-    <div className="float-panel overflow-x-auto">
-      <table className="w-full min-w-[920px] border-collapse text-left">
+    <div className="plan-sheet float-panel">
+      <table>
         <thead>
-          <tr className="border-b border-[color-mix(in_srgb,var(--color-ink)_8%,transparent)] text-xs font-medium text-[var(--color-ink-soft)]">
-            <th className="px-4 py-3 font-medium">Task</th>
-            <th className="w-[13rem] px-3 py-3 font-medium">Lead</th>
-            <th className="w-[9.5rem] px-3 py-3 font-medium">Due</th>
-            <th className="w-[9.5rem] px-3 py-3 font-medium">Status</th>
-            <th className="w-[16rem] px-4 py-3 font-medium">Comments</th>
+          <tr>
+            <th>Task</th>
+            <th className="w-[11rem]">Lead</th>
+            <th className="w-[8.5rem]">Due</th>
+            <th className="w-[9rem]">Status</th>
+            <th className="w-[13.5rem]">Comments</th>
           </tr>
         </thead>
         <tbody>
           {phases.map(({ phase, groups: phaseGroups }) => (
             <PhaseBlock
               key={phase.key}
+              phaseKey={phase.key}
               title={phase.title}
               groups={phaseGroups}
               assigneeOptions={assigneeOptions}
@@ -84,6 +84,7 @@ export function LaunchPlanSheet({
               currentUserId={currentUserId}
               onUpdateTask={onUpdateTask}
               onAddComment={onAddComment}
+              onUpdateComment={onUpdateComment}
               onDeleteComment={onDeleteComment}
             />
           ))}
@@ -94,6 +95,7 @@ export function LaunchPlanSheet({
 }
 
 function PhaseBlock({
+  phaseKey,
   title,
   groups,
   assigneeOptions,
@@ -101,8 +103,10 @@ function PhaseBlock({
   currentUserId,
   onUpdateTask,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: {
+  phaseKey: string
   title: string
   groups: PlanGroup[]
   assigneeOptions: { value: string; label: string }[]
@@ -110,6 +114,7 @@ function PhaseBlock({
   currentUserId: string | null
   onUpdateTask: LaunchPlanSheetProps['onUpdateTask']
   onAddComment: LaunchPlanSheetProps['onAddComment']
+  onUpdateComment: LaunchPlanSheetProps['onUpdateComment']
   onDeleteComment: LaunchPlanSheetProps['onDeleteComment']
 }) {
   const total = groups.reduce((sum, group) => sum + group.total, 0)
@@ -117,12 +122,13 @@ function PhaseBlock({
 
   return (
     <>
-      <tr>
-        <td colSpan={5} className="bg-[var(--color-plan-phase)] px-4 py-2 text-sm font-semibold text-[var(--color-plan-phase-ink)]">
-          <span className="flex items-center justify-between gap-3">
-            <span>{title}</span>
+      <tr className="plan-phase" data-phase={phaseKey}>
+        <td colSpan={5}>
+          <span className="plan-phase-inner">
+            <span className="plan-phase-mark" aria-hidden />
+            <span className="plan-phase-title">{title}</span>
             {total > 0 && (
-              <span className="text-xs font-medium text-[color-mix(in_srgb,var(--color-plan-phase-ink)_78%,transparent)]">
+              <span className="plan-phase-meta">
                 {done} of {total}
               </span>
             )}
@@ -138,6 +144,7 @@ function PhaseBlock({
           currentUserId={currentUserId}
           onUpdateTask={onUpdateTask}
           onAddComment={onAddComment}
+          onUpdateComment={onUpdateComment}
           onDeleteComment={onDeleteComment}
         />
       ))}
@@ -152,6 +159,7 @@ function GroupBlock({
   currentUserId,
   onUpdateTask,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: {
   item: PlanGroup
@@ -160,15 +168,16 @@ function GroupBlock({
   currentUserId: string | null
   onUpdateTask: LaunchPlanSheetProps['onUpdateTask']
   onAddComment: LaunchPlanSheetProps['onAddComment']
+  onUpdateComment: LaunchPlanSheetProps['onUpdateComment']
   onDeleteComment: LaunchPlanSheetProps['onDeleteComment']
 }) {
   return (
     <>
-      <tr>
-        <td colSpan={5} className="bg-[var(--color-plan-group)] px-4 py-1.5 text-[13px] font-semibold text-[var(--color-plan-group-ink)]">
-          <span className="flex items-center justify-between gap-3">
+      <tr className="plan-group">
+        <td colSpan={5}>
+          <span className="plan-group-inner">
             <span>{item.group.title}</span>
-            <span className="text-xs font-medium text-[var(--color-plan-group-meta)]">
+            <span className="plan-group-meta">
               {item.total === 0 ? 'As needed' : `${item.done} of ${item.total}`}
             </span>
           </span>
@@ -183,6 +192,7 @@ function GroupBlock({
           currentUserId={currentUserId}
           onUpdate={(patch) => onUpdateTask(task.id, patch)}
           onAddComment={(body) => onAddComment(task.id, body)}
+          onUpdateComment={(commentId, body) => onUpdateComment(task.id, commentId, body)}
           onDeleteComment={(commentId) => onDeleteComment(task.id, commentId)}
         />
       ))}
@@ -197,6 +207,7 @@ function PlanRow({
   currentUserId,
   onUpdate,
   onAddComment,
+  onUpdateComment,
   onDeleteComment,
 }: {
   task: LaunchTask
@@ -209,19 +220,20 @@ function PlanRow({
     assigneeId?: string | null
   }) => void
   onAddComment: (body: string) => void
+  onUpdateComment: (commentId: string, body: string) => void
   onDeleteComment: (commentId: string) => void
 }) {
   return (
-    <tr className="border-b border-[color-mix(in_srgb,var(--color-ink)_6%,transparent)] align-top last:border-b-0 hover:bg-[var(--color-field)]">
-      <td className="px-4 py-3">
+    <tr className="plan-row">
+      <td>
         <p className={cn('text-sm leading-5', taskTitleClass(task.status))}>
           {task.title}
         </p>
         {task.description && (
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-ink-soft)]">{task.description}</p>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--ink-3)]">{task.description}</p>
         )}
       </td>
-      <td className="px-3 py-3">
+      <td>
         <div className="flex w-full flex-col gap-1">
           <LeadChip party={task.party} />
           <Select
@@ -234,7 +246,7 @@ function PlanRow({
           />
         </div>
       </td>
-      <td className="px-3 pb-3 pt-9">
+      <td className="pt-8">
         <DatePicker
           aria-label={`Due date for ${task.title}`}
           value={task.dueDate?.slice(0, 10) ?? ''}
@@ -243,7 +255,7 @@ function PlanRow({
           className="h-9"
         />
       </td>
-      <td className="px-3 pb-3 pt-9">
+      <td className="pt-8">
         <Select
           ariaLabel={`Status for ${task.title}`}
           size="sm"
@@ -253,13 +265,14 @@ function PlanRow({
           onChange={(value) => onUpdate({ status: value as LaunchTaskStatus })}
         />
       </td>
-      <td className="px-4 py-3">
-        <CommentCell
-          task={task}
+      <td>
+        <TaskCommentThread
+          comments={task.comments}
           names={names}
           currentUserId={currentUserId}
-          onAddComment={onAddComment}
-          onDeleteComment={onDeleteComment}
+          onAdd={onAddComment}
+          onUpdate={onUpdateComment}
+          onDelete={onDeleteComment}
         />
       </td>
     </tr>
@@ -273,108 +286,11 @@ function LeadChip({ party }: { party: LaunchParty }) {
       className={cn(
         'flex h-5 w-full items-center rounded-md px-2.5 text-[11px] font-medium',
         client
-          ? 'bg-[color-mix(in_srgb,var(--color-warning)_14%,var(--color-panel))] text-[color-mix(in_srgb,#8a5a12_62%,var(--color-ink))]'
+          ? 'bg-[color-mix(in_srgb,var(--color-warning)_14%,var(--color-panel))] text-[color-mix(in_srgb,#8a5a12_62%,var(--ink))]'
           : 'bg-[var(--color-wash)] text-[var(--color-wash-strong)]'
       )}
     >
       {LAUNCH_PARTY_LABELS[party]}
     </span>
-  )
-}
-
-function CommentCell({
-  task,
-  names,
-  currentUserId,
-  onAddComment,
-  onDeleteComment,
-}: {
-  task: LaunchTask
-  names: Map<string, string>
-  currentUserId: string | null
-  onAddComment: (body: string) => void
-  onDeleteComment: (commentId: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const latest = task.comments[task.comments.length - 1]
-
-  return (
-    <div className="min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className="w-full rounded-lg text-left"
-      >
-        {latest ? (
-          <>
-            <p className="line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-[var(--color-ink)]">{latest.body}</p>
-            <p className="mt-1 text-[11px] text-[var(--color-ink-soft)]">
-              {names.get(latest.userId) ?? 'Teammate'}
-              {task.comments.length > 1 ? ` · ${task.comments.length} notes` : ''}
-            </p>
-          </>
-        ) : (
-          <p className="text-xs text-[var(--color-ink-soft)]">Add a comment</p>
-        )}
-      </button>
-      {open && (
-        <div className="mt-2 space-y-2">
-          {task.comments.length > 1 && (
-            <ul className="max-h-40 space-y-1.5 overflow-y-auto">
-              {task.comments.map((comment) => (
-                <li key={comment.id} className="text-xs leading-5 text-[var(--color-ink)]">
-                  <span className="font-medium">{names.get(comment.userId) ?? 'Teammate'}: </span>
-                  <span className="whitespace-pre-wrap">{comment.body}</span>
-                  {comment.userId === currentUserId && (
-                    <button
-                      type="button"
-                      title="Delete comment"
-                      onClick={() => {
-                        if (window.confirm('Delete this comment?')) onDeleteComment(comment.id)
-                      }}
-                      className="ml-1 inline-flex align-middle text-[var(--color-ink-soft)] hover:text-[var(--color-danger)]"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {latest && latest.userId === currentUserId && task.comments.length === 1 && (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Delete this comment?')) onDeleteComment(latest.id)
-              }}
-              className="text-[11px] font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-danger)]"
-            >
-              Delete note
-            </button>
-          )}
-          <form
-            className="flex gap-1.5"
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (!draft.trim()) return
-              onAddComment(draft)
-              setDraft('')
-            }}
-          >
-            <Input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Add a comment"
-              className="h-9 bg-[var(--color-panel)]"
-            />
-            <Button type="submit" size="sm" disabled={!draft.trim()}>
-              Send
-            </Button>
-          </form>
-        </div>
-      )}
-    </div>
   )
 }

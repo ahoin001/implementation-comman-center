@@ -122,7 +122,7 @@ export const INTAKE_CARDS: IntakeCardDef[] = [
     guide: {
       href: JOB_CATEGORY_LIST_URL,
       label: 'Category list',
-      caption: 'Copy and paste any categories from this list, and add custom category names that are not on it.',
+      caption: 'Copy and paste any categories from this list, and add custom category names that are not on it if needed.',
     },
     slots: [{ key: 'body', label: 'Categories' }],
   },

@@ -425,6 +425,17 @@ export async function deleteNote(noteId: string): Promise<void> {
   if (error) throw new Error(`delete note: ${error.message}`)
 }
 
+export async function updateTaskComment(commentId: string, body: string): Promise<void> {
+  const trimmed = body.trim()
+  if (!trimmed) throw new Error('Comment cannot be empty')
+  const { error } = await icc()
+    .from('task_comments')
+    .update({ body: trimmed })
+    .eq('id', commentId)
+    .eq('user_id', getActorId())
+  if (error) throw new Error(`update comment: ${error.message}`)
+}
+
 export async function deleteTaskComment(commentId: string): Promise<void> {
   const { error } = await icc()
     .from('task_comments')

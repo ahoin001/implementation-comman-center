@@ -1,7 +1,7 @@
 import type { Project } from '@/types'
 import { getMissingRequiredDocs, isRequiredDocsComplete } from '@/lib/deliverables'
 import { calculateHealth } from '@/lib/health'
-import { currentLaunchStage, launchBoardProgress } from '@/lib/launchTemplate'
+import { currentLaunchStage, isCareerCenterLaunched, launchBoardProgress } from '@/lib/launchTemplate'
 import { needsSsoCredentials } from '@/lib/pathConfig'
 import { getTopStickyNote, noteSeverity } from '@/lib/projectNotes'
 import {
@@ -76,8 +76,8 @@ export function getCardSignal(project: Project): CardSignal {
 export function getProjectGlance(project: Project): ProjectGlance {
   const board = project.launchTasks ?? []
   const progress = board.length ? launchBoardProgress(board) : calculateProgress(project)
-  const launched = board.length
-    ? board.some((task) => task.key === 'launch_career_center' && task.status === 'complete')
+  const launched = board.some((task) => !task.legacy)
+    ? isCareerCenterLaunched(board)
     : isProjectLaunchComplete(project)
   const wrapped = board.length ? progress === 100 : isLaunchFullyWrapped(project)
   const stage = board.length ? currentLaunchStage(board) : getCurrentStageLabel(project)

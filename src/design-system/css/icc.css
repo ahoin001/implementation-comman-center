@@ -182,6 +182,7 @@ body {
   letter-spacing: -0.02em;
 }
 
+.avatar.xs { width: 22px; height: 22px; font-size: 9px; }
 .avatar.sm { width: 32px; height: 32px; font-size: 11px; }
 .avatar.md { width: 40px; height: 40px; font-size: 12px; }
 
@@ -288,6 +289,120 @@ body {
   padding: 14px 18px;
 }
 
+.project-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.project-toolbar h1 {
+  margin: 0;
+  font-family: var(--ui);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+}
+
+.project-toolbar-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.project-toolbar-count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.project-toolbar > .project-toolbar-search {
+  flex: 1 1 10rem;
+  width: auto;
+  min-width: 0;
+  max-width: 22rem;
+  margin-left: auto;
+}
+
+.project-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.project-live-filter {
+  align-self: flex-start;
+}
+
+.project-refine {
+  position: relative;
+}
+
+.project-refine-count {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.project-refine-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: min(70dvh, 36rem);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 6px 12px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 var(--hair), var(--shadow);
+}
+
+.project-refine-pop[data-side='start'] {
+  right: auto;
+  left: 0;
+}
+
+.project-refine-pop .nav-label {
+  padding: 8px 8px 0;
+}
+
+.project-refine-chips .nav-label {
+  padding: 0;
+}
+
+.project-refine-row,
+.project-refine-chips,
+.project-refine-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.project-refine-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
 .screen-head > :last-child {
   flex: 1 1 18rem;
   display: flex;
@@ -349,13 +464,24 @@ body {
   gap: 14px;
 }
 
-.page-in {
+.page-in,
+.page-settled {
   flex: 1;
   min-width: 0;
   min-height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.page-in {
   animation: rise 0.5s var(--ease) both;
+}
+
+/* A view transition already moved the page. Replaying .rise when it ends
+   flashes the new screen and anything that still carries .rise, including the nav. */
+.page-settled .rise,
+.page-settled .sy-stagger > * {
+  animation: none;
 }
 
 /* Shell stays put while a project opens or closes. */
@@ -363,12 +489,6 @@ body {
 .icc-mobile-dock { view-transition-name: app-dock; }
 .bg-dots { view-transition-name: app-bg; }
 .bg-glow { view-transition-name: app-glow; }
-
-html:active-view-transition .page-in,
-html:active-view-transition .rise,
-html:active-view-transition .sy-stagger > * {
-  animation: none;
-}
 
 ::view-transition-group(app-nav),
 ::view-transition-group(app-dock),
@@ -391,28 +511,46 @@ html:active-view-transition .sy-stagger > * {
   animation: none;
 }
 
-::view-transition-group(project-hero) {
+::view-transition-group(project-hero),
+::view-transition-group(launch-board),
+::view-transition-group(plan-comment) {
   animation-duration: var(--dur-morph);
   animation-timing-function: var(--ease);
   z-index: 1;
 }
 
+/* Opacity only. A blur on these snapshots is dropped when the transition
+   ends, and that layer teardown flashes the page after the morph. */
 ::view-transition-old(root),
-::view-transition-old(project-hero) {
+::view-transition-old(project-hero),
+::view-transition-old(launch-board),
+::view-transition-old(plan-comment) {
   animation: vt-page-out var(--dur-morph) var(--ease) both;
+  mix-blend-mode: normal;
 }
 
 ::view-transition-new(root),
-::view-transition-new(project-hero) {
+::view-transition-new(project-hero),
+::view-transition-new(launch-board),
+::view-transition-new(plan-comment) {
   animation: vt-page-in var(--dur-morph) var(--ease) both;
+  mix-blend-mode: normal;
+}
+
+.vt-launch-board {
+  view-transition-name: launch-board;
+}
+
+.plan-comments.vt-comment {
+  view-transition-name: plan-comment;
 }
 
 @keyframes vt-page-out {
-  to { opacity: 0; filter: blur(6px); }
+  to { opacity: 0; }
 }
 
 @keyframes vt-page-in {
-  from { opacity: 0; filter: blur(6px); }
+  from { opacity: 0; }
 }
 
 .press {
@@ -615,10 +753,6 @@ button.project-card {
 
 .vt-project {
   view-transition-name: project-hero;
-}
-
-.project-card.vt-project {
-  content-visibility: visible;
 }
 
 .project-card-main {
@@ -824,6 +958,333 @@ button.project-card {
   border-radius: 3px;
 }
 
+.expand-panel {
+  transition: height 0.28s var(--ease);
+}
+
+.plan-sheet {
+  overflow-x: auto;
+}
+
+.plan-sheet table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.plan-sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 11px 16px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 var(--hair), 0 10px 18px -16px rgba(15, 18, 24, 0.35);
+}
+
+.plan-phase td {
+  padding: 16px 16px 10px;
+  background: color-mix(in srgb, var(--prism-a) 8%, var(--surface));
+  background-clip: padding-box;
+  border-top: 12px solid transparent;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--prism-a) 26%, var(--line));
+}
+
+.plan-sheet tbody tr:first-child.plan-phase td {
+  border-top-width: 0;
+}
+
+.plan-phase-inner,
+.plan-group-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-phase-mark {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--prism-a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--prism-a) 20%, transparent);
+}
+
+.plan-phase-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.016em;
+  color: var(--ink);
+}
+
+.plan-phase-meta,
+.plan-group-meta {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 450;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+
+.plan-phase[data-phase='launch'] td {
+  background: color-mix(in srgb, var(--mint) 9%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--mint) 30%, var(--line));
+}
+
+.plan-phase[data-phase='launch'] .plan-phase-mark {
+  background: var(--mint);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mint) 22%, transparent);
+}
+
+.plan-phase[data-phase='after'] td {
+  background: color-mix(in srgb, var(--violet) 8%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--violet) 28%, var(--line));
+}
+
+.plan-phase[data-phase='after'] .plan-phase-mark {
+  background: var(--violet);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 22%, transparent);
+}
+
+.plan-group td {
+  padding: 7px 16px 7px 34px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-top: 1px solid var(--line-soft);
+}
+
+.plan-row + .plan-group td {
+  border-top-color: var(--line);
+}
+
+.plan-row {
+  transition: background var(--dur-color) var(--ease);
+}
+
+.plan-row td {
+  padding: 11px 16px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+}
+
+.plan-row:hover td {
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+}
+
+.plan-comment-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background var(--dur-color) var(--ease),
+    border-color var(--dur-color) var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+
+.plan-comment-preview:hover {
+  background: var(--surface-2);
+}
+
+.plan-comment-preview.is-empty {
+  border-style: dashed;
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+
+.plan-comment-preview.is-empty:hover {
+  border-color: color-mix(in srgb, var(--prism-a) 40%, var(--line));
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.plan-comment-preview.is-open {
+  background: var(--surface-2);
+}
+
+.plan-comment-preview:focus-visible {
+  outline: none;
+  border-color: #a9b3ff;
+  box-shadow: 0 0 0 4px rgba(109, 123, 255, 0.15);
+}
+
+.plan-comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.plan-comment-chevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-3);
+  transition: transform 0.28s var(--ease);
+}
+
+.plan-comment-preview.is-open .plan-comment-chevron {
+  transform: rotate(180deg);
+}
+
+.plan-comment-drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s var(--ease);
+}
+
+.plan-comment-drawer:not(.is-open) {
+  pointer-events: none;
+}
+
+.plan-comment-drawer.is-open {
+  grid-template-rows: 1fr;
+}
+
+.plan-comment-drawer > div {
+  overflow: hidden;
+}
+
+.plan-comment-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 2px 2px;
+}
+
+.plan-comment-card {
+  width: min(100%, 22rem);
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--hair);
+}
+
+.plan-comment-card.is-mine {
+  background: color-mix(in srgb, var(--prism-a) 8%, var(--surface-2));
+}
+
+.plan-comment-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 18, 24, 0.05);
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.plan-comment-composer:focus-within {
+  border-color: #a9b3ff;
+  box-shadow: 0 0 0 4px rgba(109, 123, 255, 0.15);
+}
+
+.plan-comment-composer .input {
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.plan-comment-composer .input:focus {
+  box-shadow: none;
+}
+
+.plan-comment-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background var(--dur-color) var(--ease), color var(--dur-color) var(--ease);
+}
+
+.plan-comment-action:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.plan-comment-action.is-danger {
+  color: var(--danger);
+}
+
+:root[data-theme='dark'] .plan-sheet thead th {
+  background: var(--raised);
+  box-shadow: inset 0 1px 0 var(--hair), 0 10px 18px -12px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme='dark'] .plan-phase td {
+  background: color-mix(in srgb, var(--prism-a) 14%, var(--surface));
+}
+
+:root[data-theme='dark'] .plan-phase[data-phase='launch'] td {
+  background: color-mix(in srgb, var(--mint) 12%, var(--surface));
+}
+
+:root[data-theme='dark'] .plan-phase[data-phase='after'] td {
+  background: color-mix(in srgb, var(--violet) 12%, var(--surface));
+}
+
+:root[data-theme='dark'] .plan-group td {
+  background: var(--surface-2);
+}
+
+:root[data-theme='dark'] .plan-row td {
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .plan-row:hover td {
+  background: var(--raised);
+}
+
+:root[data-theme='dark'] .plan-comment-card.is-mine {
+  background: color-mix(in srgb, var(--prism-a) 14%, var(--surface-2));
+}
+
+:root[data-theme='dark'] .plan-comment-composer {
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--hair);
+}
+
+:root[data-theme='dark'] .plan-comment-preview.is-empty {
+  background: var(--surface-2);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise-in,
   .page-in,
@@ -840,6 +1301,11 @@ button.project-card {
   .seg button:active,
   .project-card-star:active {
     transform: none;
+  }
+
+  .plan-comment-drawer,
+  .expand-panel {
+    transition: none;
   }
 
   ::view-transition-group(*),
