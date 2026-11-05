@@ -25,10 +25,14 @@ export function runViewTransition(update: () => void, reduce?: boolean | null) {
     update()
     return
   }
-  markViewTransition()
-  document.startViewTransition(() => {
-    flushSync(update)
-  })
+  try {
+    markViewTransition()
+    document.startViewTransition(() => {
+      flushSync(update)
+    })
+  } catch {
+    update()
+  }
 }
 
 /** Arm a shared-element name, then morph old → new. */
@@ -43,9 +47,14 @@ export function runSharedElementTransition(
     return
   }
   flushSync(arm)
-  markViewTransition()
-  const transition = document.startViewTransition(() => {
-    flushSync(update)
-  })
-  void transition.finished.finally(done)
+  try {
+    markViewTransition()
+    const transition = document.startViewTransition(() => {
+      flushSync(update)
+    })
+    void transition.finished.finally(done)
+  } catch {
+    update()
+    done()
+  }
 }

@@ -36,6 +36,7 @@ import { isSupabaseConfigured, SOLO_USER_ID } from '@/lib/supabase'
 import { getActorId } from '@/lib/session'
 import { updateOwnProfile } from '@/lib/auth'
 import { createDefaultLaunchTasks, type LaunchTaskStatus } from '@/lib/launchTemplate'
+import { emptyKickoff, kickoffPrompt, normalizeKickoff, type KickoffRecord } from '@/lib/kickoffScript'
 import type { ImportedTask } from '@/lib/sheetImport'
 import * as api from '@/lib/supabaseApi'
 
@@ -66,6 +67,8 @@ interface StoreState {
 
   getProject: (id: string) => Project | undefined
   updateProject: (id: string, updates: Partial<Project>) => void
+  answerKickoff: (projectId: string, promptId: string, value: string) => void
+  updateKickoff: (projectId: string, updater: (current: KickoffRecord) => KickoffRecord) => void
   archiveProject: (id: string) => void
   unarchiveProject: (id: string) => void
   addNote: (
@@ -273,6 +276,31 @@ export const useStore = create<StoreState>()((set, get) => ({
 
   getProject: (id) => get().projects.find((p) => p.id === id),
 
+  answerKickoff: (projectId, promptId, value) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    const kickoff = normalizeKickoff(project.kickoff)
+    const next: KickoffRecord = {
+      ...kickoff,
+      answers: { ...kickoff.answers, [promptId]: value },
+    }
+    const prompt = kickoffPrompt(promptId)
+    const updates: Partial<Project> = { kickoff: next }
+    if (prompt?.sync === 'launchDate') updates.launchDate = value
+    if (prompt?.sync === 'contactName') updates.contact = { ...project.contact, name: value }
+    if (prompt?.sync === 'contactEmail') updates.contact = { ...project.contact, email: value }
+    get().updateProject(projectId, updates)
+    if (prompt?.sync === 'sso' && (value === 'yes' || value === 'no')) {
+      get().setSsoEnabled(projectId, value === 'yes')
+    }
+  },
+
+  updateKickoff: (projectId, updater) => {
+    const project = get().getProject(projectId)
+    if (!project) return
+    get().updateProject(projectId, { kickoff: updater(normalizeKickoff(project.kickoff)) })
+  },
+
   updateProject: (id, updates) => {
     set((state) => ({
       projects: state.projects.map((p) =>
@@ -294,6 +322,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         memberFeatures: updates.memberFeatures,
         archived: updates.archived,
         archivedAt: updates.archivedAt,
+        kickoff: updates.kickoff,
       })
       .catch(logSyncError)
   },
@@ -796,6 +825,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       links: {},
       notes: [],
       launchTasks: createDefaultLaunchTasks(),
+      kickoff: emptyKickoff(),
       createdAt: now,
       updatedAt: now,
     }

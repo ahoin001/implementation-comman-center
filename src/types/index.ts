@@ -1,4 +1,5 @@
 import type { LaunchParty, LaunchTaskStatus } from '@/lib/launchTemplate'
+import type { KickoffRecord } from '@/lib/kickoffScript'
 
 export type MilestoneStatus = 'todo' | 'in_progress' | 'completed' | 'blocked'
 
@@ -352,6 +353,8 @@ export interface Project {
   updatedAt: string
   /** Collaborative launch board. Unmapped old tasks are flagged legacy. */
   launchTasks?: LaunchTask[]
+  /** Kickoff call script: answers and anything this project is not asking. */
+  kickoff?: KickoffRecord
 }
 
 /** Global catalog entry — one list shared by all projects */

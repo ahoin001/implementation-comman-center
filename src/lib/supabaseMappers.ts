@@ -26,6 +26,7 @@ import { createDefaultTasks } from '@/lib/migrate'
 import { normalizeDeliverables } from '@/lib/deliverables'
 import { normalizePathConfig } from '@/lib/pathConfig'
 import { normalizeMemberFeatures } from '@/lib/memberFeatures'
+import { normalizeKickoff } from '@/lib/kickoffScript'
 import { defaultIntegrations, defaultSettings } from '@/store/seedData'
 
 export type DbImplementation = {
@@ -45,6 +46,7 @@ export type DbImplementation = {
   member_features: Record<string, boolean> | null
   archived: boolean
   archived_at: string | null
+  kickoff?: unknown
   created_at: string
   updated_at: string
 }
@@ -263,6 +265,7 @@ export function mapImplementation(
     memberFeatures: normalizeMemberFeatures(row.member_features),
     tasks: tasksFromRows(taskRows),
     launchTasks: launchTasksFromRows(taskRows, commentRows),
+    kickoff: normalizeKickoff(row.kickoff),
     notes: noteRows
       .slice()
       .sort((a, b) => b.created_at.localeCompare(a.created_at))

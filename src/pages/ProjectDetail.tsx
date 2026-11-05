@@ -1,5 +1,6 @@
-import { useLayoutEffect } from 'react'
-import { useParams, Link, useNavigate, useLocation, useViewTransitionState } from 'react-router-dom'
+import { useCallback, useLayoutEffect } from 'react'
+import { useParams, Link, useNavigate, useLocation, useSearchParams, useViewTransitionState } from 'react-router-dom'
+import { useReducedMotion } from 'framer-motion'
 import { ArrowLeft, Check, Search } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import {
@@ -11,10 +12,12 @@ import {
 } from '@/lib/launchTemplate'
 import { calculateHealth, getDaysRemaining } from '@/lib/health'
 import { projectListPath } from '@/lib/projectGlance'
-import { markViewTransition } from '@/lib/viewTransition'
+import { markViewTransition, runViewTransition } from '@/lib/viewTransition'
+import { kickoffProgress, normalizeKickoff, visibleSteps } from '@/lib/kickoffScript'
 import { ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { LaunchBoard } from '@/components/project/LaunchBoard'
+import { KickoffCall } from '@/components/project/KickoffCall'
 import { ClientDeliverablesPanel } from '@/components/project/ClientDeliverablesPanel'
 import { MemberFeaturesPanel } from '@/components/project/MemberFeaturesPanel'
 import { QuickLinks } from '@/components/project/QuickLinks'
@@ -64,6 +67,37 @@ export function ProjectDetailPage() {
   const updateProjectLinks = useStore((s) => s.updateProjectLinks)
   const updateProjectContact = useStore((s) => s.updateProjectContact)
   const updateProject = useStore((s) => s.updateProject)
+  const answerKickoff = useStore((s) => s.answerKickoff)
+  const updateKickoff = useStore((s) => s.updateKickoff)
+  const [params, setParams] = useSearchParams()
+  const reduceMotion = useReducedMotion()
+  const inCall = params.get('call') === 'kickoff'
+  const stepId = params.get('step') ?? 'intro'
+
+  const openCall = useCallback(() => {
+    const current = useStore.getState().getProject(id ?? '')
+    const first = current
+      ? visibleSteps(normalizeKickoff(current.kickoff))[0]?.step.id ?? 'intro'
+      : 'intro'
+    runViewTransition(() => {
+      setParams({ call: 'kickoff', step: first })
+    }, reduceMotion)
+  }, [id, reduceMotion, setParams])
+
+  const closeCall = useCallback(() => {
+    runViewTransition(() => {
+      setParams({})
+    }, reduceMotion)
+  }, [reduceMotion, setParams])
+
+  const goStep = useCallback(
+    (step: string) => {
+      runViewTransition(() => {
+        setParams({ call: 'kickoff', step }, { replace: true })
+      }, reduceMotion)
+    },
+    [reduceMotion, setParams]
+  )
 
   if (!hydrated) {
     return <LoadingState label="Opening project" />
@@ -123,6 +157,16 @@ export function ProjectDetailPage() {
         <GlobalSearch className="max-w-xs" />
       </div>
 
+      {inCall ? (
+        <KickoffCall
+          project={project}
+          stepId={stepId}
+          onStep={goStep}
+          onClose={closeCall}
+          onAnswer={(promptId, value) => answerKickoff(project.id, promptId, value)}
+          onKickoff={(updater) => updateKickoff(project.id, updater)}
+        />
+      ) : (
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <Panel
           pad="md"
@@ -156,6 +200,12 @@ export function ProjectDetailPage() {
                   </StatusPill>
                 )}
                 <HealthBadge health={calculateHealth(project)} />
+                <Button size="sm" onClick={openCall}>
+                  Kickoff call
+                  {kickoffProgress(project).answered > 0 && (
+                    <span className="tabular-nums text-[var(--ink-3)]">{kickoffProgress(project).answered}</span>
+                  )}
+                </Button>
                 {goLive && (
                   <Button
                     variant={launched ? 'ghost' : 'default'}
@@ -314,6 +364,7 @@ export function ProjectDetailPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

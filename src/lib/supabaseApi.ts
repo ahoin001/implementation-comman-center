@@ -267,12 +267,13 @@ export async function patchImplementation(
     memberFeatures: Record<string, boolean>
     archived: boolean
     archivedAt: string | undefined
+    kickoff: Project['kickoff']
   }>
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (updates.name !== undefined) row.name = updates.name
   if (updates.abbreviation !== undefined) row.abbreviation = updates.abbreviation
-  if (updates.launchDate !== undefined) row.launch_date = updates.launchDate ?? null
+  if (updates.launchDate !== undefined) row.launch_date = updates.launchDate || null
   if (updates.waitingOn !== undefined) row.waiting_on = updates.waitingOn
   if (updates.outreachCount !== undefined) {
     row.outreach_count = updates.outreachCount
@@ -291,6 +292,7 @@ export async function patchImplementation(
   if (updates.memberFeatures !== undefined) row.member_features = updates.memberFeatures
   if (updates.archived !== undefined) row.archived = updates.archived
   if (updates.archivedAt !== undefined) row.archived_at = updates.archivedAt ?? null
+  if (updates.kickoff !== undefined) row.kickoff = updates.kickoff
 
   const { error } = await icc().from('implementations').update(row).eq('id', id)
   if (error) throw new Error(`update project: ${error.message}`)
