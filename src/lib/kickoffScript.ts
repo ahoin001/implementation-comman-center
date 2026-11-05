@@ -599,6 +599,58 @@ export function visibleSteps(record: KickoffRecord): KickoffPlace[] {
   return places
 }
 
+export interface KickoffNote {
+  promptId: string
+  label: string
+  text: string
+}
+
+export interface KickoffNoteGroup {
+  stepId: string
+  title: string
+  notes: KickoffNote[]
+}
+
+export function kickoffAnswerText(prompt: KickoffPrompt, value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (prompt.kind === 'choice') {
+    return prompt.choices?.find((choice) => choice.value === trimmed)?.label ?? trimmed
+  }
+  if (prompt.kind === 'date') {
+    const [year, month, day] = trimmed.split('-').map(Number)
+    if (!year || !month || !day) return trimmed
+    return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
+  return trimmed
+}
+
+/** Captured kickoff answers for reading on the project. Synced fields stay on the project record. */
+export function kickoffNotes(project: Project): KickoffNoteGroup[] {
+  const record = normalizeKickoff(project.kickoff)
+  const groups: KickoffNoteGroup[] = []
+  for (const { step } of visibleSteps(record)) {
+    const notes: KickoffNote[] = []
+    for (const prompt of step.prompts) {
+      if (prompt.sync) continue
+      if (!isPromptVisible(record, prompt)) continue
+      const stored = record.answers[prompt.id]
+      if (!stored?.trim()) continue
+      notes.push({
+        promptId: prompt.id,
+        label: prompt.label,
+        text: kickoffAnswerText(prompt, stored),
+      })
+    }
+    if (notes.length > 0) groups.push({ stepId: step.id, title: step.title, notes })
+  }
+  return groups
+}
+
 export function kickoffProgress(project: Project): { answered: number; total: number } {
   const record = normalizeKickoff(project.kickoff)
   let answered = 0

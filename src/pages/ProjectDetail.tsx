@@ -18,6 +18,7 @@ import { ProjectTitle } from '@/components/project/ProjectIdentity'
 import { HealthBadge } from '@/components/ui/HealthBadge'
 import { LaunchBoard } from '@/components/project/LaunchBoard'
 import { KickoffCall } from '@/components/project/KickoffCall'
+import { KickoffNotes } from '@/components/project/KickoffNotes'
 import { ClientDeliverablesPanel } from '@/components/project/ClientDeliverablesPanel'
 import { MemberFeaturesPanel } from '@/components/project/MemberFeaturesPanel'
 import { QuickLinks } from '@/components/project/QuickLinks'
@@ -94,6 +95,15 @@ export function ProjectDetailPage() {
     (step: string) => {
       runViewTransition(() => {
         setParams({ call: 'kickoff', step }, { replace: true })
+      }, reduceMotion)
+    },
+    [reduceMotion, setParams]
+  )
+
+  const openCallAt = useCallback(
+    (step: string) => {
+      runViewTransition(() => {
+        setParams({ call: 'kickoff', step })
       }, reduceMotion)
     },
     [reduceMotion, setParams]
@@ -256,6 +266,7 @@ export function ProjectDetailPage() {
           </Panel>
 
           <div className="order-3 space-y-4 xl:col-start-1 xl:row-start-2">
+          <KickoffNotes project={project} onOpen={openCall} onOpenStep={openCallAt} />
           <LaunchBoard
             project={project}
             profiles={profiles}
